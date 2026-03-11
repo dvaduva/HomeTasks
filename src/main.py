@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import json
 from weather.service import WeatherService
+from ollama.client import ollama_client
 
 # Load environment variables
 load_dotenv()
@@ -167,6 +168,75 @@ def get_weather_forecast():
                 'pop': hour['pop']
             } for hour in forecast_data['hourly']],
             'timestamp': forecast_data['timestamp'].isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Ollama AI endpoints
+@app.route('/api/ai/chat', methods=['POST'])
+def ai_chat():
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        message = data['message']
+        temperature = data.get('temperature', 0.7)
+        max_tokens = data.get('max_tokens', 500)
+        
+        # Check if Ollama server is running
+        if not ollama_client.is_server_running():
+            return jsonify({'error': 'Ollama server is not running or not accessible'}), 503
+        
+        # Get response from Ollama
+        result = ollama_client.chat(message, temperature=temperature, max_tokens=max_tokens)
+        
+        # Extract the response content
+        assistant_message = result.get("message", {}).get("content", "")
+        
+        return jsonify({
+            'response': assistant_message,
+            'model': result.get('model', ''),
+            'created_at': result.get('created_at', ''),
+            'done': result.get('done', False)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/ai/models', methods=['GET'])
+def get_available_models():
+    try:
+        # Check if Ollama server is running
+        if not ollama_client.is_server_running():
+            return jsonify({'error': 'Ollama server is not running or not accessible'}), 503
+        
+        models = ollama_client.get_models()
+        return jsonify({
+            'models': [{'name': model['name'], 'size': model.get('size', 0)} for model in models]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/ai/status', methods=['GET'])
+def ai_status():
+    try:
+        is_running = ollama_client.is_server_running()
+        model_info = {}
+        if is_running:
+            try:
+                models = ollama_client.get_models()
+                model_info = {
+                    'current_model': ollama_client.model,
+                    'available_models': [m['name'] for m in models]
+                }
+            except:
+                model_info = {'error': 'Could not fetch model info'}
+        
+        return jsonify({
+            'server_running': is_running,
+            'current_model': ollama_client.model,
+            'base_url': ollama_client.base_url,
+            **model_info
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -439,7 +509,7 @@ def update_task(task_id):
             'created_at': task.created_at.isoformat() if task.created_at else None,
             'updated_at': task.updated_at.isoformat() if task.updated_at else None,
             'recurrence_pattern': task.recurrence_pattern.value if task.recurrence_pattern else None,
-            'recurrence_end_date': task.recurrence_end_date.isoformat() if task.recurrence_end_date else None
+            'recurrence_end_date': task.recurrence_end_date.isoformat() if t.recurrence_end_date else None
         })
     except Exception as e:
         db.rollback()
