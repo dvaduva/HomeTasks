@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeTasks</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Add any additional CSS or JS here -->
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="header-title">HomeTasks</h1>
+                <div class="header-info">
+                    <div class="date-time" id="date-time">
+                        <!-- Date and time will be updated by JS -->
+                    </div>
+                    <div class="weather" id="weather">
+                        <!-- Weather info will be loaded via AJAX -->
+                    </div>
+                </div>
+                <button class="btn-settings" id="settings-btn">
+                    ⚙️
+                </button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar" id="sidebar">
+                <h2>Utilizatori</h2>
+                <div class="user-list" id="user-list">
+                    <!-- User list will be populated via JS -->
+                </div>
+                <button class="btn-add-user" id="add-user-btn">
+                    + Utilizator
+                </button>
+            </aside>
+
+            <section class="main" id="main-section">
+                <!-- Main content will be loaded here -->
+                <div class="welcome-message">
+                    <h2>Bun venit în HomeTasks!</h2>
+                    <p>Selectați un utilizator din lista din stânga pentru a vedea taskurile sale.</p>
+                </div>
+            </section>
+        </div>
+
+        <footer class="footer">
+            <div class="footer-content">
+                <button class="btn-voice" id="voice-btn">
+                    🎤
+                </button>
+                <div class="voice-status" id="voice-status">
+                    Microfons: inactiv
+                </div>
+                <button class="btn-ai" id="ai-btn">
+                    🤖
+                </button>
+                <div class="ai-status" id="ai-status">
+                    AI: gata
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
