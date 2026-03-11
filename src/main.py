@@ -7,12 +7,16 @@ from task_manager.repository import UserRepository, TaskRepository, CommentRepos
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import json
+from weather.service import WeatherService
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
+
+# Initialize services
+weather_service = WeatherService()
 
 # Initialize database
 def initialize_database():
@@ -91,6 +95,82 @@ def test():
     finally:
         db.close()
 
+# Weather endpoints
+@app.route('/api/weather/current', methods=['GET'])
+def get_current_weather():
+    try:
+        # Get city from query params or use default
+        city = request.args.get('city', 'București')  # Default to București
+        weather_data = weather_service.get_current_weather(city)
+        
+        # Get icon URL
+        icon_url = weather_service.get_weather_icon_url(weather_data['icon'])
+        
+        return jsonify({
+            'city': weather_data['city'],
+            'country': weather_data['country'],
+            'temperature': weather_data['temperature'],
+            'feels_like': weather_data['feels_like'],
+            'humidity': weather_data['humidity'],
+            'pressure': weather_data['pressure'],
+            'description': weather_data['description'],
+            'icon': weather_data['icon'],
+            'icon_url': icon_url,
+            'wind_speed': weather_data['wind_speed'],
+            'wind_direction': weather_data['wind_direction'],
+            'sunrise': weather_data['sunrise'].isoformat() if weather_data['sunrise'] else None,
+            'sunset': weather_data['sunset'].isoformat() if weather_data['sunset'] else None,
+            'timestamp': weather_data['timestamp'].isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/weather/forecast', methods=['GET'])
+def get_weather_forecast():
+    try:
+        # Get parameters
+        city = request.args.get('city', 'București')  # Default to București
+        days = request.args.get('days', 7, type=int)
+        
+        # Validate days
+        if days < 1 or days > 7:
+            return jsonify({'error': 'Days must be between 1 and 7'}), 400
+        
+        forecast_data = weather_service.get_forecast(city, days)
+        
+        return jsonify({
+            'city': forecast_data['city'],
+            'country': forecast_data['country'],
+            'daily': [{
+                'date': day['date'].isoformat(),
+                'temp_min': day['temp_min'],
+                'temp_max': day['temp_max'],
+                'temp_avg': day['temp_avg'],
+                'humidity_avg': day['humidity_avg'],
+                'description': day['description'],
+                'icon': day['icon'],
+                'icon_url': weather_service.get_weather_icon_url(day['icon']),
+                'wind_speed_avg': day['wind_speed_avg'],
+                'pop_avg': day['pop_avg']
+            } for day in forecast_data['daily']],
+            'hourly': [{
+                'datetime': hour['datetime'].isoformat(),
+                'temperature': hour['temperature'],
+                'feels_like': hour['feels_like'],
+                'humidity': hour['humidity'],
+                'pressure': hour['pressure'],
+                'description': hour['description'],
+                'icon': hour['icon'],
+                'icon_url': weather_service.get_weather_icon_url(hour['icon']),
+                'wind_speed': hour['wind_speed'],
+                'wind_direction': hour['wind_direction'],
+                'pop': hour['pop']
+            } for hour in forecast_data['hourly']],
+            'timestamp': forecast_data['timestamp'].isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # User endpoints
 @app.route('/api/users', methods=['GET'])
 def get_users():
@@ -144,7 +224,7 @@ def get_user(user_id):
             'id': user.id,
             'name': user.name,
             'color': user.color,
-            'created_at': user.created_at.isoformat() if user.created_at else None
+            'created_at': u.created_at.isoformat() if u.created_at else None
         })
     finally:
         db.close()
@@ -305,11 +385,11 @@ def get_task(task_id):
             'description': task.description,
             'user_id': task.user_id,
             'status': task.status.value if task.status else None,
-            'scheduled_date': task.scheduled_date.isoformat() if task.scheduled_date else None,
-            'created_at': task.created_at.isoformat() if task.created_at else None,
-            'updated_at': task.updated_at.isoformat() if task.updated_at else None,
-            'recurrence_pattern': task.recurrence_pattern.value if task.recurrence_pattern else None,
-            'recurrence_end_date': task.recurrence_end_date.isoformat() if task.recurrence_end_date else None
+            'scheduled_date': t.scheduled_date.isoformat() if t.scheduled_date else None,
+            'created_at': t.created_at.isoformat() if t.created_at else None,
+            'updated_at': t.updated_at.isoformat() if t.updated_at else None,
+            'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
+            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
         })
     finally:
         db.close()
