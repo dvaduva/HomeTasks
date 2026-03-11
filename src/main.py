@@ -1,11 +1,12 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import os
 from dotenv import load_dotenv
 from task_manager.database import create_tables, engine
-from task_manager.models import Base, User, Task, Comment, Preferences
+from task_manager.models import Base, User, Task, Comment, Preferences, TaskStatus, RecurrencePattern
 from task_manager.repository import UserRepository, TaskRepository, CommentRepository, PreferencesRepository
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
+import json
 
 # Load environment variables
 load_dotenv()
@@ -57,16 +58,30 @@ def initialize_database():
 with app.app_context():
     initialize_database()
 
+# Helper function to get database session
+def get_db():
+    Session = sessionmaker(bind=engine)
+    return Session()
+
+# Helper function to parse datetime from string
+def parse_datetime(date_str):
+    if not date_str:
+        return None
+    try:
+        return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+    except:
+        return None
+
+# Routes
 @app.route('/')
 def hello():
     return 'Hello, HomeTasks!'
 
 @app.route('/api/test')
 def test():
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    db = get_db()
     try:
-        user_repo = UserRepository(session)
+        user_repo = UserRepository(db)
         users = user_repo.get_all()
         return jsonify({
             'message': 'HomeTasks API is running',
@@ -74,7 +89,340 @@ def test():
             'users': [{'id': u.id, 'name': u.name, 'color': u.color} for u in users]
         })
     finally:
-        session.close()
+        db.close()
+
+# User endpoints
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    db = get_db()
+    try:
+        user_repo = UserRepository(db)
+        users = user_repo.get_all()
+        return jsonify([{
+            'id': u.id,
+            'name': u.name,
+            'color': u.color,
+            'created_at': u.created_at.isoformat() if u.created_at else None
+        } for u in users])
+    finally:
+        db.close()
+
+@app.route('/api/users', methods=['POST'])
+def create_user():
+    db = get_db()
+    try:
+        data = request.get_json()
+        if not data or 'name' not in data:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        user_repo = UserRepository(db)
+        user = user_repo.create(
+            name=data['name'],
+            color=data.get('color', '#3498db')
+        )
+        return jsonify({
+            'id': user.id,
+            'name': user.name,
+            'color': user.color,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        }), 201
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    db = get_db()
+    try:
+        user_repo = UserRepository(db)
+        user = user_repo.get_by_id(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        return jsonify({
+            'id': user.id,
+            'name': user.name,
+            'color': user.color,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        })
+    finally:
+        db.close()
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    db = get_db()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        user_repo = UserRepository(db)
+        user = user_repo.update(user_id, **data)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        return jsonify({
+            'id': user.id,
+            'name': user.name,
+            'color': user.color,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        })
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    db = get_db()
+    try:
+        user_repo = UserRepository(db)
+        success = user_repo.delete(user_id)
+        if not success:
+            return jsonify({'error': 'User not found'}), 404
+        return jsonify({'message': 'User deleted successfully'}), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Task endpoints
+@app.route('/api/tasks', methods=['GET'])
+def get_tasks():
+    db = get_db()
+    try:
+        # Get query parameters
+        user_id = request.args.get('user_id', type=int)
+        status = request.args.get('status')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Parse dates
+        parsed_start_date = parse_datetime(start_date) if start_date else None
+        parsed_end_date = parse_datetime(end_date) if end_date else None
+        
+        # Parse status if provided
+        parsed_status = None
+        if status:
+            try:
+                parsed_status = TaskStatus(status)
+            except ValueError:
+                return jsonify({'error': 'Invalid status value'}), 400
+        
+        task_repo = TaskRepository(db)
+        tasks = task_repo.get_all(
+            user_id=user_id,
+            status=parsed_status,
+            start_date=parsed_start_date,
+            end_date=parsed_end_date
+        )
+        
+        return jsonify([{
+            'id': t.id,
+            'description': t.description,
+            'user_id': t.user_id,
+            'status': t.status.value if t.status else None,
+            'scheduled_date': t.scheduled_date.isoformat() if t.scheduled_date else None,
+            'created_at': t.created_at.isoformat() if t.created_at else None,
+            'updated_at': t.updated_at.isoformat() if t.updated_at else None,
+            'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
+            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
+        } for t in tasks])
+    finally:
+        db.close()
+
+@app.route('/api/tasks', methods=['POST'])
+def create_task():
+    db = get_db()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Validate required fields
+        if 'description' not in data:
+            return jsonify({'error': 'Description is required'}), 400
+        if 'user_id' not in data:
+            return jsonify({'error': 'User ID is required'}), 400
+        if 'scheduled_date' not in data:
+            return jsonify({'error': 'Scheduled date is required'}), 400
+        
+        # Parse scheduled date
+        scheduled_date = parse_datetime(data['scheduled_date'])
+        if not scheduled_date:
+            return jsonify({'error': 'Invalid scheduled date format'}), 400
+        
+        # Parse recurrence if provided
+        recurrence_pattern = RecurrencePattern.NONE
+        if 'recurrence_pattern' in data:
+            try:
+                recurrence_pattern = RecurrencePattern(data['recurrence_pattern'])
+            except ValueError:
+                return jsonify({'error': 'Invalid recurrence pattern'}), 400
+        
+        recurrence_end_date = None
+        if 'recurrence_end_date' in data and data['recurrence_end_date']:
+            recurrence_end_date = parse_datetime(data['recurrence_end_date'])
+        
+        task_repo = TaskRepository(db)
+        task = task_repo.create(
+            description=data['description'],
+            user_id=data['user_id'],
+            scheduled_date=scheduled_date,
+            recurrence_pattern=recurrence_pattern,
+            recurrence_end_date=recurrence_end_date
+        )
+        
+        return jsonify({
+            'id': task.id,
+            'description': task.description,
+            'user_id': task.user_id,
+            'status': task.status.value if task.status else None,
+            'scheduled_date': task.scheduled_date.isoformat() if task.scheduled_date else None,
+            'created_at': task.created_at.isoformat() if task.created_at else None,
+            'updated_at': task.updated_at.isoformat() if task.updated_at else None,
+            'recurrence_pattern': task.recurrence_pattern.value if task.recurrence_pattern else None,
+            'recurrence_end_date': task.recurrence_end_date.isoformat() if task.recurrence_end_date else None
+        }), 201
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/tasks/<int:task_id>', methods=['GET'])
+def get_task(task_id):
+    db = get_db()
+    try:
+        task_repo = TaskRepository(db)
+        task = task_repo.get_by_id(task_id)
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+        return jsonify({
+            'id': task.id,
+            'description': task.description,
+            'user_id': task.user_id,
+            'status': task.status.value if task.status else None,
+            'scheduled_date': task.scheduled_date.isoformat() if task.scheduled_date else None,
+            'created_at': task.created_at.isoformat() if task.created_at else None,
+            'updated_at': task.updated_at.isoformat() if task.updated_at else None,
+            'recurrence_pattern': task.recurrence_pattern.value if task.recurrence_pattern else None,
+            'recurrence_end_date': task.recurrence_end_date.isoformat() if task.recurrence_end_date else None
+        })
+    finally:
+        db.close()
+
+@app.route('/api/tasks/<int:task_id>', methods=['PUT'])
+def update_task(task_id):
+    db = get_db()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Handle status conversion if provided
+        if 'status' in data:
+            try:
+                data['status'] = TaskStatus(data['status'])
+            except ValueError:
+                return jsonify({'error': 'Invalid status value'}), 400
+        
+        # Handle recurrence_pattern conversion if provided
+        if 'recurrence_pattern' in data:
+            try:
+                data['recurrence_pattern'] = RecurrencePattern(data['recurrence_pattern'])
+            except ValueError:
+                return jsonify({'error': 'Invalid recurrence pattern'}), 400
+        
+        # Handle date conversions
+        if 'scheduled_date' in data and data['scheduled_date']:
+            data['scheduled_date'] = parse_datetime(data['scheduled_date'])
+            if not data['scheduled_date']:
+                return jsonify({'error': 'Invalid scheduled date format'}), 400
+        
+        if 'recurrence_end_date' in data and data['recurrence_end_date']:
+            data['recurrence_end_date'] = parse_datetime(data['recurrence_end_date'])
+        
+        task_repo = TaskRepository(db)
+        task = task_repo.update(task_id, **data)
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+        
+        return jsonify({
+            'id': task.id,
+            'description': task.description,
+            'user_id': task.user_id,
+            'status': task.status.value if task.status else None,
+            'scheduled_date': task.scheduled_date.isoformat() if task.scheduled_date else None,
+            'created_at': task.created_at.isoformat() if task.created_at else None,
+            'updated_at': task.updated_at.isoformat() if task.updated_at else None,
+            'recurrence_pattern': task.recurrence_pattern.value if task.recurrence_pattern else None,
+            'recurrence_end_date': task.recurrence_end_date.isoformat() if task.recurrence_end_date else None
+        })
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    db = get_db()
+    try:
+        task_repo = TaskRepository(db)
+        success = task_repo.delete(task_id)
+        if not success:
+            return jsonify({'error': 'Task not found'}), 404
+        return jsonify({'message': 'Task deleted successfully'}), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Special task endpoints
+@app.route('/api/tasks/today', methods=['GET'])
+def get_today_tasks():
+    db = get_db()
+    try:
+        task_repo = TaskRepository(db)
+        tasks = task_repo.get_today_tasks()
+        return jsonify([{
+            'id': t.id,
+            'description': t.description,
+            'user_id': t.user_id,
+            'status': t.status.value if t.status else None,
+            'scheduled_date': t.scheduled_date.isoformat() if t.scheduled_date else None,
+            'created_at': t.created_at.isoformat() if t.created_at else None,
+            'updated_at': t.updated_at.isoformat() if t.updated_at else None,
+            'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
+            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
+        } for t in tasks])
+    finally:
+        db.close()
+
+@app.route('/api/tasks/upcoming', methods=['GET'])
+def get_upcoming_tasks():
+    db = get_db()
+    try:
+        days = request.args.get('days', 7, type=int)
+        task_repo = TaskRepository(db)
+        tasks = task_repo.get_upcoming_tasks(days=days)
+        return jsonify([{
+            'id': t.id,
+            'description': t.description,
+            'user_id': t.user_id,
+            'status': t.status.value if t.status else None,
+            'scheduled_date': t.scheduled_date.isoformat() if t.scheduled_date else None,
+            'created_at': t.created_at.isoformat() if t.created_at else None,
+            'updated_at': t.updated_at.isoformat() if t.updated_at else None,
+            'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
+            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
+        } for t in tasks])
+    finally:
+        db.close()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
