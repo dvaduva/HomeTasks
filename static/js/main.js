@@ -169,7 +169,7 @@ function createTaskElement(task) {
                     </button>
                     <button class="btn btn-sm btn-${task.status === 'refused' ? 'secondary' : 'warning'}" 
                             data-action="toggle-refuse">
-                        ${task.status === 'refused' ? 'Anulează refuz' : 'Refuzează'}
+                        ${task.status === 'refused' ? 'Anulează refuz' : 'Refuză'}
                     </button>
                     <button class="btn btn-sm btn-info" data-action="add-comment">
                         Comentarii
@@ -208,7 +208,7 @@ function createTodayTaskElement(task) {
                     </button>
                     <button class="btn btn-sm btn-${task.status === 'refused' ? 'secondary' : 'warning'}" 
                             data-action="toggle-refuse">
-                        ${task.status === 'refused' ? 'Anulează refuz' : 'Refuzează'}
+                        ${task.status === 'refused' ? 'Anulează refuz' : 'Refuză'}
                     </button>
                 </div>
             </div>
