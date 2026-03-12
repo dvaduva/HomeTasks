@@ -106,28 +106,27 @@ def test():
 @app.route('/api/weather/current', methods=['GET'])
 def get_current_weather():
     try:
-        # Get city from query params or use default
-        city = request.args.get('city', 'București')  # Default to București
+        city = request.args.get('city')
+        if not city:
+            db = get_db()
+            try:
+                prefs_repo = PreferencesRepository(db)
+                prefs = prefs_repo.get_or_create()
+                city = prefs.weather_city or 'București'
+            finally:
+                db.close()
+
         weather_data = weather_service.get_current_weather(city)
-        
-        # Get icon URL
-        icon_url = weather_service.get_weather_icon_url(weather_data['icon'])
-        
+
         return jsonify({
             'city': weather_data['city'],
             'country': weather_data['country'],
             'temperature': weather_data['temperature'],
             'feels_like': weather_data['feels_like'],
             'humidity': weather_data['humidity'],
-            'pressure': weather_data['pressure'],
             'description': weather_data['description'],
             'icon': weather_data['icon'],
-            'icon_url': icon_url,
             'wind_speed': weather_data['wind_speed'],
-            'wind_direction': weather_data['wind_direction'],
-            'sunrise': weather_data['sunrise'].isoformat() if weather_data['sunrise'] else None,
-            'sunset': weather_data['sunset'].isoformat() if weather_data['sunset'] else None,
-            'timestamp': weather_data['timestamp'].isoformat()
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -135,8 +134,17 @@ def get_current_weather():
 @app.route('/api/weather/forecast', methods=['GET'])
 def get_weather_forecast():
     try:
-        # Get parameters
-        city = request.args.get('city', 'București')  # Default to București
+        # Get city from query params, preferences, or use default
+        city = request.args.get('city')
+        if not city:
+            db = get_db()
+            try:
+                prefs_repo = PreferencesRepository(db)
+                prefs = prefs_repo.get_or_create()
+                city = prefs.weather_city or 'București'
+            finally:
+                db.close()
+        
         days = request.args.get('days', 7, type=int)
         
         # Validate days
@@ -187,8 +195,23 @@ def ai_chat():
             return jsonify({'error': 'Message is required'}), 400
         
         message = data['message']
-        temperature = data.get('temperature', 0.7)
-        max_tokens = data.get('max_tokens', 500)
+        
+        # Get temperature and max_tokens from request or preferences
+        temperature = data.get('temperature')
+        max_tokens = data.get('max_tokens')
+        
+        # If not provided in request, get from preferences
+        if temperature is None or max_tokens is None:
+            db = get_db()
+            try:
+                prefs_repo = PreferencesRepository(db)
+                prefs = prefs_repo.get_or_create()
+                if temperature is None:
+                    temperature = float(prefs.ai_temperature or 0.7)
+                if max_tokens is None:
+                    max_tokens = int(prefs.ai_max_tokens or 500)
+            finally:
+                db.close()
         
         # Check if Ollama server is running
         if not ollama_client.is_server_running():
@@ -461,11 +484,11 @@ def get_task(task_id):
             'description': task.description,
             'user_id': task.user_id,
             'status': task.status.value if task.status else None,
-            'scheduled_date': t.scheduled_date.isoformat() if t.scheduled_date else None,
-            'created_at': t.created_at.isoformat() if t.created_at else None,
-            'updated_at': t.updated_at.isoformat() if t.updated_at else None,
-            'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
-            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
+            'scheduled_date': task.scheduled_date.isoformat() if task.scheduled_date else None,
+            'created_at': task.created_at.isoformat() if task.created_at else None,
+            'updated_at': task.updated_at.isoformat() if task.updated_at else None,
+            'recurrence_pattern': task.recurrence_pattern.value if task.recurrence_pattern else None,
+            'recurrence_end_date': task.recurrence_end_date.isoformat() if task.recurrence_end_date else None
         })
     finally:
         db.close()
@@ -512,10 +535,10 @@ def update_task(task_id):
             'user_id': task.user_id,
             'status': task.status.value if task.status else None,
             'scheduled_date': task.scheduled_date.isoformat() if task.scheduled_date else None,
-            'created_at': t.created_at.isoformat() if t.created_at else None,
-            'updated_at': t.updated_at.isoformat() if t.updated_at else None,
-            'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
-            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
+            'created_at': task.created_at.isoformat() if task.created_at else None,
+            'updated_at': task.updated_at.isoformat() if task.updated_at else None,
+            'recurrence_pattern': task.recurrence_pattern.value if task.recurrence_pattern else None,
+            'recurrence_end_date': task.recurrence_end_date.isoformat() if task.recurrence_end_date else None
         })
     except Exception as e:
         db.rollback()
@@ -577,6 +600,116 @@ def get_upcoming_tasks():
             'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern != None else None,
             'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
         } for t in tasks])
+    finally:
+        db.close()
+
+# Preferences endpoints
+@app.route('/api/preferences', methods=['GET'])
+def get_preferences():
+    db = get_db()
+    try:
+        prefs_repo = PreferencesRepository(db)
+        prefs = prefs_repo.get_or_create()
+        return jsonify({
+            'id': prefs.id,
+            'language': prefs.language,
+            'date_format': prefs.date_format,
+            'time_format': prefs.time_format,
+            'weather_city': prefs.weather_city,
+            'weather_units': prefs.weather_units,
+            'weather_update_interval': prefs.weather_update_interval,
+            'ai_model': prefs.ai_model,
+            'ai_temperature': prefs.ai_temperature,
+            'ai_max_tokens': prefs.ai_max_tokens,
+            'voice_language': prefs.voice_language,
+            'voice_sensitivity': prefs.voice_sensitivity,
+            'voice_auto_start': prefs.voice_auto_start
+        })
+    finally:
+        db.close()
+
+@app.route('/api/preferences', methods=['PUT'])
+def update_preferences():
+    db = get_db()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        prefs_repo = PreferencesRepository(db)
+        prefs = prefs_repo.get_or_create()
+        
+        # Update only the fields that were provided
+        for key, value in data.items():
+            if hasattr(prefs, key):
+                setattr(prefs, key, value)
+        
+        db.commit()
+        
+        return jsonify({
+            'id': prefs.id,
+            'language': prefs.language,
+            'date_format': prefs.date_format,
+            'time_format': prefs.time_format,
+            'weather_city': prefs.weather_city,
+            'weather_units': prefs.weather_units,
+            'weather_update_interval': prefs.weather_update_interval,
+            'ai_model': prefs.ai_model,
+            'ai_temperature': prefs.ai_temperature,
+            'ai_max_tokens': prefs.ai_max_tokens,
+            'voice_language': prefs.voice_language,
+            'voice_sensitivity': prefs.voice_sensitivity,
+            'voice_auto_start': prefs.voice_auto_start
+        })
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Comment endpoints
+@app.route('/api/tasks/<int:task_id>/comments', methods=['GET'])
+def get_comments(task_id):
+    db = get_db()
+    try:
+        comment_repo = CommentRepository(db)
+        comments = comment_repo.get_by_task_id(task_id)
+        return jsonify([{
+            'id': c.id,
+            'text': c.text,
+            'task_id': c.task_id,
+            'user_id': c.user_id,
+            'created_at': c.created_at.isoformat() if c.created_at else None
+        } for c in comments])
+    finally:
+        db.close()
+
+@app.route('/api/tasks/<int:task_id>/comments', methods=['POST'])
+def add_comment(task_id):
+    db = get_db()
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({'error': 'Text is required'}), 400
+        if 'user_id' not in data:
+            return jsonify({'error': 'User ID is required'}), 400
+
+        comment_repo = CommentRepository(db)
+        comment = comment_repo.create(
+            text=data['text'],
+            task_id=task_id,
+            user_id=data['user_id']
+        )
+        return jsonify({
+            'id': comment.id,
+            'text': comment.text,
+            'task_id': comment.task_id,
+            'user_id': comment.user_id,
+            'created_at': comment.created_at.isoformat() if comment.created_at else None
+        }), 201
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
     finally:
         db.close()
 

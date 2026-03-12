@@ -20,6 +20,8 @@ class VoiceService:
         self.text_to_speech_available = False
         self.callback: Optional[Callable[[str], None]] = None
         self.audio_queue = queue.Queue()
+        self.language = "ro-RO"  # Default language
+        self.sensitivity = 0.5   # Default sensitivity
         
         # Try to initialize speech recognition
         try:
@@ -43,6 +45,22 @@ class VoiceService:
             logger.warning("pyttsx3 library not available. Text-to-speech disabled.")
         except Exception as e:
             logger.warning(f"Failed to initialize text-to-speech: {e}")
+    
+    def update_settings(self, language: str = None, sensitivity: float = None):
+        """
+        Update voice service settings.
+        
+        Args:
+            language: Language code for speech recognition (e.g., "ro-RO")
+            sensitivity: Microphone sensitivity (0.0 to 1.0)
+        """
+        if language is not None:
+            self.language = language
+            logger.info(f"Voice language updated to: {language}")
+        
+        if sensitivity is not None:
+            self.sensitivity = max(0.0, min(1.0, sensitivity))  # Clamp to 0-1 range
+            logger.info(f"Voice sensitivity updated to: {sensitivity}")
     
     def start_listening(self, callback: Callable[[str], None]):
         """
@@ -83,17 +101,21 @@ class VoiceService:
             
         try:
             with self.microphone as source:
-                self.recognizer.adjust_for_ambient_noise(source, duration=1)
-                logger.info("Microphone calibrated for ambient noise")
+                # Adjust for ambient noise based on sensitivity
+                adjust_duration = max(0.5, 2.0 * (1.0 - self.sensitivity))  # Less adjustment for higher sensitivity
+                self.recognizer.adjust_for_ambient_noise(source, duration=adjust_duration)
+                logger.info(f"Microphone calibrated for ambient noise (duration: {adjust_duration}s)")
                 
                 while self.is_listening:
                     try:
                         logger.debug("Listening for audio...")
-                        audio = self.recognizer.listen(source, timeout=1, phrase_time_limit=5)
+                        # Adjust phrase time limit based on sensitivity
+                        phrase_time_limit = max(3, int(10 * self.sensitivity))  # 3-10 seconds
+                        audio = self.recognizer.listen(source, timeout=1, phrase_time_limit=phrase_time_limit)
                         logger.debug("Audio captured, processing...")
                         
-                        # Use Google Speech Recognition
-                        text = self.recognizer.recognize_google(audio, language="ro-RO")
+                        # Use Google Speech Recognition with selected language
+                        text = self.recognizer.recognize_google(audio, language=self.language)
                         logger.info(f"Recognized speech: {text}")
                         
                         if self.callback and text.strip():
@@ -147,7 +169,9 @@ class VoiceService:
         return {
             'speech_recognition': self.speech_recognition_available,
             'text_to_speech': self.text_to_speech_available,
-            'listening': self.is_listening
+            'listening': self.is_listening,
+            'language': self.language,
+            'sensitivity': self.sensitivity
         }
 
 # Global voice service instance

@@ -104,6 +104,8 @@ class TaskRepository:
     def delete(self, task_id: int) -> bool:
         task = self.get_by_id(task_id)
         if task:
+            # Delete associated comments first to avoid FK constraint
+            self.db.query(Comment).filter(Comment.task_id == task_id).delete()
             self.db.delete(task)
             self.db.commit()
             return True

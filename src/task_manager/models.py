@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, Integer, Float, String, Text, DateTime, Boolean, ForeignKey, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import enum
@@ -72,19 +72,24 @@ class Comment(Base):
 
 class Preferences(Base):
     __tablename__ = 'preferences'
-    
+
     id = Column(Integer, primary_key=True)
     # Application preferences
     language = Column(String(10), default='ro')  # ro, en
-    temperature_unit = Column(String(1), default='C')  # C, F
-    update_interval_minutes = Column(Integer, default=30)
-    # Location for weather
-    city = Column(String(100), default='București')
+    date_format = Column(String(20), default='short')
+    time_format = Column(String(5), default='24')
+    # Weather settings
+    weather_city = Column(String(100), default='București')
+    weather_units = Column(String(20), default='metric')  # metric, imperial
+    weather_update_interval = Column(Integer, default=30)
+    # AI settings
+    ai_model = Column(String(50), default='llama3:8b')
+    ai_temperature = Column(Float, default=0.7)
+    ai_max_tokens = Column(Integer, default=500)
     # Voice settings
-    voice_activation_word = Column(String(50), default='Hey HomeTasks')
     voice_language = Column(String(10), default='ro-RO')  # ro-RO, en-US, en-GB
-    voice_enabled = Column(Boolean, default=True)
-    text_to_speech_enabled = Column(Boolean, default=False)
+    voice_sensitivity = Column(Float, default=0.5)
+    voice_auto_start = Column(Boolean, default=False)
     # Updated timestamp
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

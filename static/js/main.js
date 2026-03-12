@@ -1,29 +1,122 @@
 // Main JavaScript for HomeTasks frontend - Faza 7: Interfața de gestionare a taskurilor
 // Faza 8: Interfața vocală (client-side)
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the application
-    initApp();
-    
-    // Initialize voice recognition
-    initVoiceRecognition();
-    
-    // Initialize chat
-    initChat();
-});
+// Global voice preferences object
+const voicePrefs = {
+    language: 'ro-RO',  // Default language
+    sensitivity: 0.5    // Default sensitivity
+};
 
-function initApp() {
-    // Update date and time
-    updateDateTime();
-    setInterval(updateDateTime, 1000);
+// Initialize voice recognition
+function initVoiceRecognition() {
+    // Check if SpeechRecognition is available
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
-    // Load initial data
-    loadUsers();
-    loadWeather();
-    loadTodayTasks();
+    const voiceStatus = document.getElementById('voice-status');
+
+    if (!window.SpeechRecognition) {
+        console.warn('SpeechRecognition not supported in this browser');
+        document.getElementById('voice-btn').title = 'Recunoașterea vocală nu este disponibilă în acest browser';
+        document.getElementById('voice-btn').style.opacity = '0.5';
+        document.getElementById('voice-btn').style.cursor = 'not-allowed';
+        voiceStatus.textContent = 'Microfon: indisponibil';
+        return;
+    }
+
+    voiceStatus.textContent = 'Microfon: disponibil';
+
+    let isListening = false;
+    let currentRecognition = null;
     
-    // Set up event listeners
-    setupEventListeners();
+    // Update button state
+    function updateVoiceButton(listening) {
+        const voiceBtn = document.getElementById('voice-btn');
+        if (listening) {
+            voiceBtn.innerHTML = '🎤 Ascult...';
+            voiceBtn.style.backgroundColor = '#e74c3c';
+            voiceBtn.title = 'Oprire ascultare';
+            voiceStatus.textContent = 'Microfon: ascult...';
+        } else {
+            voiceBtn.innerHTML = '🎤 Comandă Vocală';
+            voiceBtn.style.backgroundColor = '#3498db';
+            voiceBtn.title = 'Pornește ascultarea';
+            voiceStatus.textContent = 'Microfon: disponibil';
+        }
+    }
+    
+    // Voice button click handler
+    document.getElementById('voice-btn').addEventListener('click', function() {
+        if (!isListening) {
+            // Start listening
+            try {
+                currentRecognition = new SpeechRecognition();
+                currentRecognition.continuous = false;
+                currentRecognition.interimResults = false;
+                currentRecognition.lang = voicePrefs.language; // Use the language from prefs
+                
+                currentRecognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript.trim();
+                    console.log('Voice command received:', transcript);
+                    
+                    // Process the voice command
+                    processVoiceCommand(transcript);
+                    
+                    // Stop listening after getting a result
+                    if (currentRecognition) {
+                        currentRecognition.stop();
+                    }
+                    isListening = false;
+                    updateVoiceButton(isListening);
+                    currentRecognition = null;
+                };
+                
+                currentRecognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    isListening = false;
+                    updateVoiceButton(isListening);
+                    if (currentRecognition) {
+                        currentRecognition = null;
+                    }
+                    
+                    if (event.error === 'not-allowed') {
+                        voiceStatus.textContent = 'Microfon: acces refuzat';
+                    }
+                    // Show error feedback
+                    showVoiceFeedback('Eroare la recunoașterea vorbirii: ' + event.error, true);
+                };
+                
+                currentRecognition.onend = function() {
+                    isListening = false;
+                    updateVoiceButton(isListening);
+                    currentRecognition = null;
+                };
+                
+                // Start listening
+                currentRecognition.start();
+                isListening = true;
+                updateVoiceButton(isListening);
+                
+                showVoiceFeedback('Ascult... Vorbesc acum', false);
+            } catch (err) {
+                console.error('Error starting speech recognition:', err);
+                showVoiceFeedback('Eroare la pornirea recunoașterii vocale', true);
+                if (currentRecognition) {
+                    currentRecognition = null;
+                }
+                isListening = false;
+                updateVoiceButton(isListening);
+            }
+        } else {
+            // Stop listening
+            if (currentRecognition) {
+                currentRecognition.stop();
+            }
+            isListening = false;
+            updateVoiceButton(isListening);
+            currentRecognition = null;
+            showVoiceFeedback('Oprire ascultare', false);
+        }
+    });
 }
 
 function updateDateTime() {
@@ -68,11 +161,14 @@ function loadUsers() {
 }
 
 function loadTasksForUser(userId) {
+    // Clear immediately so old tasks don't linger while loading
+    document.getElementById('tasks-list').innerHTML = '<p>Se încarcă...</p>';
+
     fetch(`/api/tasks?user_id=${userId}`)
         .then(response => response.json())
         .then(tasks => {
             // Update tasks display
-            updateTasksDisplay(tasks);
+            updateTasksDisplay(Array.isArray(tasks) ? tasks : []);
             
             // Update today's tasks section
             loadTodayTasks();
@@ -287,10 +383,6 @@ function setupEventListeners() {
         showAddTaskForm();
     });
     
-    // Settings button
-    document.getElementById('settings-btn').addEventListener('click', function() {
-        alert('Setările vor fi implementate în versiunea ulterioară');
-    });
 }
 
 function setupTaskEventListeners(taskElement, task) {
@@ -383,7 +475,7 @@ function showAddTaskForm() {
     const userId = document.querySelector('.user-item.active')?.dataset.userId || 1;
     
     const html = `
-        <div class="modal-overlay">
+        <div class="task-modal">
             <div class="modal-content">
                 <h2>Adaugă task nou</h2>
                 <form id="add-task-form">
@@ -478,16 +570,14 @@ function showAddTaskForm() {
     });
     
     // Close on overlay click
-    document.querySelector('.modal-overlay').addEventListener('click', function(e) {
-        if (e.target === document.querySelector('.modal-overlay')) {
-            closeModal();
-        }
+    document.querySelector('.task-modal').addEventListener('click', function(e) {
+        if (e.target === this) { closeModal(); }
     });
 }
 
 function showEditTaskForm(task) {
     const html = `
-        <div class="modal-overlay">
+        <div class="task-modal">
             <div class="modal-content">
                 <h2>Editează task</h2>
                 <form id="edit-task-form">
@@ -581,16 +671,14 @@ function showEditTaskForm(task) {
     });
     
     // Close on overlay click
-    document.querySelector('.modal-overlay').addEventListener('click', function(e) {
-        if (e.target === document.querySelector('.modal-overlay')) {
-            closeModal();
-        }
+    document.querySelector('.task-modal').addEventListener('click', function(e) {
+        if (e.target === this) { closeModal(); }
     });
 }
 
 function showAddCommentForm(taskId) {
     const html = `
-        <div class="modal-overlay">
+        <div class="task-modal">
             <div class="modal-content">
                 <h2>Adaugă comentariu</h2>
                 <form id="add-comment-form">
@@ -647,10 +735,8 @@ function showAddCommentForm(taskId) {
     });
     
     // Close on overlay click
-    document.querySelector('.modal-overlay').addEventListener('click', function(e) {
-        if (e.target === document.querySelector('.modal-overlay')) {
-            closeModal();
-        }
+    document.querySelector('.task-modal').addEventListener('click', function(e) {
+        if (e.target === this) { closeModal(); }
     });
 }
 
@@ -682,7 +768,7 @@ function deleteTask(taskId) {
 }
 
 function closeModal() {
-    const modal = document.querySelector('.modal-overlay');
+    const modal = document.querySelector('.task-modal');
     if (modal) {
         modal.remove();
     }
@@ -691,7 +777,7 @@ function closeModal() {
 // CSS for modals (added dynamically)
 const modalStyle = document.createElement('style');
 modalStyle.textContent = `
-    .modal-overlay {
+    .task-modal {
         position: fixed;
         top: 0;
         left: 0;
@@ -810,98 +896,6 @@ modalStyle.textContent = `
 `;
 document.head.appendChild(modalStyle);
 
-// Voice recognition functionality
-function initVoiceRecognition() {
-    // Check if SpeechRecognition is available
-    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    const voiceStatus = document.getElementById('voice-status');
-
-    if (!window.SpeechRecognition) {
-        console.warn('SpeechRecognition not supported in this browser');
-        document.getElementById('voice-btn').title = 'Recunoașterea vocală nu este disponibilă în acest browser';
-        document.getElementById('voice-btn').style.opacity = '0.5';
-        document.getElementById('voice-btn').style.cursor = 'not-allowed';
-        voiceStatus.textContent = 'Microfon: indisponibil';
-        return;
-    }
-
-    voiceStatus.textContent = 'Microfon: disponibil';
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'ro-RO'; // Romanian language
-
-    let isListening = false;
-
-    // Update button state
-    function updateVoiceButton(listening) {
-        const voiceBtn = document.getElementById('voice-btn');
-        if (listening) {
-            voiceBtn.innerHTML = '🎤 Ascult...';
-            voiceBtn.style.backgroundColor = '#e74c3c';
-            voiceBtn.title = 'Oprire ascultare';
-            voiceStatus.textContent = 'Microfon: ascult...';
-        } else {
-            voiceBtn.innerHTML = '🎤 Comandă Vocală';
-            voiceBtn.style.backgroundColor = '#3498db';
-            voiceBtn.title = 'Pornește ascultarea';
-            voiceStatus.textContent = 'Microfon: disponibil';
-        }
-    }
-
-    recognition.onresult = function(event) {
-        const transcript = event.results[0][0].transcript.trim();
-        console.log('Voice command received:', transcript);
-
-        // Process the voice command
-        processVoiceCommand(transcript);
-
-        // Stop listening after getting a result
-        recognition.stop();
-        isListening = false;
-        updateVoiceButton(isListening);
-    };
-
-    recognition.onerror = function(event) {
-        console.error('Speech recognition error:', event.error);
-        isListening = false;
-        updateVoiceButton(isListening);
-        if (event.error === 'not-allowed') {
-            voiceStatus.textContent = 'Microfon: acces refuzat';
-        }
-        // Show error feedback
-        showVoiceFeedback('Eroare la recunoașterea vorbirii: ' + event.error, true);
-    };
-
-    recognition.onend = function() {
-        isListening = false;
-        updateVoiceButton(isListening);
-    };
-    
-    // Voice button click handler
-    document.getElementById('voice-btn').addEventListener('click', function() {
-        if (!isListening) {
-            // Start listening
-            try {
-                recognition.start();
-                isListening = true;
-                updateVoiceButton(isListening);
-                showVoiceFeedback('Ascult... Vorbesc acum', false);
-            } catch (err) {
-                console.error('Error starting speech recognition:', err);
-                showVoiceFeedback('Eroare la pornirea recunoașterii vocale', true);
-            }
-        } else {
-            // Stop listening
-            recognition.stop();
-            isListening = false;
-            updateVoiceButton(isListening);
-            showVoiceFeedback('Oprire ascultare', false);
-        }
-    });
-}
 
 // Process voice command by sending to backend
 function processVoiceCommand(command) {
@@ -1118,3 +1112,326 @@ function scrollToBottom() {
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
+// Settings functionality
+function initSettings() {
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const cancelSettingsBtn = document.getElementById('cancel-settings');
+    const saveSettingsBtn = document.getElementById('save-settings');
+    
+    // Open settings modal
+    settingsBtn.addEventListener('click', function() {
+        settingsModal.classList.add('active');
+        loadSettings(); // Load current settings when opening
+    });
+    
+    // Close settings modal when clicking outside
+    settingsModal.addEventListener('click', function(e) {
+        if (e.target === settingsModal) {
+            settingsModal.classList.remove('active');
+        }
+    });
+    
+    // Tab switching
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tab = this.getAttribute('data-tab');
+            
+            // Update active tab button
+            tabBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Update active tab content
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === tab + '-tab') {
+                    content.classList.add('active');
+                }
+            });
+        });
+    });
+    
+    // Cancel button
+    cancelSettingsBtn.addEventListener('click', function() {
+        settingsModal.classList.remove('active');
+    });
+    
+    // Save button
+    saveSettingsBtn.addEventListener('click', function() {
+        saveSettings();
+        settingsModal.classList.remove('active');
+        showToast('Setările au fost salvate cu succes!');
+    });
+    
+    // AI temperature slider
+    const aiTempSlider = document.getElementById('ai-temperature');
+    const aiTempValue = document.getElementById('ai-temp-value');
+    if (aiTempSlider && aiTempValue) {
+        aiTempSlider.addEventListener('input', function() {
+            aiTempValue.textContent = this.value;
+        });
+    }
+    
+    // Voice sensitivity slider
+    const voiceSensSlider = document.getElementById('voice-sensitivity');
+    const voiceSensValue = document.getElementById('voice-sens-value');
+    if (voiceSensSlider && voiceSensValue) {
+        voiceSensSlider.addEventListener('input', function() {
+            voiceSensValue.textContent = this.value;
+        });
+    }
+}
+
+// Load settings from backend and populate form
+function loadSettings() {
+    fetch('/api/preferences')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load settings');
+            }
+            return response.json();
+        })
+        .then(settings => {
+            // Update voice preferences
+            if (settings.voice_language) {
+                voicePrefs.language = settings.voice_language;
+            }
+            if (settings.voice_sensitivity !== undefined) {
+                voicePrefs.sensitivity = settings.voice_sensitivity;
+            }
+            
+            // Populate general settings
+            const appLanguageSelect = document.getElementById('app-language');
+            if (appLanguageSelect && settings.language) {
+                appLanguageSelect.value = settings.language;
+            }
+            
+            const dateFormatSelect = document.getElementById('date-format');
+            if (dateFormatSelect && settings.date_format) {
+                dateFormatSelect.value = settings.date_format;
+            }
+            
+            const timeFormatSelect = document.getElementById('time-format');
+            if (timeFormatSelect && settings.time_format) {
+                timeFormatSelect.value = settings.time_format;
+            }
+            
+            // Populate weather settings
+            const weatherCityInput = document.getElementById('weather-city');
+            if (weatherCityInput && settings.weather_city) {
+                weatherCityInput.value = settings.weather_city;
+            }
+            
+            const weatherUnitsSelect = document.getElementById('weather-units');
+            if (weatherUnitsSelect && settings.weather_units) {
+                weatherUnitsSelect.value = settings.weather_units;
+            }
+            
+            const weatherUpdateInput = document.getElementById('weather-update');
+            if (weatherUpdateInput && settings.weather_update_interval) {
+                weatherUpdateInput.value = settings.weather_update_interval;
+            }
+            
+            // Populate AI settings
+            const aiModelSelect = document.getElementById('ai-model');
+            if (aiModelSelect && settings.ai_model) {
+                aiModelSelect.value = settings.ai_model;
+            }
+            
+            const aiTemperatureInput = document.getElementById('ai-temperature');
+            const aiTempValue = document.getElementById('ai-temp-value');
+            if (aiTemperatureInput && aiTempValue && settings.ai_temperature !== undefined) {
+                aiTemperatureInput.value = settings.ai_temperature;
+                aiTempValue.textContent = settings.ai_temperature;
+            }
+            
+            const aiMaxTokensInput = document.getElementById('ai-max-tokens');
+            if (aiMaxTokensInput && settings.ai_max_tokens) {
+                aiMaxTokensInput.value = settings.ai_max_tokens;
+            }
+            
+            // Populate voice settings
+            const voiceLanguageSelect = document.getElementById('voice-language');
+            if (voiceLanguageSelect && settings.voice_language) {
+                voiceLanguageSelect.value = settings.voice_language;
+            }
+            
+            const voiceSensitivityInput = document.getElementById('voice-sensitivity');
+            const voiceSensValue = document.getElementById('voice-sens-value');
+            if (voiceSensitivityInput && voiceSensValue && settings.voice_sensitivity !== undefined) {
+                voiceSensitivityInput.value = settings.voice_sensitivity;
+                voiceSensValue.textContent = settings.voice_sensitivity;
+            }
+            
+            const voiceAutoStartCheckbox = document.getElementById('voice-auto-start');
+            if (voiceAutoStartCheckbox && settings.voice_auto_start !== undefined) {
+                voiceAutoStartCheckbox.checked = settings.voice_auto_start;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading settings:', error);
+            showToast('Eroare la încărcarea setărilor', true);
+        });
+}
+
+// Save settings to backend
+function saveSettings() {
+    const settings = {
+        // General
+        language: document.getElementById('app-language')?.value,
+        date_format: document.getElementById('date-format')?.value,
+        time_format: document.getElementById('time-format')?.value,
+        
+        // Weather
+        weather_city: document.getElementById('weather-city')?.value,
+        weather_units: document.getElementById('weather-units')?.value,
+        weather_update_interval: parseInt(document.getElementById('weather-update')?.value) || 30,
+        
+        // AI
+        ai_model: document.getElementById('ai-model')?.value,
+        ai_temperature: parseFloat(document.getElementById('ai-temperature')?.value) || 0.7,
+        ai_max_tokens: parseInt(document.getElementById('ai-max-tokens')?.value) || 500,
+        
+        // Voice
+        voice_language: document.getElementById('voice-language')?.value,
+        voice_sensitivity: parseFloat(document.getElementById('voice-sensitivity')?.value) || 0.5,
+        voice_auto_start: document.getElementById('voice-auto-start')?.checked || false
+    };
+    
+    // Remove undefined values
+    Object.keys(settings).forEach(key => {
+        if (settings[key] === undefined) {
+            delete settings[key];
+        }
+    });
+    
+    fetch('/api/preferences', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(settings)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to save settings');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Apply settings immediately
+        applySettings(data);
+        showToast('Setările au fost salvate și aplicate!');
+    })
+    .catch(error => {
+        console.error('Error saving settings:', error);
+        showToast('Eroare la salvarea setărilor', true);
+    });
+}
+
+// Apply settings to the application
+function applySettings(settings) {
+    // Apply general settings
+    if (settings.language) {
+        document.documentElement.lang = settings.language;
+        // Update date/time formatting would happen on next update
+    }
+    
+    // Apply weather settings
+    if (settings.weather_city || settings.weather_units) {
+        // Weather will be updated on next refresh
+        loadWeather(); // Refresh weather with new settings
+    }
+    
+    // Apply AI settings
+    if (settings.ai_model !== undefined || settings.ai_temperature !== undefined || settings.ai_max_tokens !== undefined) {
+        // These will be used on next AI request
+        // Could update a global config object here
+    }
+    
+    // Apply voice settings
+    if (settings.voice_language !== undefined || settings.voice_sensitivity !== undefined) {
+        // These will be used on next voice recognition initialization
+        // Could update a global config object here
+    }
+    
+    // Apply auto-start voice setting
+    if (settings.voice_auto_start !== undefined) {
+        // Would start voice recognition if enabled
+        // For now, we'll just note the preference
+    }
+}
+
+// Show toast notification
+function showToast(message, isError = false) {
+    // Remove any existing toast
+    const existingToast = document.querySelector('.toast');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.backgroundColor = isError ? '#e74c3c' : '#2ecc71';
+    toast.style.color = 'white';
+    toast.style.padding = '12px 24px';
+    toast.style.borderRadius = '4px';
+    toast.style.zIndex = '1000';
+    toast.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    toast.style.fontSize = '14px';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(20px)';
+    toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    
+    document.body.appendChild(toast);
+    
+    // Trigger reflow for animation
+    void toast.offsetWidth;
+    
+    // Show toast
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(0)';
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        
+        // Remove from DOM after transition
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Initialize settings when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Load initial data
+    loadUsers();
+    loadTodayTasks();
+    loadWeather();
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+
+    // Setup click/interaction event listeners
+    setupEventListeners();
+
+    // Initialize voice recognition
+    initVoiceRecognition();
+
+    // Initialize chat
+    initChat();
+
+    // Initialize settings
+    initSettings();
+});
