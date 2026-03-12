@@ -5,202 +5,221 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HomeTasks</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <!-- Add any additional CSS or JS here -->
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <div class="header-content">
-                <h1 class="header-title">HomeTasks</h1>
-                <div class="header-info">
-                    <div class="date-time" id="date-time">
-                        <!-- Date and time will be updated by JS -->
-                    </div>
-                    <div class="weather" id="weather">
-                        <!-- Weather info will be loaded via AJAX -->
-                    </div>
-                </div>
-                <button class="btn-settings" id="settings-btn">
-                    ⚙️
-                </button>
-            </div>
-        </header>
+<div class="app">
 
-        <div class="main-content">
-            <aside class="sidebar" id="sidebar">
-                <h2>Utilizatori</h2>
-                <div class="user-list" id="user-list">
-                    <!-- User list will be populated via JS -->
-                </div>
-                <button class="btn-add-user" id="add-user-btn">
-                    + Utilizator
-                </button>
-            </aside>
-
-            <section class="main" id="main-section">
-                <div class="tasks-header">
-                    <h2 id="tasks-title">Bun venit în HomeTasks!</h2>
-                    <button class="btn-add-task" id="add-task-btn">+ Task nou</button>
-                </div>
-                <div class="tasks-container">
-                    <div class="tasks-section">
-                        <h3>Taskurile utilizatorului</h3>
-                        <div id="tasks-list">
-                            <p>Selectați un utilizator din lista din stânga pentru a vedea taskurile sale.</p>
-                        </div>
-                    </div>
-                    <div class="tasks-section today-section">
-                        <h3>Taskuri de astăzi</h3>
-                        <div id="today-tasks-list">
-                            <p>Se încarcă...</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-brand">
+            <span class="brand-icon">🏠</span>
+            <strong>HomeTasks</strong>
         </div>
-
-        <!-- AI Chat Interface -->
-        <div class="chat-container" id="chat-container">
-            <div class="chat-header">
-                <h3>Chat cu AI</h3>
-                <button class="btn-close-chat" id="close-chat-btn">✕</button>
-            </div>
-            <div class="chat-messages" id="chat-messages">
-                <!-- AI messages will appear here -->
-                <div class="message ai-message">
-                    <p>Salut! Sunt HomeTasks AI assistant. Cum vă pot ajuta astăzi?</p>
-                </div>
-            </div>
-            <div class="chat-input-container">
-                <form id="chat-form">
-                    <input type="text" id="chat-input" placeholder="Scrieți un mesaj..." autocomplete="off" />
-                    <button type="submit" class="btn-send">Trimite</button>
-                </form>
-            </div>
+        <div class="date-time" id="date-time"></div>
+        <div class="header-right">
+            <div class="weather" id="weather"><span class="dim">—°</span></div>
+            <button type="button" class="icon-btn" id="settings-btn" title="Setări">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
         </div>
+    </header>
 
-        <footer class="footer">
-            <div class="footer-content">
-                <button class="btn-voice" id="voice-btn">
-                    🎤
-                </button>
-                <div class="voice-status" id="voice-status">
-                    Microfons: inactiv
-                </div>
-                <button class="btn-ai" id="ai-btn">
-                    🤖
-                </button>
-                <div class="ai-status" id="ai-status">
-                    AI: gata
-                </div>
-            </div>
-        </footer>
+    <!-- PROGNOZĂ 5 ZILE -->
+    <div class="forecast-strip" id="weather-forecast">
+        <span class="forecast-skeleton"></span>
+        <span class="forecast-skeleton"></span>
+        <span class="forecast-skeleton"></span>
+        <span class="forecast-skeleton"></span>
+        <span class="forecast-skeleton"></span>
     </div>
 
-    <!-- Settings Modal -->
-    <div class="modal-overlay" id="settings-modal">
-        <div class="modal-content">
+    <!-- BARA UTILIZATORI -->
+    <div class="user-bar">
+        <div class="user-list" id="user-list"></div>
+        <button type="button" class="btn-add-user" id="add-user-btn" title="Adaugă utilizator">＋ Utilizator</button>
+    </div>
+
+    <!-- TASKURI -->
+    <div class="tasks-wrap">
+        <div class="tasks-toolbar">
+            <h2 class="tasks-title" id="tasks-title">Bun venit!</h2>
+            <button type="button" class="btn-primary" id="add-task-btn">＋ Task nou</button>
+        </div>
+        <div class="tasks-grid">
+            <div class="task-col">
+                <div class="col-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Toate taskurile
+                </div>
+                <div class="task-list" id="tasks-list">
+                    <p class="empty">Selectați un utilizator.</p>
+                </div>
+            </div>
+            <div class="task-col">
+                <div class="col-label today-col">
+                    <span class="pulse-dot"></span>
+                    Astăzi
+                </div>
+                <div class="task-list" id="today-tasks-list">
+                    <p class="empty">Se încarcă...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-left">
+            <button type="button" class="footer-btn btn-voice" id="voice-btn" title="Comandă Vocală">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <span id="voice-btn-label">Comandă Vocală</span>
+            </button>
+            <span class="status-text" id="voice-status">Inactiv</span>
+        </div>
+        <div class="footer-right">
+            <button type="button" class="footer-btn btn-ai" id="ai-btn" title="AI Chat">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                AI Chat
+            </button>
+            <span class="status-text" id="ai-status">Gata</span>
+        </div>
+    </footer>
+
+</div><!-- /.app -->
+
+<!-- CHAT AI -->
+<div class="chat-panel" id="chat-container">
+    <div class="chat-head">
+        <div class="chat-head-info">
+            <span class="chat-avatar">AI</span>
+            <div>
+                <strong>Asistent</strong>
+                <span class="chat-online">● online</span>
+            </div>
+        </div>
+        <button type="button" class="icon-btn" id="close-chat-btn" title="Închide">✕</button>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+        <div class="message ai-message"><p>Salut! Cum vă pot ajuta?</p></div>
+    </div>
+    <div class="chat-input-wrap">
+        <form id="chat-form">
+            <input type="text" id="chat-input" placeholder="Scrieți un mesaj..." autocomplete="off">
+            <button type="submit" class="btn-send" title="Trimite">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL SETĂRI -->
+<div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+        <div class="modal-head">
             <h2>Setări</h2>
-            <div class="settings-tabs">
-                <button class="tab-btn active" data-tab="general">General</button>
-                <button class="tab-btn" data-tab="weather">Vreme</button>
-                <button class="tab-btn" data-tab="ai">AI</button>
-                <button class="tab-btn" data-tab="voice">Vocal</button>
+            <button type="button" class="icon-btn" id="cancel-settings" title="Închide">✕</button>
+        </div>
+        <div class="settings-tabs">
+            <button type="button" class="tab-btn active" data-tab="general">General</button>
+            <button type="button" class="tab-btn" data-tab="weather">Vreme</button>
+            <button type="button" class="tab-btn" data-tab="ai">AI</button>
+            <button type="button" class="tab-btn" data-tab="voice">Vocal</button>
+        </div>
+
+        <div class="tab-content active" id="general-tab">
+            <div class="form-group">
+                <label for="app-language">Limbă</label>
+                <select id="app-language">
+                    <option value="ro">Română</option>
+                    <option value="en">Engleză</option>
+                </select>
             </div>
-            
-            <!-- General Settings -->
-            <div class="tab-content active" id="general-tab">
-                <div class="form-group">
-                    <label for="app-language">Limbă aplicație:</label>
-                    <select id="app-language">
-                        <option value="ro">Română</option>
-                        <option value="en">Engleză</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="date-format">Format dată:</label>
-                    <select id="date-format">
-                        <option value="short">Scurt (dd/mm/yyyy)</option>
-                        <option value="long">Lung (ziua, luna dd, yyyy)</option>
-                        <option value="full">Plen (ziua completă, luna dd, yyyy)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="time-format">Format oră:</label>
-                    <select id="time-format">
-                        <option value="24">24 de ore</option>
-                        <option value="12">12 ore (AM/PM)</option>
-                    </select>
-                </div>
+            <div class="form-group">
+                <label for="date-format">Format dată</label>
+                <select id="date-format">
+                    <option value="short">Scurt (dd/mm/yyyy)</option>
+                    <option value="long">Lung</option>
+                    <option value="full">Complet</option>
+                </select>
             </div>
-            
-            <!-- Weather Settings -->
-            <div class="tab-content" id="weather-tab">
-                <div class="form-group">
-                    <label for="weather-city">Oraș:</label>
-                    <input type="text" id="weather-city" value="București" />
-                </div>
-                <div class="form-group">
-                    <label for="weather-units">Unități de temperatură:</label>
-                    <select id="weather-units">
-                        <option value="metric">Metric (°C)</option>
-                        <option value="imperial">Imperial (°F)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="weather-update">Frecvență de actualizare (minute):</label>
-                    <input type="number" id="weather-update" value="30" min="5" max="1440" />
-                </div>
-            </div>
-            
-            <!-- AI Settings -->
-            <div class="tab-content" id="ai-tab">
-                <div class="form-group">
-                    <label for="ai-model">Model AI:</label>
-                    <select id="ai-model">
-                        <option value="mistral">qwen3:4b</option>
-                        <option value="codellama">Code Llama</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="ai-temperature">Temperatura (creativitate):</label>
-                    <input type="range" id="ai-temperature" min="0" max="2" step="0.1" value="0.7" />
-                    <span id="ai-temp-value">0.7</span>
-                </div>
-                <div class="form-group">
-                    <label for="ai-max-tokens">Max tokeni:</label>
-                    <input type="number" id="ai-max-tokens" value="500" min="50" max="2000" />
-                </div>
-            </div>
-            
-            <!-- Voice Settings -->
-            <div class="tab-content" id="voice-tab">
-                <div class="form-group">
-                    <label for="voice-language">Limbă de recunoaștere:</label>
-                    <select id="voice-language">
-                        <option value="ro-RO">Română</option>
-                        <option value="en-US">Engleză (SUA)</option>
-                        <option value="en-GB">Engleză (Regatul Unit)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="voice-sensitivity">Sensibilitate microfon:</label>
-                    <input type="range" id="voice-sensitivity" min="0" max="1" step="0.1" value="0.5" />
-                    <span id="voice-sens-value">0.5</span>
-                </div>
-                <div class="form-group">
-                    <label for="voice-auto-start">Autopornire ascultare:</label>
-                    <input type="checkbox" id="voice-auto-start" />
-                </div>
-            </div>
-            
-            <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" id="cancel-settings">Anulează</button>
-                <button type="button" class="btn btn-primary" id="save-settings">Salvează setările</button>
+            <div class="form-group">
+                <label for="time-format">Format oră</label>
+                <select id="time-format">
+                    <option value="24">24h</option>
+                    <option value="12">12h AM/PM</option>
+                </select>
             </div>
         </div>
-    </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+        <div class="tab-content" id="weather-tab">
+            <div class="form-group">
+                <label for="weather-city">Oraș</label>
+                <input type="text" id="weather-city" value="București">
+            </div>
+            <div class="form-group">
+                <label for="weather-units">Unități</label>
+                <select id="weather-units">
+                    <option value="metric">Metric (°C)</option>
+                    <option value="imperial">Imperial (°F)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="weather-update">Actualizare (minute)</label>
+                <input type="number" id="weather-update" value="30" min="5" max="1440">
+            </div>
+        </div>
+
+        <div class="tab-content" id="ai-tab">
+            <div class="form-group">
+                <label for="ai-model">Model AI</label>
+                <select id="ai-model">
+                    <option value="mistral">qwen3:4b</option>
+                    <option value="codellama">Code Llama</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ai-temperature">Creativitate — <span id="ai-temp-value">0.7</span></label>
+                <input type="range" id="ai-temperature" min="0" max="2" step="0.1" value="0.7">
+            </div>
+            <div class="form-group">
+                <label for="ai-max-tokens">Max tokeni</label>
+                <input type="number" id="ai-max-tokens" value="500" min="50" max="2000">
+            </div>
+        </div>
+
+        <div class="tab-content" id="voice-tab">
+            <div class="form-group">
+                <label for="voice-language">Limbă recunoaștere</label>
+                <select id="voice-language">
+                    <option value="ro-RO">Română</option>
+                    <option value="en-US">Engleză (SUA)</option>
+                    <option value="en-GB">Engleză (UK)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="voice-sensitivity">Sensibilitate — <span id="voice-sens-value">0.5</span></label>
+                <input type="range" id="voice-sensitivity" min="0" max="1" step="0.1" value="0.5">
+            </div>
+            <div class="form-group form-inline">
+                <label for="voice-auto-start">Autopornire</label>
+                <input type="checkbox" id="voice-auto-start">
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-settings-footer">Anulează</button>
+            <button type="button" class="btn btn-primary" id="save-settings">Salvează</button>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const f = document.getElementById('cancel-settings-footer');
+        const m = document.getElementById('cancel-settings');
+        if (f && m) f.addEventListener('click', () => m.click());
+    });
+</script>
 </body>
 </html>

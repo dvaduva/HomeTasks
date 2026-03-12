@@ -31,16 +31,19 @@ function initVoiceRecognition() {
     // Update button state
     function updateVoiceButton(listening) {
         const voiceBtn = document.getElementById('voice-btn');
+        const label = document.getElementById('voice-btn-label');
         if (listening) {
-            voiceBtn.innerHTML = '🎤 Ascult...';
-            voiceBtn.style.backgroundColor = '#e74c3c';
+            if (label) label.textContent = 'Ascult...';
+            voiceBtn.style.removeProperty('background-color');
+            voiceBtn.classList.add('listening');
             voiceBtn.title = 'Oprire ascultare';
-            voiceStatus.textContent = 'Microfon: ascult...';
+            voiceStatus.textContent = 'Ascult...';
         } else {
-            voiceBtn.innerHTML = '🎤 Comandă Vocală';
-            voiceBtn.style.backgroundColor = '#3498db';
+            if (label) label.textContent = 'Comandă Vocală';
+            voiceBtn.style.removeProperty('background-color');
+            voiceBtn.classList.remove('listening');
             voiceBtn.title = 'Pornește ascultarea';
-            voiceStatus.textContent = 'Microfon: disponibil';
+            voiceStatus.textContent = 'Disponibil';
         }
     }
     
@@ -179,21 +182,80 @@ function loadTasksForUser(userId) {
         });
 }
 
+// Map OpenWeatherMap icon codes to emoji
+const WEATHER_EMOJI = {
+    '01d': '☀️',  '01n': '🌙',
+    '02d': '🌤️', '02n': '🌤️',
+    '03d': '⛅',  '03n': '⛅',
+    '04d': '☁️',  '04n': '☁️',
+    '09d': '🌧️', '09n': '🌧️',
+    '10d': '🌦️', '10n': '🌧️',
+    '11d': '⛈️',  '11n': '⛈️',
+    '13d': '❄️',  '13n': '❄️',
+    '50d': '🌫️', '50n': '🌫️',
+};
+
+function weatherEmoji(icon) {
+    return WEATHER_EMOJI[icon] || WEATHER_EMOJI[icon?.slice(0, 2) + 'd'] || '🌡️';
+}
+
 function loadWeather() {
+    // Current weather
     fetch('/api/weather/current')
         .then(response => response.json())
         .then(data => {
             const weatherEl = document.getElementById('weather');
-            if (weatherEl) {
-                weatherEl.innerHTML = `
-                    <span class="weather-temp">${Math.round(data.temperature)}°C</span>
+            if (!weatherEl) return;
+            const emoji = weatherEmoji(data.icon);
+            weatherEl.innerHTML = `
+                <span class="weather-emoji">${emoji}</span>
+                <span class="weather-temp">${Math.round(data.temperature)}°</span>
+                <div class="weather-info">
                     <span class="weather-desc">${data.description}</span>
                     <span class="weather-city">${data.city}</span>
-                `;
-            }
+                </div>
+            `;
         })
         .catch(error => {
             console.warn('Weather not available:', error);
+        });
+
+    // 5-day forecast strip
+    fetch('/api/weather/forecast?days=5')
+        .then(response => response.json())
+        .then(data => {
+            const forecastEl = document.getElementById('weather-forecast');
+            if (!forecastEl || !data.daily) return;
+
+            const dayNames = ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm'];
+            const today = new Date().toDateString();
+
+            const html = data.daily.slice(0, 5).map(day => {
+                const date = new Date(day.date);
+                const isToday = date.toDateString() === today;
+                const label = isToday ? 'Azi' : dayNames[date.getDay()];
+                const emoji = weatherEmoji(day.icon);
+                const popText = day.pop_avg > 0.1
+                    ? `<span class="forecast-pop">💧${Math.round(day.pop_avg * 100)}%</span>`
+                    : '';
+
+                return `
+                    <div class="forecast-day${isToday ? ' today' : ''}">
+                        <span class="forecast-day-name">${label}</span>
+                        <span class="forecast-emoji">${emoji}</span>
+                        <div class="forecast-temps">
+                            <span class="forecast-temp-high">${Math.round(day.temp_max)}°</span>
+                            <span class="forecast-temp-low">${Math.round(day.temp_min)}°</span>
+                        </div>
+                        ${popText}
+                    </div>
+                `;
+            }).join('');
+
+            forecastEl.innerHTML = html;
+        })
+        .catch(error => {
+            console.warn('Forecast not available:', error);
         });
 }
 
