@@ -291,16 +291,6 @@ function setupEventListeners() {
     document.getElementById('settings-btn').addEventListener('click', function() {
         alert('Setările vor fi implementate în versiunea ulterioară');
     });
-    
-    // Voice button
-    document.getElementById('voice-btn').addEventListener('click', function() {
-        alert('Funcționalitatea vocală va fi implementată în versiunea ulterioară');
-    });
-    
-    // AI button
-    document.getElementById('ai-btn').addEventListener('click', function() {
-        alert('Funcționalitatea AI va fi implementată în versiunea ulterioară');
-    });
 }
 
 function setupTaskEventListeners(taskElement, task) {
