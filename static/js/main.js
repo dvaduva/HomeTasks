@@ -1,8 +1,12 @@
 // Main JavaScript for HomeTasks frontend - Faza 7: Interfața de gestionare a taskurilor
+// Faza 8: Interfața vocală (client-side)
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize the application
     initApp();
+    
+    // Initialize voice recognition
+    initVoiceRecognition();
 });
 
 function initApp() {
@@ -76,6 +80,24 @@ function loadTasksForUser(userId) {
         });
 }
 
+function loadWeather() {
+    fetch('/api/weather/current')
+        .then(response => response.json())
+        .then(data => {
+            const weatherEl = document.getElementById('weather');
+            if (weatherEl) {
+                weatherEl.innerHTML = `
+                    <span class="weather-temp">${Math.round(data.temperature)}°C</span>
+                    <span class="weather-desc">${data.description}</span>
+                    <span class="weather-city">${data.city}</span>
+                `;
+            }
+        })
+        .catch(error => {
+            console.warn('Weather not available:', error);
+        });
+}
+
 function loadTodayTasks() {
     fetch('/api/tasks/today')
         .then(response => response.json())
@@ -90,6 +112,7 @@ function loadTodayTasks() {
 
 function updateTasksDisplay(tasks) {
     const tasksList = document.getElementById('tasks-list');
+    if (!tasksList) return;
     if (tasks.length === 0) {
         tasksList.innerHTML = '<p>Nu există taskuri pentru acest utilizator.</p>';
         return;
@@ -108,6 +131,7 @@ function updateTasksDisplay(tasks) {
 
 function updateTodayTasksDisplay(tasks) {
     const todayTasksList = document.getElementById('today-tasks-list');
+    if (!todayTasksList) return;
     if (tasks.length === 0) {
         todayTasksList.innerHTML = '<p>Nu există taskuri pentru astăzi.</p>';
         return;
@@ -792,3 +816,163 @@ modalStyle.textContent = `
     }
 `;
 document.head.appendChild(modalStyle);
+
+// Voice recognition functionality
+function initVoiceRecognition() {
+    // Check if SpeechRecognition is available
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!('SpeechRecognition' in window)) {
+        console.warn('SpeechRecognition not supported in this browser');
+        document.getElementById('voice-btn').title = 'Recunoașterea vocală nu este disponibilă în acest browser';
+        document.getElementById('voice-btn').style.opacity = '0.5';
+        document.getElementById('voice-btn').style.cursor = 'not-allowed';
+        return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'ro-RO'; // Romanian language
+    
+    let isListening = false;
+    
+    // Update button state
+    function updateVoiceButton(listening) {
+        const voiceBtn = document.getElementById('voice-btn');
+        if (listening) {
+            voiceBtn.innerHTML = '🎤 Ascult...';
+            voiceBtn.style.backgroundColor = '#e74c3c';
+            voiceBtn.title = 'Oprire ascultare';
+        } else {
+            voiceBtn.innerHTML = '🎤 Comandă Vocală';
+            voiceBtn.style.backgroundColor = '#3498db';
+            voiceBtn.title = 'Pornește ascultarea';
+        }
+    }
+    
+    recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript.trim();
+        console.log('Voice command received:', transcript);
+        
+        // Process the voice command
+        processVoiceCommand(transcript);
+        
+        // Stop listening after getting a result
+        recognition.stop();
+        isListening = false;
+        updateVoiceButton(isListening);
+    };
+    
+    recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        isListening = false;
+        updateVoiceButton(isListening);
+        
+        // Show error feedback
+        showVoiceFeedback('Eroare la recunoașterea vorbirii: ' + event.error, true);
+    };
+    
+    recognition.onend = function() {
+        isListening = false;
+        updateVoiceButton(isListening);
+    };
+    
+    // Voice button click handler
+    document.getElementById('voice-btn').addEventListener('click', function() {
+        if (!isListening) {
+            // Start listening
+            try {
+                recognition.start();
+                isListening = true;
+                updateVoiceButton(isListening);
+                showVoiceFeedback('Ascult... Vorbesc acum', false);
+            } catch (err) {
+                console.error('Error starting speech recognition:', err);
+                showVoiceFeedback('Eroare la pornirea recunoașterii vocale', true);
+            }
+        } else {
+            // Stop listening
+            recognition.stop();
+            isListening = false;
+            updateVoiceButton(isListening);
+            showVoiceFeedback('Oprire ascultare', false);
+        }
+    });
+}
+
+// Process voice command by sending to backend
+function processVoiceCommand(command) {
+    showVoiceFeedback('Procesare comandă: "' + command + '"', false);
+    
+    fetch('/api/voice-command', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ command: command })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Voice command response:', data);
+        showVoiceFeedback(data.response, false);
+        
+        // If the command was to add a task, refresh the task list
+        if (command.toLowerCase().includes('adaugă task') || command.toLowerCase().includes('add task')) {
+            // Reload tasks for current user
+            const activeUser = document.querySelector('.user-item.active');
+            if (activeUser) {
+                loadTasksForUser(activeUser.dataset.userId);
+                loadTodayTasks();
+            }
+        }
+        
+        // If the command was about weather, refresh weather
+        if (command.toLowerCase().includes('vreme') || command.toLowerCase().includes('weather')) {
+            loadWeather();
+        }
+    })
+    .catch(error => {
+        console.error('Error processing voice command:', error);
+        showVoiceFeedback('Eroare la procesarea comenzii vocale', true);
+    });
+}
+
+// Show visual feedback for voice interaction
+function showVoiceFeedback(message, isError = false) {
+    // Remove any existing feedback
+    const existingFeedback = document.querySelector('.voice-feedback');
+    if (existingFeedback) {
+        existingFeedback.remove();
+    }
+    
+    // Create feedback element
+    const feedback = document.createElement('div');
+    feedback.className = 'voice-feedback';
+    feedback.textContent = message;
+    feedback.style.position = 'fixed';
+    feedback.style.top = '20px';
+    feedback.style.left = '50%';
+    feedback.style.transform = 'translateX(-50%)';
+    feedback.style.backgroundColor = isError ? '#e74c3c' : '#2ecc71';
+    feedback.style.color = 'white';
+    feedback.style.padding = '10px 20px';
+    feedback.style.borderRadius = '4px';
+    feedback.style.zIndex = '1000';
+    feedback.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    feedback.style.fontSize = '14px';
+    
+    document.body.appendChild(feedback);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        if (feedback.parentNode) {
+            feedback.parentNode.removeChild(feedback);
+        }
+    }, 3000);
+}

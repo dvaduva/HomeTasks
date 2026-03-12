@@ -38,10 +38,23 @@
             </aside>
 
             <section class="main" id="main-section">
-                <!-- Main content will be loaded here -->
-                <div class="welcome-message">
-                    <h2>Bun venit în HomeTasks!</h2>
-                    <p>Selectați un utilizator din lista din stânga pentru a vedea taskurile sale.</p>
+                <div class="tasks-header">
+                    <h2 id="tasks-title">Bun venit în HomeTasks!</h2>
+                    <button class="btn-add-task" id="add-task-btn">+ Task nou</button>
+                </div>
+                <div class="tasks-container">
+                    <div class="tasks-section">
+                        <h3>Taskurile utilizatorului</h3>
+                        <div id="tasks-list">
+                            <p>Selectați un utilizator din lista din stânga pentru a vedea taskurile sale.</p>
+                        </div>
+                    </div>
+                    <div class="tasks-section today-section">
+                        <h3>Taskuri de astăzi</h3>
+                        <div id="today-tasks-list">
+                            <p>Se încarcă...</p>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>

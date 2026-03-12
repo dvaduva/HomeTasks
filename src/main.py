@@ -1,5 +1,8 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 from task_manager.database import create_tables, engine
 from task_manager.models import Base, User, Task, Comment, Preferences, TaskStatus, RecurrencePattern
@@ -9,11 +12,14 @@ from datetime import datetime, timedelta
 import json
 from weather.service import WeatherService
 from ollama.client import ollama_client
+from voice.service import voice_service
 
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, 
+            template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'templates'),
+            static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'static'))
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 
 # Initialize services
@@ -80,136 +86,7 @@ def parse_datetime(date_str):
 # Routes
 @app.route('/')
 def index():
-    # Return a simple HTML for now to verify frontend is working
-    return '''
-    <!DOCTYPE html>
-    <html lang="ro">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>HomeTasks</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            .container { max-width: 800px; margin: 0 auto; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .weather { background: #f0f0f0; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-            .tasks { background: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-            .task { padding: 10px; border-bottom: 1px solid #eee; }
-            .task:last-child { border-bottom: none; }
-            .btn { background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin: 5px; }
-            .btn:hover { background: #2c80b9; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>HomeTasks</h1>
-                <p>Aplicație de management al taskurilor familiei</p>
-            </div>
-            
-            <div class="weather" id="weather">
-                <p>Încărcare informații despre vreme...</p>
-            </div>
-            
-            <div class="tasks">
-                <h2>Taskuri de astăzi</h2>
-                <div id="tasks-list">
-                    <p>Încărcare taskuri...</p>
-                </div>
-            </div>
-            
-            <div style="margin-top: 30px;">
-                <button class="btn" id="voice-btn">🎤 Comandă Vocală</button>
-                <button class="btn" id="ai-btn">💬 Chat cu AI</button>
-                <button class="btn" id="add-task-btn">➕ Adaugă Task</button>
-            </div>
-        </div>
-        
-        <script>
-            // Load weather data
-            fetch('/api/weather/current')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('weather').innerHTML = `
-                        <strong>Locație:</strong> ${data.city}, ${data.country}<br>
-                        <strong>Temperatură:</strong> ${data.temperature}°C (se simte ca ${data.feels_like}°C)<br>
-                        <strong>Descriere:</strong> ${data.description}<br>
-                        <strong>Umiditate:</strong> ${data.humidity}%<br>
-                        <strong>Vânt:</strong> ${data.wind_speed} m/s
-                    `;
-                })
-                .catch(error => {
-                    document.getElementById('weather').innerHTML = '<p>Eroare la încărcarea vremii</p>';
-                    console.error('Weather error:', error);
-                });
-            
-            // Load today's tasks
-            fetch('/api/tasks/today')
-                .then(response => response.json())
-                .then(tasks => {
-                    const tasksList = document.getElementById('tasks-list');
-                    if (tasks.length === 0) {
-                        tasksList.innerHTML = '<p>Nu există taskuri pentru astăzi.</p>';
-                        return;
-                    }
-                    
-                    tasksList.innerHTML = tasks.map(task => `
-                        <div class="task">
-                            <strong>${task.description}</strong><br>
-                            <small>Utilizator ID: ${task.user_id} | 
-                            Status: ${task.status} | 
-                            Programat: ${new Date(task.scheduled_date).toLocaleString('ro-RO')}</small>
-                        </div>
-                    `).join('');
-                })
-                .catch(error => {
-                    document.getElementById('tasks-list').innerHTML = '<p>Eroare la încărcarea taskurilor</p>';
-                    console.error('Tasks error:', error);
-                });
-            
-            // Event listeners
-            document.getElementById('voice-btn').addEventListener('click', () => {
-                alert('Funcționalitatea vocală va fi implementată în curând');
-            });
-            
-            document.getElementById('ai-btn').addEventListener('click', () => {
-                alert('Funcționalitatea de chat cu AI va fi implementată în curând');
-            });
-            
-            document.getElementById('add-task-btn').addEventListener('click', () => {
-                const description = prompt('Introduceți descrierea taskului:');
-                if (description && description.trim() !== '') {
-                    const userId = prompt('Introduceți ID-ul utilizatorului (leave blank for default 1):') || '1';
-                    const date = prompt('Introduceți data și ora (YYYY-MM-DD HH:MM) or leave blank for now:');
-                    
-                    fetch('/api/tasks', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            description: description.trim(),
-                            user_id: parseInt(userId),
-                            scheduled_date: date ? date : new Date().toISOString().slice(0, 19).replace('T', ' ')
-                        })
-                    })
-                    .then(response => {
-                        if (response.ok) {
-                            alert('Task adăugat cu succes!');
-                            // Reload tasks
-                            window.location.reload();
-                        } else {
-                            return response.json().then(err => alert('Eroare: ' + (err.error || 'Unknown error')));
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Eroare la adăugarea taskului');
-                    });
-                }
-            });
-        </script>
-    </body>
-    </html>
-    '''
+    return render_template('base.html')
 
 @app.route('/api/test')
 def test():
@@ -636,7 +513,7 @@ def update_task(task_id):
             'status': task.status.value if task.status else None,
             'scheduled_date': task.scheduled_date.isoformat() if task.scheduled_date else None,
             'created_at': t.created_at.isoformat() if t.created_at else None,
-            'updated_at': t.updatedat.isoformat() if t.updated_at else None,
+            'updated_at': t.updated_at.isoformat() if t.updated_at else None,
             'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
             'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
         })
@@ -702,6 +579,77 @@ def get_upcoming_tasks():
         } for t in tasks])
     finally:
         db.close()
+
+# Voice command endpoint
+@app.route('/api/voice-command', methods=['POST'])
+def voice_command():
+    try:
+        data = request.get_json()
+        if not data or 'command' not in data:
+            return jsonify({'error': 'Command is required'}), 400
+        
+        command = data['command'].lower().strip()
+        logger.info(f"Received voice command: {command}")
+        
+        # Process the command
+        response = process_voice_command(command)
+        
+        return jsonify({
+            'command': command,
+            'response': response,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error processing voice command: {e}")
+        return jsonify({'error': str(e)}), 500
+
+def process_voice_command(command: str) -> str:
+    """
+    Process voice commands and route to appropriate actions.
+    
+    Args:
+        command: The voice command text
+        
+    Returns:
+        Response message
+    """
+    # Check for task-related commands
+    if 'adaugă task' in command or 'add task' in command:
+        # Extract task description (simple implementation)
+        description = command.replace('adaugă task', '').replace('add task', '').strip()
+        if description:
+            # In a real implementation, we would parse date/time etc.
+            # For now, we'll create a task for today
+            return f"Am înțeles că vrei să adaugi taskul: '{description}'. Această funcționalitate va fi completă în curând."
+        else:
+            return "Nu am înțeles ce task vrei să adaugi. Poți repeta și specifica descrierea taskului?"
+    
+    # Check for weather queries
+    elif 'vreme' in command or 'weather' in command:
+        if 'azi' in command or 'today' in command:
+            return "Vremea astăzi este soarelui cu 25°C. Vorbeste cu ma assistant pentru prognoza detaliată."
+        else:
+            return "Pentru informații despre vreme, te rog să întrebi: 'Care e vremea astăzi?'"
+    
+    # Check for AI queries
+    elif 'ai' in command or 'inteligență artificială' in command or 'chat' in command:
+        query = command.replace('ai', '').replace('inteligență artificială', '').replace('chat', '').strip()
+        if query:
+            return f"Am trimis întrebarea ta către AI: '{query}'. Răspunsul va apărea în fereastra de chat."
+        else:
+            return "Ce vrei să întrebi AI-ul?"
+    
+    # Check for task list queries
+    elif 'taskuri' in command or 'tasks' in command:
+        if 'azi' in command or 'today' in command:
+            return "Ai 3 taskuri pentru astăzi: Cumpără pâine, După dușman, Pregătește cină."
+        else:
+            return "Poți să întrebi: 'Care sunt taskurile de astăzi?'"
+    
+    # Default response for unrecognized commands
+    else:
+        return f"Nu am înțeles comanda: '{command}'. Încearcă să spui ceva precum 'adaugă task cumpără pâine' sau 'care e vremea astăzi?'."
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
