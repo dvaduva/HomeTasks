@@ -15,7 +15,7 @@ class OllamaClient:
         """
         self.base_url = base_url or os.getenv('OLLAMA_HOST', 'http://localhost:11434')
         self.model = model or os.getenv('OLLAMA_MODEL', 'llama3:8b')
-        self.timeout = int(os.getenv('OLLAMA_TIMEOUT', '30'))
+        self.timeout = int(os.getenv('OLLAMA_TIMEOUT', '120'))
         self.max_history_length = 10
         
         # Conversation history for context maintenance
@@ -142,7 +142,7 @@ class OllamaClient:
             True if server is running, False otherwise
         """
         try:
-            response = requests.get(f"{self.base_url}/api/version", timeout=5)
+            response = requests.get(f"{self.base_url}/", timeout=5)
             return response.status_code == 200
         except:
             return False

@@ -814,22 +814,27 @@ document.head.appendChild(modalStyle);
 function initVoiceRecognition() {
     // Check if SpeechRecognition is available
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!('SpeechRecognition' in window)) {
+
+    const voiceStatus = document.getElementById('voice-status');
+
+    if (!window.SpeechRecognition) {
         console.warn('SpeechRecognition not supported in this browser');
         document.getElementById('voice-btn').title = 'Recunoașterea vocală nu este disponibilă în acest browser';
         document.getElementById('voice-btn').style.opacity = '0.5';
         document.getElementById('voice-btn').style.cursor = 'not-allowed';
+        voiceStatus.textContent = 'Microfon: indisponibil';
         return;
     }
-    
+
+    voiceStatus.textContent = 'Microfon: disponibil';
+
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = 'ro-RO'; // Romanian language
-    
+
     let isListening = false;
-    
+
     // Update button state
     function updateVoiceButton(listening) {
         const voiceBtn = document.getElementById('voice-btn');
@@ -837,35 +842,39 @@ function initVoiceRecognition() {
             voiceBtn.innerHTML = '🎤 Ascult...';
             voiceBtn.style.backgroundColor = '#e74c3c';
             voiceBtn.title = 'Oprire ascultare';
+            voiceStatus.textContent = 'Microfon: ascult...';
         } else {
             voiceBtn.innerHTML = '🎤 Comandă Vocală';
             voiceBtn.style.backgroundColor = '#3498db';
             voiceBtn.title = 'Pornește ascultarea';
+            voiceStatus.textContent = 'Microfon: disponibil';
         }
     }
-    
+
     recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript.trim();
         console.log('Voice command received:', transcript);
-        
+
         // Process the voice command
         processVoiceCommand(transcript);
-        
+
         // Stop listening after getting a result
         recognition.stop();
         isListening = false;
         updateVoiceButton(isListening);
     };
-    
+
     recognition.onerror = function(event) {
         console.error('Speech recognition error:', event.error);
         isListening = false;
         updateVoiceButton(isListening);
-        
+        if (event.error === 'not-allowed') {
+            voiceStatus.textContent = 'Microfon: acces refuzat';
+        }
         // Show error feedback
         showVoiceFeedback('Eroare la recunoașterea vorbirii: ' + event.error, true);
     };
-    
+
     recognition.onend = function() {
         isListening = false;
         updateVoiceButton(isListening);
@@ -1018,7 +1027,9 @@ function initChat() {
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                return response.json().then(err => {
+                    throw new Error(err.error || 'Network response was not ok');
+                });
             }
             return response.json();
         })

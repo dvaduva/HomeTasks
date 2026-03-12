@@ -1,3 +1,4 @@
 cd d:\Surse\Proiecte\HomeTasks 
-venv/Scripts/python src/main.py
+venv\Scripts\activate
+py .\src\main.py 
 pause
