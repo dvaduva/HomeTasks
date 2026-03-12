@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize voice recognition
     initVoiceRecognition();
+    
+    // Initialize chat
+    initChat();
 });
 
 function initApp() {
@@ -975,4 +978,142 @@ function showVoiceFeedback(message, isError = false) {
             feedback.parentNode.removeChild(feedback);
         }
     }, 3000);
+}
+
+// AI Chat functionality
+function initChat() {
+    const chatContainer = document.getElementById('chat-container');
+    const aiBtn = document.getElementById('ai-btn');
+    const closeChatBtn = document.getElementById('close-chat-btn');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+    
+    // Toggle chat visibility
+    aiBtn.addEventListener('click', function() {
+        chatContainer.classList.toggle('open');
+        if (chatContainer.classList.contains('open')) {
+            chatInput.focus();
+        }
+    });
+    
+    // Close chat
+    closeChatBtn.addEventListener('click', function() {
+        chatContainer.classList.remove('open');
+    });
+    
+    // Handle form submission
+    chatForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const message = chatInput.value.trim();
+        if (!message) return;
+        
+        // Add user message to chat
+        addUserMessage(message);
+        
+        // Clear input
+        chatInput.value = '';
+        
+        // Show typing indicator
+        showTypingIndicator();
+        
+        // Send message to backend
+        fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ message: message })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Remove typing indicator
+            removeTypingIndicator();
+            
+            // Add AI response to chat
+            if (data.response) {
+                addAIMessage(data.response);
+            } else {
+                addAIMessage('Îmi pare rău, nu am putut genera un răspuns. Vă rugăm să încercați din nou.');
+            }
+            
+            // Scroll to bottom
+            scrollToBottom();
+        })
+        .catch(error => {
+            console.error('Error in AI chat:', error);
+            // Remove typing indicator
+            removeTypingIndicator();
+            
+            // Add error message
+            addAIMessage('A apărut o eroare la comunicarea cu serverul AI. Vă rugăm să încercați din nou.');
+            
+            // Scroll to bottom
+            scrollToBottom();
+        });
+    });
+    
+    // Add sample messages on load
+    setTimeout(() => {
+        addAIMessage('Salut! Sunt HomeTasks AI assistant. Cum vă pot ajuta astăzi?');
+    }, 500);
+}
+
+// Add user message to chat
+function addUserMessage(message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message user-message';
+    messageDiv.innerHTML = `<p>${message}</p>`;
+    
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(messageDiv);
+    
+    scrollToBottom();
+}
+
+// Add AI message to chat
+function addAIMessage(message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ai-message';
+    messageDiv.innerHTML = `<p>${message}</p>`;
+    
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(messageDiv);
+    
+    scrollToBottom();
+}
+
+// Show typing indicator
+function showTypingIndicator() {
+    // Remove any existing typing indicator
+    removeTypingIndicator();
+    
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message ai-message typing-indicator';
+    typingDiv.innerHTML = `<p>AI scrie...</p>`;
+    
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(typingDiv);
+    
+    scrollToBottom();
+}
+
+// Remove typing indicator
+function removeTypingIndicator() {
+    const typingIndicator = document.querySelector('.typing-indicator');
+    if (typingIndicator) {
+        typingIndicator.remove();
+    }
+}
+
+// Scroll chat to bottom
+function scrollToBottom() {
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
