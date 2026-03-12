@@ -160,7 +160,7 @@ def index():
                             Status: ${task.status} | 
                             Programat: ${new Date(task.scheduled_date).toLocaleString('ro-RO')}</small>
                         </div>
-                    ).join('');
+                    `).join('');
                 })
                 .catch(error => {
                     document.getElementById('tasks-list').innerHTML = '<p>Eroare la încărcarea taskurilor</p>';
