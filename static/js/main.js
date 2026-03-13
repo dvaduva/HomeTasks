@@ -1146,6 +1146,7 @@ function speakText(text) {
     }
 
     window.speechSynthesis.speak(utterance);
+    return utterance;
 }
 
 // Process voice command by sending to AI chat
@@ -1343,11 +1344,31 @@ function addUserMessage(message) {
 function addAIMessage(message) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message ai-message';
-    messageDiv.innerHTML = `<p>${message}</p>`;
-    
+    messageDiv.title = 'Click pentru a asculta mesajul';
+    messageDiv.innerHTML = `<p>${message}<span class="tts-icon">🔊</span></p>`;
+
+    messageDiv.addEventListener('click', function () {
+        // Stop if clicking the same speaking message
+        if (this.classList.contains('speaking')) {
+            window.speechSynthesis?.cancel();
+            this.classList.remove('speaking');
+            return;
+        }
+        // Stop any other speaking message
+        document.querySelectorAll('.ai-message.speaking').forEach(el => el.classList.remove('speaking'));
+
+        this.classList.add('speaking');
+        const el = this;
+        const utterance = speakText(message);
+        if (utterance) {
+            utterance.onend = () => el.classList.remove('speaking');
+            utterance.onerror = () => el.classList.remove('speaking');
+        }
+    });
+
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(messageDiv);
-    
+
     scrollToBottom();
 }
 
@@ -1378,6 +1399,166 @@ function removeTypingIndicator() {
 function scrollToBottom() {
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// ============================================================
+// Utility
+// ============================================================
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// ============================================================
+// Settings – User Management Tab
+// ============================================================
+function loadSettingsUsersTab() {
+    const container = document.getElementById('settings-users-list');
+    if (!container) return;
+    container.innerHTML = '<p class="settings-empty">Se încarcă...</p>';
+    fetch('/api/users')
+        .then(r => r.json())
+        .then(users => renderSettingsUsersList(users))
+        .catch(() => {
+            container.innerHTML = '<p class="settings-empty">Eroare la încărcarea utilizatorilor.</p>';
+        });
+}
+
+function renderSettingsUsersList(users) {
+    const container = document.getElementById('settings-users-list');
+    if (!container) return;
+    if (!users.length) {
+        container.innerHTML = '<p class="settings-empty">Niciun utilizator creat.</p>';
+        return;
+    }
+    container.innerHTML = users.map(u => `
+        <div class="settings-user-row" id="settings-user-${u.id}">
+            <span class="user-color-dot" style="background:${escapeHtml(u.color)}"></span>
+            <span class="settings-user-name">${escapeHtml(u.name)}</span>
+            <div class="settings-user-actions">
+                <button class="btn btn-sm btn-secondary" onclick="editUserInSettings(${u.id},'${escapeHtml(u.name)}','${escapeHtml(u.color)}')" title="Editează">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteUserFromSettings(${u.id},'${escapeHtml(u.name)}')" title="Șterge">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function editUserInSettings(userId, name, color) {
+    const row = document.getElementById(`settings-user-${userId}`);
+    if (!row) return;
+    row.innerHTML = `
+        <input type="color" value="${escapeHtml(color)}" id="edit-color-${userId}" title="Culoare">
+        <input type="text" value="${escapeHtml(name)}" id="edit-name-${userId}" style="flex:1" placeholder="Nume utilizator">
+        <div class="settings-user-actions">
+            <button class="btn btn-sm btn-primary" onclick="saveUserEditFromSettings(${userId})" title="Salvează">✓</button>
+            <button class="btn btn-sm btn-secondary" onclick="loadSettingsUsersTab()" title="Anulează">✗</button>
+        </div>
+    `;
+    document.getElementById(`edit-name-${userId}`)?.focus();
+    document.getElementById(`edit-name-${userId}`)?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveUserEditFromSettings(userId);
+        if (e.key === 'Escape') loadSettingsUsersTab();
+    });
+}
+
+function saveUserEditFromSettings(userId) {
+    const name = document.getElementById(`edit-name-${userId}`)?.value?.trim();
+    const color = document.getElementById(`edit-color-${userId}`)?.value;
+    if (!name) { showToast('Numele nu poate fi gol.', true); return; }
+    fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color })
+    })
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    .then(() => {
+        loadSettingsUsersTab();
+        loadUsers();
+        showToast('Utilizator actualizat.');
+    })
+    .catch(() => showToast('Eroare la actualizare.', true));
+}
+
+function deleteUserFromSettings(userId, name) {
+    if (!confirm(`Ștergi utilizatorul "${name}"?\nTaskurile sale vor rămâne în baza de date.`)) return;
+    fetch(`/api/users/${userId}`, { method: 'DELETE' })
+        .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+        .then(() => {
+            loadSettingsUsersTab();
+            loadUsers();
+            showToast('Utilizator șters.');
+        })
+        .catch(() => showToast('Eroare la ștergere.', true));
+}
+
+function addUserFromSettings() {
+    const nameInput = document.getElementById('settings-new-user-name');
+    const colorInput = document.getElementById('settings-new-user-color');
+    const name = nameInput?.value?.trim();
+    const color = colorInput?.value || '#3498db';
+    if (!name) { showToast('Introduceți un nume.', true); nameInput?.focus(); return; }
+    fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color })
+    })
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    .then(() => {
+        if (nameInput) nameInput.value = '';
+        if (colorInput) colorInput.value = '#3498db';
+        loadSettingsUsersTab();
+        loadUsers();
+        showToast('Utilizator adăugat.');
+    })
+    .catch(() => showToast('Eroare la adăugare.', true));
+}
+
+// ============================================================
+// AI – Dynamic Model Loading
+// ============================================================
+function loadAvailableModels(currentModel) {
+    const select = document.getElementById('ai-model');
+    if (!select) return;
+    fetch('/api/ai/models')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error || !data.models?.length) {
+                if (!currentModel) {
+                    select.innerHTML = '<option value="">— Ollama indisponibil —</option>';
+                } else {
+                    select.innerHTML = `<option value="${escapeHtml(currentModel)}">${escapeHtml(currentModel)}</option>`;
+                }
+                return;
+            }
+            const chosen = currentModel || select.value;
+            select.innerHTML = data.models
+                .map(m => `<option value="${escapeHtml(m.name)}"${m.name === chosen ? ' selected' : ''}>${escapeHtml(m.name)}</option>`)
+                .join('');
+        })
+        .catch(() => {
+            if (currentModel) {
+                select.innerHTML = `<option value="${escapeHtml(currentModel)}">${escapeHtml(currentModel)}</option>`;
+            } else {
+                select.innerHTML = '<option value="">— Ollama indisponibil —</option>';
+            }
+        });
+}
+
+// ============================================================
+// Startup Preferences – apply voice prefs before recognition init
+// ============================================================
+function loadStartupPreferences() {
+    fetch('/api/preferences')
+        .then(r => r.json())
+        .then(prefs => {
+            if (prefs.voice_language) voicePrefs.language = prefs.voice_language;
+            if (prefs.voice_sensitivity !== undefined) voicePrefs.sensitivity = prefs.voice_sensitivity;
+        })
+        .catch(() => {});
 }
 
 // Settings functionality
@@ -1458,6 +1639,42 @@ function initSettings() {
         }
     });
 
+    // Load users when Utilizatori tab is opened
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-tab') === 'utilizatori') {
+            btn.addEventListener('click', loadSettingsUsersTab);
+        }
+    });
+
+    // Load AI models when AI tab is opened
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-tab') === 'ai') {
+            btn.addEventListener('click', () => loadAvailableModels());
+        }
+    });
+
+    // Add user from settings button
+    const addUserSettingsBtn = document.getElementById('settings-add-user-btn');
+    if (addUserSettingsBtn) {
+        addUserSettingsBtn.addEventListener('click', addUserFromSettings);
+    }
+    const newUserNameInput = document.getElementById('settings-new-user-name');
+    if (newUserNameInput) {
+        newUserNameInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') addUserFromSettings();
+        });
+    }
+
+    // Load models button (AI tab)
+    const loadModelsBtn = document.getElementById('load-models-btn');
+    if (loadModelsBtn) {
+        loadModelsBtn.addEventListener('click', function () {
+            this.textContent = '↻ ...';
+            loadAvailableModels();
+            setTimeout(() => { this.textContent = '↻ Modele'; }, 2000);
+        });
+    }
+
     // Save TTS voice selection immediately on change
     const ttsVoiceSelect = document.getElementById('tts-voice');
     if (ttsVoiceSelect) {
@@ -1519,10 +1736,13 @@ function loadSettings() {
             }
             
             // Populate AI settings
-            const aiModelSelect = document.getElementById('ai-model');
-            if (aiModelSelect && settings.ai_model) {
-                aiModelSelect.value = settings.ai_model;
+            const ollamaUrlInput = document.getElementById('ollama-url');
+            if (ollamaUrlInput && settings.ollama_base_url) {
+                ollamaUrlInput.value = settings.ollama_base_url;
             }
+
+            // Load available models dynamically, pre-select saved model
+            loadAvailableModels(settings.ai_model);
             
             const aiTemperatureInput = document.getElementById('ai-temperature');
             const aiTempValue = document.getElementById('ai-temp-value');
@@ -1574,6 +1794,7 @@ function saveSettings() {
         weather_update_interval: parseInt(document.getElementById('weather-update')?.value) || 30,
         
         // AI
+        ollama_base_url: document.getElementById('ollama-url')?.value?.trim() || 'http://localhost:11434',
         ai_model: document.getElementById('ai-model')?.value,
         ai_temperature: parseFloat(document.getElementById('ai-temperature')?.value) || 0.7,
         ai_max_tokens: parseInt(document.getElementById('ai-max-tokens')?.value) || 500,
@@ -1705,6 +1926,9 @@ document.addEventListener('DOMContentLoaded', function() {
     loadWeather();
     updateDateTime();
     setInterval(updateDateTime, 1000);
+
+    // Load and apply preferences at startup (voice language, sensitivity etc.)
+    loadStartupPreferences();
 
     // Setup click/interaction event listeners
     setupEventListeners();

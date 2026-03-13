@@ -132,9 +132,21 @@
         </div>
         <div class="settings-tabs">
             <button type="button" class="tab-btn active" data-tab="general">General</button>
+            <button type="button" class="tab-btn" data-tab="utilizatori">Utilizatori</button>
             <button type="button" class="tab-btn" data-tab="weather">Vreme</button>
             <button type="button" class="tab-btn" data-tab="ai">AI</button>
             <button type="button" class="tab-btn" data-tab="voice">Vocal</button>
+        </div>
+
+        <div class="tab-content" id="utilizatori-tab">
+            <div class="settings-users-list" id="settings-users-list">
+                <p class="settings-empty">Se încarcă...</p>
+            </div>
+            <div class="settings-add-user">
+                <input type="text" id="settings-new-user-name" placeholder="Nume utilizator nou">
+                <input type="color" id="settings-new-user-color" value="#3498db" title="Culoare utilizator">
+                <button type="button" class="btn btn-primary btn-sm" id="settings-add-user-btn">＋ Adaugă</button>
+            </div>
         </div>
 
         <div class="tab-content active" id="general-tab">
@@ -182,10 +194,16 @@
 
         <div class="tab-content" id="ai-tab">
             <div class="form-group">
+                <label for="ollama-url">URL Server Ollama</label>
+                <div class="input-with-btn">
+                    <input type="text" id="ollama-url" placeholder="http://localhost:11434">
+                    <button type="button" class="btn btn-secondary btn-sm" id="load-models-btn" title="Verifică modele disponibile">↻ Modele</button>
+                </div>
+            </div>
+            <div class="form-group">
                 <label for="ai-model">Model AI</label>
                 <select id="ai-model">
-                    <option value="mistral">qwen3:4b</option>
-                    <option value="codellama">Code Llama</option>
+                    <option value="">— selectați modelul —</option>
                 </select>
             </div>
             <div class="form-group">

@@ -83,6 +83,7 @@ class Preferences(Base):
     weather_units = Column(String(20), default='metric')  # metric, imperial
     weather_update_interval = Column(Integer, default=30)
     # AI settings
+    ollama_base_url = Column(String(200), default='http://localhost:11434')
     ai_model = Column(String(50), default='llama3:8b')
     ai_temperature = Column(Float, default=0.7)
     ai_max_tokens = Column(Integer, default=500)

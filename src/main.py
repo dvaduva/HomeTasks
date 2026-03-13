@@ -793,6 +793,7 @@ def get_preferences():
             'weather_city': prefs.weather_city,
             'weather_units': prefs.weather_units,
             'weather_update_interval': prefs.weather_update_interval,
+            'ollama_base_url': prefs.ollama_base_url,
             'ai_model': prefs.ai_model,
             'ai_temperature': prefs.ai_temperature,
             'ai_max_tokens': prefs.ai_max_tokens,
@@ -820,7 +821,13 @@ def update_preferences():
                 setattr(prefs, key, value)
         
         db.commit()
-        
+
+        # Apply dynamic settings to live services
+        if 'ollama_base_url' in data and data['ollama_base_url']:
+            ollama_client.base_url = data['ollama_base_url']
+        if 'ai_model' in data and data['ai_model']:
+            ollama_client.model = data['ai_model']
+
         return jsonify({
             'id': prefs.id,
             'language': prefs.language,
@@ -829,6 +836,7 @@ def update_preferences():
             'weather_city': prefs.weather_city,
             'weather_units': prefs.weather_units,
             'weather_update_interval': prefs.weather_update_interval,
+            'ollama_base_url': prefs.ollama_base_url,
             'ai_model': prefs.ai_model,
             'ai_temperature': prefs.ai_temperature,
             'ai_max_tokens': prefs.ai_max_tokens,

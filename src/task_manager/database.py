@@ -29,6 +29,7 @@ def _migrate_preferences(engine):
         ("weather_city",            "VARCHAR(100) DEFAULT 'București'"),
         ("weather_units",           "VARCHAR(20) DEFAULT 'metric'"),
         ("weather_update_interval", "INTEGER DEFAULT 30"),
+        ("ollama_base_url",         "VARCHAR(200) DEFAULT 'http://localhost:11434'"),
         ("ai_model",                "VARCHAR(50) DEFAULT 'llama3:8b'"),
         ("ai_temperature",          "REAL DEFAULT 0.7"),
         ("ai_max_tokens",           "INTEGER DEFAULT 500"),
