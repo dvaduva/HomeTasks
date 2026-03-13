@@ -62,38 +62,38 @@ class OllamaClient:
         except requests.exceptions.RequestException as e:
             raise Exception(f"Ollama API error: {str(e)}")
     
-    def chat(self, message: str, temperature: float = 0.7, max_tokens: int = 500) -> Dict:
+    def chat(self, message: str, temperature: float = 0.7, max_tokens: int = 500, system_context: str = None) -> Dict:
         """
         Send a message and get a response, maintaining conversation context.
-        
+
         Args:
             message: The user's message
             temperature: Creativity parameter (0.0 to 1.0)
             max_tokens: Maximum number of tokens to generate
-            
+            system_context: Optional extra context (e.g. result of an executed action)
+
         Returns:
             Dictionary with the response
         """
         # Add user message to history
         self._add_to_history("user", message)
-        
+
         # Prepare messages for API call
         messages = []
-        
-        # Add system message if not already present (we'll add a default one)
-        has_system = any(msg["role"] == "system" for msg in self.conversation_history)
-        if not has_system:
-            # Add a default system message for HomeTasks context
-            system_msg = {
-                "role": "system",
-                "content": "You are a helpful assistant for HomeTasks, a family task management application. " +
-                          "You help users manage tasks, get weather information, and answer questions. " +
-                          "Keep your responses concise, helpful, and in the same language as the user's message."
-            }
-            messages.append(system_msg)
-        
-        # Add conversation history
-        messages.extend(self.conversation_history)
+
+        # Build system message
+        system_content = (
+            "You are a helpful assistant for HomeTasks, a family task management application. "
+            "You help users manage tasks, get weather information, and answer questions. "
+            "Keep your responses concise, helpful, and in the same language as the user's message."
+        )
+        if system_context:
+            system_content += f"\n\nContext from executed action: {system_context}. Use this information to formulate your response."
+
+        messages.append({"role": "system", "content": system_content})
+
+        # Add conversation history (skip any existing system messages)
+        messages.extend(msg for msg in self.conversation_history if msg["role"] != "system")
         
         url = f"{self.base_url}/api/chat"
         payload = {

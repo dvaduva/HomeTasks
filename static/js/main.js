@@ -259,6 +259,148 @@ function loadWeather() {
         });
 }
 
+// ── Weather hourly popup ──────────────────────────────
+let weatherPopupData = null;
+
+function openWeatherPopup() {
+    const popup = document.getElementById('weather-popup');
+    if (!popup) return;
+
+    if (weatherPopupData) {
+        renderWeatherPopup(weatherPopupData);
+        popup.hidden = false;
+        return;
+    }
+
+    fetch('/api/weather/forecast?days=2')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.hourly) return;
+            weatherPopupData = data;
+            renderWeatherPopup(data);
+            popup.hidden = false;
+        })
+        .catch(err => console.warn('Hourly weather error:', err));
+}
+
+function closeWeatherPopup() {
+    const popup = document.getElementById('weather-popup');
+    if (popup) popup.hidden = true;
+}
+
+function renderWeatherPopup(data) {
+    const hours = data.hourly || [];
+    const city = data.city || '';
+    document.getElementById('weather-popup-title').textContent =
+        `Prognoză orară — ${city}`;
+
+    // ── Render hour items ──
+    const hoursEl = document.getElementById('weather-popup-hours');
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    hoursEl.innerHTML = hours.map(h => {
+        const dt = new Date(h.datetime);
+        const hh = dt.getHours();
+        const label = hh === 0 ? '00:00' : `${String(hh).padStart(2, '0')}:00`;
+        const isNow = dt.getDate() === now.getDate() && hh === currentHour;
+        const iconUrl = `https://openweathermap.org/img/wn/${h.icon}@2x.png`;
+        const popHtml = h.pop > 0.05
+            ? `<span class="wh-pop">💧${Math.round(h.pop * 100)}%</span>`
+            : `<span class="wh-pop" style="visibility:hidden">–</span>`;
+
+        return `<div class="weather-hour-item${isNow ? ' current-hour' : ''}">
+            <span class="wh-time">${label}</span>
+            <img class="wh-icon" src="${iconUrl}" alt="${h.description}" title="${h.description}">
+            <span class="wh-temp">${Math.round(h.temperature)}°</span>
+            ${popHtml}
+        </div>`;
+    }).join('');
+
+    // ── Draw SVG chart ──
+    drawWeatherChart(hours);
+}
+
+function drawWeatherChart(hours) {
+    const svg = document.getElementById('weather-chart');
+    if (!svg || hours.length < 2) return;
+
+    const W = 392, H = 88;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    const temps = hours.map(h => h.temperature);
+    const tMin = Math.min(...temps) - 1;
+    const tMax = Math.max(...temps) + 1;
+    const n = hours.length;
+
+    const px = i => Math.round((i / (n - 1)) * (W - 20) + 10);
+    const py = t => Math.round(H - 22 - ((t - tMin) / (tMax - tMin)) * (H - 32));
+
+    // Build smooth path using cardinal spline
+    const pts = hours.map((h, i) => [px(i), py(h.temperature)]);
+
+    let d = `M ${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+        const x0 = pts[i][0], y0 = pts[i][1];
+        const x1 = pts[i + 1][0], y1 = pts[i + 1][1];
+        const cx = (x0 + x1) / 2;
+        d += ` C ${cx} ${y0}, ${cx} ${y1}, ${x1} ${y1}`;
+    }
+
+    // Gradient fill area
+    const fillD = d + ` L ${pts[pts.length - 1][0]} ${H} L ${pts[0][0]} ${H} Z`;
+
+    svg.innerHTML = `
+        <defs>
+            <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+            </linearGradient>
+        </defs>
+        <path d="${fillD}" fill="url(#wg)" stroke="none"/>
+        <path d="${d}" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
+        ${pts.map(([x, y], i) => {
+            const t = Math.round(hours[i].temperature);
+            const showLabel = i % 2 === 0 || i === pts.length - 1;
+            return `
+                <circle cx="${x}" cy="${y}" r="3" fill="#3b82f6" stroke="white" stroke-width="1.5"/>
+                ${showLabel ? `<text x="${x}" y="${y - 6}" text-anchor="middle"
+                    font-size="9" font-family="var(--font)" fill="#334155" font-weight="600"
+                    >${t}°</text>` : ''}
+            `;
+        }).join('')}
+    `;
+}
+
+function setupWeatherPopup() {
+    const weatherEl = document.getElementById('weather');
+    const popup = document.getElementById('weather-popup');
+    const closeBtn = document.getElementById('weather-popup-close');
+
+    if (!weatherEl || !popup) return;
+
+    weatherEl.addEventListener('click', e => {
+        e.stopPropagation();
+        if (popup.hidden) {
+            openWeatherPopup();
+        } else {
+            closeWeatherPopup();
+        }
+    });
+
+    closeBtn?.addEventListener('click', closeWeatherPopup);
+
+    document.addEventListener('click', e => {
+        if (!popup.hidden && !popup.contains(e.target) && e.target !== weatherEl) {
+            closeWeatherPopup();
+        }
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeWeatherPopup();
+    });
+}
+
 function loadTodayTasks() {
     fetch('/api/tasks/today')
         .then(response => response.json())
@@ -358,7 +500,7 @@ function createTodayTaskElement(task) {
                 <div class="task-time">${timeStr}</div>
                 <div class="task-details">
                     <h4>${task.description}</h4>
-                    <p class="task-user">Utilizator ID: ${task.user_id}</p>
+                    <p class="task-user">${task.user_name || 'Utilizator ID: ' + task.user_id}</p>
                     ${task.recurrence_pattern !== 'none' ? 
                         `<span class="badge badge-info">${getRecurrenceLabel(task.recurrence_pattern)}</span>` : ''}
                 </div>
@@ -1092,14 +1234,23 @@ function initChat() {
         .then(data => {
             // Remove typing indicator
             removeTypingIndicator();
-            
+
             // Add AI response to chat
             if (data.response) {
                 addAIMessage(data.response);
             } else {
                 addAIMessage('Îmi pare rău, nu am putut genera un răspuns. Vă rugăm să încercați din nou.');
             }
-            
+
+            // If a task was created, refresh the task lists
+            if (data.action === 'task_created') {
+                loadTodayTasks();
+                const activeUser = document.querySelector('.user-item.active');
+                if (activeUser) {
+                    loadTasksForUser(activeUser.dataset.userId);
+                }
+            }
+
             // Scroll to bottom
             scrollToBottom();
         })
@@ -1404,8 +1555,8 @@ function applySettings(settings) {
     
     // Apply weather settings
     if (settings.weather_city || settings.weather_units) {
-        // Weather will be updated on next refresh
-        loadWeather(); // Refresh weather with new settings
+        weatherPopupData = null; // invalidate cached hourly data
+        loadWeather();
     }
     
     // Apply AI settings
@@ -1496,4 +1647,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize settings
     initSettings();
+
+    // Setup weather popup
+    setupWeatherPopup();
 });

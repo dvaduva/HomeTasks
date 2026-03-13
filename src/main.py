@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request, render_template
 import logging
 import os
+import re
 
 logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
@@ -82,6 +83,150 @@ def parse_datetime(date_str):
         return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
     except:
         return None
+
+# AI Intent Detection Helpers
+
+def parse_date_from_text(text: str):
+    """Parse date/time from natural language (Romanian + English)."""
+    from datetime import time as dt_time
+    text_lower = text.lower()
+    now = datetime.now()
+
+    base_date = None
+    if any(kw in text_lower for kw in ['azi', 'today', 'astăzi', 'astazi']):
+        base_date = now.date()
+    elif any(kw in text_lower for kw in ['mâine', 'maine', 'tomorrow']):
+        base_date = (now + timedelta(days=1)).date()
+    elif any(kw in text_lower for kw in ['poimâine', 'poimaine', 'day after tomorrow']):
+        base_date = (now + timedelta(days=2)).date()
+
+    if base_date is None:
+        return None
+
+    time_match = re.search(r'(\d{1,2})[:\.](\d{2})', text)
+    if time_match:
+        hour, minute = int(time_match.group(1)), int(time_match.group(2))
+        return datetime.combine(base_date, dt_time(hour=hour, minute=minute))
+
+    return datetime.combine(base_date, dt_time(hour=12, minute=0))
+
+
+def handle_add_task_intent(message: str, db):
+    """Parse user message and create task. Returns (task_or_None, status_message)."""
+    user_name = None
+    for pattern in [
+        r'(?:to user|pentru utilizatoru[l]?|pentru user[ul]?|user[ul]?)\s*[,:]?\s*([A-Za-zÀ-ÿ\-]+(?:[\s\-][A-Za-zÀ-ÿ\-]+)?)',
+        r'(?:for|pentru)\s+([A-Za-zÀ-ÿ\-]+(?:[\s\-][A-Za-zÀ-ÿ\-]+)?)\s*[,:]',
+    ]:
+        m = re.search(pattern, message, re.IGNORECASE)
+        if m:
+            user_name = m.group(1).strip().rstrip(',').strip()
+            break
+
+    title = None
+    for pattern in [
+        r'title[:\s]+([^,\n]+?)(?:\s*,|\s*for\s|\s*azi|\s*today|\s*mâine|\s*tomorrow|$)',
+        r'titlu[l]?[:\s]+([^,\n]+?)(?:\s*,|\s*for\s|\s*azi|\s*today|\s*mâine|\s*tomorrow|$)',
+    ]:
+        m = re.search(pattern, message, re.IGNORECASE)
+        if m:
+            title = m.group(1).strip()
+            break
+
+    scheduled_date = parse_date_from_text(message)
+
+    if not user_name:
+        return None, "Nu am putut identifica utilizatorul din mesaj. Specifică 'to user <Nume>'."
+    if not title:
+        return None, "Nu am putut identifica titlul taskului. Specifică 'title: <titlu>'."
+
+    user_repo = UserRepository(db)
+    users = user_repo.get_all()
+    user = next(
+        (u for u in users if user_name.lower() in u.name.lower() or u.name.lower() in user_name.lower()),
+        None
+    )
+    if not user:
+        available = ', '.join(u.name for u in users)
+        return None, f"Utilizatorul '{user_name}' nu a fost găsit. Utilizatori disponibili: {available}"
+
+    if not scheduled_date:
+        scheduled_date = datetime.now().replace(second=0, microsecond=0) + timedelta(hours=1)
+
+    task_repo = TaskRepository(db)
+    task = task_repo.create(
+        description=title,
+        user_id=user.id,
+        scheduled_date=scheduled_date
+    )
+    return task, f"Task '{task.description}' creat pentru {user.name} la {scheduled_date.strftime('%d.%m.%Y %H:%M')}."
+
+
+def _detect_forecast_day(text: str):
+    """
+    Return how many days ahead the user is asking about, or None for today/current.
+    Supports up to 4 days ahead (matching the 5-day display: today + 4).
+    """
+    text_lower = text.lower()
+    if any(kw in text_lower for kw in ['poimâine', 'poimaine', 'day after tomorrow']):
+        return 2
+    if any(kw in text_lower for kw in ['mâine', 'maine', 'tomorrow']):
+        return 1
+    # "peste 3 zile" / "in 3 days"
+    m = re.search(r'peste\s+(\d)\s+zile|in\s+(\d)\s+days?', text_lower)
+    if m:
+        n = int(m.group(1) or m.group(2))
+        if 1 <= n <= 4:
+            return n
+    return None  # today / current
+
+
+def handle_weather_intent(message: str, db):
+    """Fetch real weather data (current or forecast) and return context string for Ollama."""
+    city_match = re.search(
+        r'(?:în|in|la|pentru|from|at)\s+([A-Za-zÀ-ÿ\s\-]+?)(?:\s*[?\n,]|$)',
+        message, re.IGNORECASE
+    )
+    city = city_match.group(1).strip() if city_match else None
+
+    if not city:
+        prefs_repo = PreferencesRepository(db)
+        prefs = prefs_repo.get_or_create()
+        city = prefs.weather_city or 'București'
+
+    days_ahead = _detect_forecast_day(message)
+
+    try:
+        if days_ahead is None:
+            # Current weather
+            d = weather_service.get_current_weather(city)
+            return (
+                f"Vremea actuală în {d['city']}, {d['country']}: "
+                f"Temperatură: {d['temperature']}°C (se simte ca {d['feels_like']}°C), "
+                f"Umiditate: {d['humidity']}%, Descriere: {d['description']}, "
+                f"Vânt: {d['wind_speed']} m/s."
+            )
+        else:
+            # Forecast — fetch enough days to cover the target day
+            forecast = weather_service.get_forecast(city, days=days_ahead + 1)
+            from datetime import date as dt_date
+            target_date = (datetime.now() + timedelta(days=days_ahead)).date()
+            day_data = next(
+                (d for d in forecast['daily'] if d['date'] == target_date),
+                None
+            )
+            if not day_data:
+                return f"Nu am găsit prognoza pentru ziua solicitată în {forecast['city']}."
+            label = {1: 'Mâine', 2: 'Poimâine'}.get(days_ahead, f'Peste {days_ahead} zile')
+            return (
+                f"Prognoza pentru {label} ({target_date.strftime('%d.%m.%Y')}) în {forecast['city']}, {forecast['country']}: "
+                f"Temperatură min: {day_data['temp_min']}°C, max: {day_data['temp_max']}°C, medie: {day_data['temp_avg']}°C, "
+                f"Umiditate: {day_data['humidity_avg']}%, Descriere: {day_data['description']}, "
+                f"Vânt mediu: {day_data['wind_speed_avg']} m/s, Probabilitate precipitații: {round(day_data['pop_avg'] * 100)}%."
+            )
+    except Exception as e:
+        return f"Nu am putut obține datele meteo: {str(e)}"
+
 
 # Routes
 @app.route('/')
@@ -193,41 +338,70 @@ def ai_chat():
         data = request.get_json()
         if not data or 'message' not in data:
             return jsonify({'error': 'Message is required'}), 400
-        
+
         message = data['message']
-        
-        # Get temperature and max_tokens from request or preferences
         temperature = data.get('temperature')
         max_tokens = data.get('max_tokens')
-        
-        # If not provided in request, get from preferences
-        if temperature is None or max_tokens is None:
-            db = get_db()
-            try:
-                prefs_repo = PreferencesRepository(db)
-                prefs = prefs_repo.get_or_create()
-                if temperature is None:
-                    temperature = float(prefs.ai_temperature or 0.7)
-                if max_tokens is None:
-                    max_tokens = int(prefs.ai_max_tokens or 500)
-            finally:
-                db.close()
-        
-        # Check if Ollama server is running
+
+        action_result = None
+        action_context = None
+
+        db = get_db()
+        try:
+            prefs_repo = PreferencesRepository(db)
+            prefs = prefs_repo.get_or_create()
+            if temperature is None:
+                temperature = float(prefs.ai_temperature or 0.7)
+            if max_tokens is None:
+                max_tokens = int(prefs.ai_max_tokens or 500)
+
+            message_lower = message.lower()
+
+            # Detect add-task intent
+            task_keywords = ['add task', 'adaugă task', 'adauga task', 'add new task',
+                             'adaugă un task', 'adauga un task', 'create task', 'nou task']
+            if any(kw in message_lower for kw in task_keywords):
+                task, action_context = handle_add_task_intent(message, db)
+                if task:
+                    db.commit()
+                    action_result = 'task_created'
+                else:
+                    action_result = 'task_error'
+
+            # Detect weather intent
+            elif any(kw in message_lower for kw in
+                     ['vreme', 'weather', 'temperatura', 'temperature', 'meteo', 'forecast', 'prognoza', 'prognoză']):
+                action_context = handle_weather_intent(message, db)
+                action_result = 'weather_data'
+
+        except Exception as e:
+            db.rollback()
+            action_context = f"Acțiunea a eșuat: {str(e)}"
+            action_result = 'error'
+        finally:
+            db.close()
+
+        # If Ollama is unavailable, return the action result directly
         if not ollama_client.is_server_running():
+            if action_context:
+                return jsonify({'response': action_context, 'action': action_result, 'model': 'none', 'done': True})
             return jsonify({'error': 'Ollama server is not running or not accessible'}), 503
-        
-        # Get response from Ollama
-        result = ollama_client.chat(message, temperature=temperature, max_tokens=max_tokens)
-        
-        # Extract the response content
+
+        result = ollama_client.chat(
+            message,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            system_context=action_context
+        )
+
         assistant_message = result.get("message", {}).get("content", "")
-        
+
         return jsonify({
             'response': assistant_message,
             'model': result.get('model', ''),
             'created_at': result.get('created_at', ''),
-            'done': result.get('done', False)
+            'done': result.get('done', False),
+            'action': action_result
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -572,6 +746,7 @@ def get_today_tasks():
             'id': t.id,
             'description': t.description,
             'user_id': t.user_id,
+            'user_name': t.user.name if t.user else None,
             'status': t.status.value if t.status else None,
             'scheduled_date': t.scheduled_date.isoformat() if t.scheduled_date else None,
             'created_at': t.created_at.isoformat() if t.created_at else None,

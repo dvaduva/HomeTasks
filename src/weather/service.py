@@ -171,29 +171,29 @@ class WeatherService:
             
             # Create daily summary
             daily_summary = []
-            for date_key, data in sorted(daily_forecast.items()):
+            for date_key, day_data in sorted(daily_forecast.items()):
                 # Get most common description
                 desc_counts = {}
-                for desc in data['descriptions']:
+                for desc in day_data['descriptions']:
                     desc_counts[desc] = desc_counts.get(desc, 0) + 1
                 most_common_desc = max(desc_counts, key=desc_counts.get) if desc_counts else ""
-                
+
                 # Get most common icon
                 icon_counts = {}
-                for icon in data['icons']:
+                for icon in day_data['icons']:
                     icon_counts[icon] = icon_counts.get(icon, 0) + 1
                 most_common_icon = max(icon_counts, key=icon_counts.get) if icon_counts else ""
-                
+
                 daily_summary.append({
                     'date': date_key,
-                    'temp_min': min(data['temps']),
-                    'temp_max': max(data['temps']),
-                    'temp_avg': round(sum(data['temps']) / len(data['temps'])),
-                    'humidity_avg': round(sum(data['humidity']) / len(data['humidity'])),
+                    'temp_min': min(day_data['temps']),
+                    'temp_max': max(day_data['temps']),
+                    'temp_avg': round(sum(day_data['temps']) / len(day_data['temps'])),
+                    'humidity_avg': round(sum(day_data['humidity']) / len(day_data['humidity'])),
                     'description': most_common_desc,
                     'icon': most_common_icon,
-                    'wind_speed_avg': round(sum(data['wind_speed']) / len(data['wind_speed'])),
-                    'pop_avg': round(sum(data['pop']) / len(data['pop']))  # Average probability of precipitation
+                    'wind_speed_avg': round(sum(day_data['wind_speed']) / len(day_data['wind_speed'])),
+                    'pop_avg': round(sum(day_data['pop']) / len(day_data['pop']))
                 })
             
             forecast_data = {
