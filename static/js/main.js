@@ -300,7 +300,11 @@ function renderWeatherPopup(data) {
     const now = new Date();
     const currentHour = now.getHours();
 
-    hoursEl.innerHTML = hours.map(h => {
+    const n = hours.length;
+    // Same formula as drawWeatherChart: viewBox W=1000, margins 12
+    const pct = i => ((i / (n - 1)) * (1000 - 24) + 12) / 1000 * 100;
+
+    hoursEl.innerHTML = hours.map((h, i) => {
         const dt = new Date(h.datetime);
         const hh = dt.getHours();
         const label = hh === 0 ? '00:00' : `${String(hh).padStart(2, '0')}:00`;
@@ -310,7 +314,11 @@ function renderWeatherPopup(data) {
             ? `<span class="wh-pop">💧${Math.round(h.pop * 100)}%</span>`
             : `<span class="wh-pop" style="visibility:hidden">–</span>`;
 
-        return `<div class="weather-hour-item${isNow ? ' current-hour' : ''}">
+        const pos = i === 0       ? 'left:0;transform:none'
+                  : i === n - 1  ? 'right:0;left:auto;transform:none'
+                  :                `left:${pct(i).toFixed(2)}%`;
+
+        return `<div class="weather-hour-item${isNow ? ' current-hour' : ''}" style="${pos}">
             <span class="wh-time">${label}</span>
             <img class="wh-icon" src="${iconUrl}" alt="${h.description}" title="${h.description}">
             <span class="wh-temp">${Math.round(h.temperature)}°</span>
@@ -326,16 +334,17 @@ function drawWeatherChart(hours) {
     const svg = document.getElementById('weather-chart');
     if (!svg || hours.length < 2) return;
 
-    const W = 392, H = 88;
+    const W = 1000, H = 120;
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
 
     const temps = hours.map(h => h.temperature);
     const tMin = Math.min(...temps) - 1;
     const tMax = Math.max(...temps) + 1;
     const n = hours.length;
 
-    const px = i => Math.round((i / (n - 1)) * (W - 20) + 10);
-    const py = t => Math.round(H - 22 - ((t - tMin) / (tMax - tMin)) * (H - 32));
+    const px = i => Math.round((i / (n - 1)) * (W - 24) + 12);
+    const py = t => Math.round(H - 28 - ((t - tMin) / (tMax - tMin)) * (H - 46));
 
     // Build smooth path using cardinal spline
     const pts = hours.map((h, i) => [px(i), py(h.temperature)]);
@@ -365,8 +374,8 @@ function drawWeatherChart(hours) {
             const showLabel = i % 2 === 0 || i === pts.length - 1;
             return `
                 <circle cx="${x}" cy="${y}" r="3" fill="#3b82f6" stroke="white" stroke-width="1.5"/>
-                ${showLabel ? `<text x="${x}" y="${y - 6}" text-anchor="middle"
-                    font-size="9" font-family="var(--font)" fill="#334155" font-weight="600"
+                ${showLabel ? `<text x="${x}" y="${y - 7}" text-anchor="middle"
+                    font-size="11" font-family="var(--font)" fill="#334155" font-weight="600"
                     >${t}°</text>` : ''}
             `;
         }).join('')}
@@ -476,7 +485,7 @@ function createTaskElement(task) {
                         ${task.status === 'refused' ? 'Anulează refuz' : 'Refuză'}
                     </button>
                     <button class="btn btn-sm btn-info" data-action="add-comment">
-                        Comentarii
+                        Comentarii${task.comment_count > 0 ? ` <span class="comment-badge">${task.comment_count}</span>` : ''}
                     </button>
                     <button class="btn btn-sm btn-outline-secondary" data-action="edit-task">
                         Editează
@@ -506,13 +515,16 @@ function createTodayTaskElement(task) {
                         `<span class="badge badge-info">${getRecurrenceLabel(task.recurrence_pattern)}</span>` : ''}
                 </div>
                 <div class="task-actions today">
-                    <button class="btn btn-sm btn-${task.status === 'completed' ? 'secondary' : 'primary'}" 
+                    <button class="btn btn-sm btn-${task.status === 'completed' ? 'secondary' : 'primary'}"
                             data-action="toggle-status">
                         ${task.status === 'completed' ? 'Anulează' : 'Finalizează'}
                     </button>
-                    <button class="btn btn-sm btn-${task.status === 'refused' ? 'secondary' : 'warning'}" 
+                    <button class="btn btn-sm btn-${task.status === 'refused' ? 'secondary' : 'warning'}"
                             data-action="toggle-refuse">
                         ${task.status === 'refused' ? 'Anulează refuz' : 'Refuză'}
+                    </button>
+                    <button class="btn btn-sm btn-info" data-action="add-comment">
+                        Comentarii${task.comment_count > 0 ? ` <span class="comment-badge">${task.comment_count}</span>` : ''}
                     </button>
                 </div>
             </div>
@@ -558,8 +570,9 @@ function setupEventListeners() {
         }
     });
     
-    // Add user button
-    document.getElementById('add-user-btn').addEventListener('click', function() {
+    // Add user button (may not exist if UI uses settings modal instead)
+    const addUserBtn = document.getElementById('add-user-btn');
+    if (addUserBtn) addUserBtn.addEventListener('click', function() {
         const name = prompt('Introduceți numele utilizatorului:');
         if (name && name.trim() !== '') {
             fetch('/api/users', {
@@ -596,27 +609,35 @@ function setupTaskEventListeners(taskElement, task) {
     if (statusBtn) {
         statusBtn.addEventListener('click', function() {
             const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-            updateTask(task.id, { status: newStatus })
-                .then(() => {
+            const msg = newStatus === 'completed' ? 'Marchezi taskul ca finalizat?' : 'Anulezi finalizarea taskului?';
+            const label = newStatus === 'completed' ? 'Finalizează' : 'Anulează';
+            const cls = newStatus === 'completed' ? 'btn-primary' : 'btn-secondary';
+            showConfirmDialog(msg, () => {
+                updateTask(task.id, { status: newStatus }).then(() => {
                     loadTasksForUser(document.querySelector('.user-item.active').dataset.userId);
                     loadTodayTasks();
                 });
+            }, label, cls);
         });
     }
-    
+
     // Toggle refuse
     const refuseBtn = taskElement.querySelector('[data-action="toggle-refuse"]');
     if (refuseBtn) {
         refuseBtn.addEventListener('click', function() {
             const newStatus = task.status === 'refused' ? 'pending' : 'refused';
-            updateTask(task.id, { status: newStatus })
-                .then(() => {
+            const msg = newStatus === 'refused' ? 'Refuzi acest task?' : 'Anulezi refuzul taskului?';
+            const label = newStatus === 'refused' ? 'Refuză' : 'Anulează refuz';
+            const cls = newStatus === 'refused' ? 'btn-warning' : 'btn-secondary';
+            showConfirmDialog(msg, () => {
+                updateTask(task.id, { status: newStatus }).then(() => {
                     loadTasksForUser(document.querySelector('.user-item.active').dataset.userId);
                     loadTodayTasks();
                 });
+            }, label, cls);
         });
     }
-    
+
     // Add comment
     const commentBtn = taskElement.querySelector('[data-action="add-comment"]');
     if (commentBtn) {
@@ -637,13 +658,13 @@ function setupTaskEventListeners(taskElement, task) {
     const deleteBtn = taskElement.querySelector('[data-action="delete-task"]');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function() {
-            if (confirm('Sigur doriți să ștergeți acest task?')) {
+            showConfirmDialog('Sigur doriți să ștergeți acest task?', function() {
                 deleteTask(task.id)
                     .then(() => {
                         loadTasksForUser(document.querySelector('.user-item.active').dataset.userId);
                         loadTodayTasks();
                     });
-            }
+            });
         });
     }
 }
@@ -654,31 +675,47 @@ function setupTodayTaskEventListeners(taskElement, task) {
     if (statusBtn) {
         statusBtn.addEventListener('click', function() {
             const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-            updateTask(task.id, { status: newStatus })
-                .then(() => {
+            const msg = newStatus === 'completed' ? 'Marchezi taskul ca finalizat?' : 'Anulezi finalizarea taskului?';
+            const label = newStatus === 'completed' ? 'Finalizează' : 'Anulează';
+            const cls = newStatus === 'completed' ? 'btn-primary' : 'btn-secondary';
+            showConfirmDialog(msg, () => {
+                updateTask(task.id, { status: newStatus }).then(() => {
                     loadTasksForUser(document.querySelector('.user-item.active').dataset.userId);
                     loadTodayTasks();
                 });
+            }, label, cls);
         });
     }
-    
+
     // Toggle refuse
     const refuseBtn = taskElement.querySelector('[data-action="toggle-refuse"]');
     if (refuseBtn) {
         refuseBtn.addEventListener('click', function() {
             const newStatus = task.status === 'refused' ? 'pending' : 'refused';
-            updateTask(task.id, { status: newStatus })
-                .then(() => {
+            const msg = newStatus === 'refused' ? 'Refuzi acest task?' : 'Anulezi refuzul taskului?';
+            const label = newStatus === 'refused' ? 'Refuză' : 'Anulează refuz';
+            const cls = newStatus === 'refused' ? 'btn-warning' : 'btn-secondary';
+            showConfirmDialog(msg, () => {
+                updateTask(task.id, { status: newStatus }).then(() => {
                     loadTasksForUser(document.querySelector('.user-item.active').dataset.userId);
                     loadTodayTasks();
                 });
+            }, label, cls);
+        });
+    }
+
+    // Comment button
+    const commentBtn = taskElement.querySelector('[data-action="add-comment"]');
+    if (commentBtn) {
+        commentBtn.addEventListener('click', function() {
+            showAddCommentForm(task.id);
         });
     }
 }
 
 function showAddTaskForm() {
-    const userId = document.querySelector('.user-item.active')?.dataset.userId || 1;
-    
+    const activeUserId = document.querySelector('.user-item.active')?.dataset.userId || 1;
+
     const html = `
         <div class="task-modal">
             <div class="modal-content">
@@ -693,18 +730,26 @@ function showAddTaskForm() {
                         <input type="datetime-local" id="task-date" required>
                     </div>
                     <div class="form-group">
-                        <label for="task-recurrence">Recurență:</label>
-                        <select id="task-recurrence">
-                            <option value="none">Fără recurență</option>
-                            <option value="daily">Zilnic</option>
-                            <option value="weekly">Săptămânal</option>
-                            <option value="monthly">Lunar</option>
-                            <option value="yearly">Anual</option>
-                        </select>
+                        <label>Utilizatori:</label>
+                        <div id="task-users-list" class="users-checkbox-list">
+                            <em>Se încarcă...</em>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="task-recurrence-end">Data sfârșit recurență (opțional):</label>
-                        <input type="date" id="task-recurrence-end">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="task-recurrence">Recurență:</label>
+                            <select id="task-recurrence">
+                                <option value="none">Fără recurență</option>
+                                <option value="daily">Zilnic</option>
+                                <option value="weekly">Săptămânal</option>
+                                <option value="monthly">Lunar</option>
+                                <option value="yearly">Anual</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="task-recurrence-end">Sfârșit recurență (opțional):</label>
+                            <input type="date" id="task-recurrence-end">
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Adaugă task</button>
                     <button type="button" class="btn btn-secondary" id="cancel-add-task">Anulează</button>
@@ -712,68 +757,81 @@ function showAddTaskForm() {
             </div>
         </div>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', html);
-    
+
     // Set default date to now
     const now = new Date();
     const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
     document.getElementById('task-date').value = localNow.toISOString().slice(0, 16);
-    
+
+    // Load users into checkbox list
+    fetch('/api/users')
+        .then(r => r.json())
+        .then(users => {
+            const container = document.getElementById('task-users-list');
+            if (!users.length) {
+                container.innerHTML = '<em>Nu există utilizatori</em>';
+                return;
+            }
+            container.innerHTML = users.map(u => `
+                <label class="user-checkbox-item" style="--user-color:${u.color}">
+                    <input type="checkbox" name="task-user" value="${u.id}"
+                        ${String(u.id) === String(activeUserId) ? 'checked' : ''}>
+                    <span class="user-checkbox-dot"></span>
+                    ${u.name}
+                </label>
+            `).join('');
+        });
+
     // Form submission
     document.getElementById('add-task-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const description = document.getElementById('task-description').value.trim();
         const date = document.getElementById('task-date').value;
         const recurrence = document.getElementById('task-recurrence').value;
         const recurrenceEnd = document.getElementById('task-recurrence-end').value;
-        
+        const selectedUsers = Array.from(document.querySelectorAll('input[name="task-user"]:checked'))
+            .map(cb => parseInt(cb.value));
+
         if (!description) {
             alert('Descrierea taskului este obligatorie');
             return;
         }
-        
-        const taskData = {
-            description: description,
-            user_id: parseInt(userId),
-            scheduled_date: date
-        };
-        
-        if (recurrence !== 'none') {
-            taskData.recurrence_pattern = recurrence;
-            if (recurrenceEnd) {
-                taskData.recurrence_end_date = recurrenceEnd;
-            }
+        if (selectedUsers.length === 0) {
+            alert('Selectează cel puțin un utilizator');
+            return;
         }
-        
-        fetch('/api/tasks', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(taskData)
-        })
-        .then(response => {
-            if (response.ok) {
+
+        const baseTaskData = { description, scheduled_date: date };
+        if (recurrence !== 'none') {
+            baseTaskData.recurrence_pattern = recurrence;
+            if (recurrenceEnd) baseTaskData.recurrence_end_date = recurrenceEnd;
+        }
+
+        const requests = selectedUsers.map(uid =>
+            fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...baseTaskData, user_id: uid })
+            }).then(r => r.ok ? r.json() : r.json().then(err => Promise.reject(err)))
+        );
+
+        Promise.all(requests)
+            .then(() => {
                 closeModal();
-                loadTasksForUser(userId);
+                loadTasksForUser(activeUserId);
                 loadTodayTasks();
-            } else {
-                return response.json().then(err => alert('Eroare: ' + (err.error || 'Unknown error')));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Eroare la adăugarea taskului');
-        });
+            })
+            .catch(err => alert('Eroare: ' + (err.error || 'Unknown error')));
     });
-    
+
     // Cancel button
     document.getElementById('cancel-add-task').addEventListener('click', function() {
         closeModal();
     });
-    
+
     // Close on overlay click
     document.querySelector('.task-modal').addEventListener('click', function(e) {
         if (e.target === this) { closeModal(); }
@@ -795,18 +853,26 @@ function showEditTaskForm(task) {
                         <input type="datetime-local" id="edit-task-date" value="${new Date(task.scheduled_date).toISOString().slice(0, 16)}" required>
                     </div>
                     <div class="form-group">
-                        <label for="edit-task-recurrence">Recurență:</label>
-                        <select id="edit-task-recurrence">
-                            <option value="none" ${task.recurrence_pattern === 'none' ? 'selected' : ''}>Fără recurență</option>
-                            <option value="daily" ${task.recurrence_pattern === 'daily' ? 'selected' : ''}>Zilnic</option>
-                            <option value="weekly" ${task.recurrence_pattern === 'weekly' ? 'selected' : ''}>Săptămânal</option>
-                            <option value="monthly" ${task.recurrence_pattern === 'monthly' ? 'selected' : ''}>Lunar</option>
-                            <option value="yearly" ${task.recurrence_pattern === 'yearly' ? 'selected' : ''}>Anual</option>
-                        </select>
+                        <label>Utilizatori:</label>
+                        <div id="edit-task-users-list" class="users-checkbox-list">
+                            <em>Se încarcă...</em>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="edit-task-recurrence-end">Data sfârșit recurență (opțional):</label>
-                        <input type="date" id="edit-task-recurrence-end" value="${task.recurrence_end_date ? new Date(task.recurrence_end_date).toISOString().slice(0, 10) : ''}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-task-recurrence">Recurență:</label>
+                            <select id="edit-task-recurrence">
+                                <option value="none" ${task.recurrence_pattern === 'none' ? 'selected' : ''}>Fără recurență</option>
+                                <option value="daily" ${task.recurrence_pattern === 'daily' ? 'selected' : ''}>Zilnic</option>
+                                <option value="weekly" ${task.recurrence_pattern === 'weekly' ? 'selected' : ''}>Săptămânal</option>
+                                <option value="monthly" ${task.recurrence_pattern === 'monthly' ? 'selected' : ''}>Lunar</option>
+                                <option value="yearly" ${task.recurrence_pattern === 'yearly' ? 'selected' : ''}>Anual</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-task-recurrence-end">Sfârșit recurență (opțional):</label>
+                            <input type="date" id="edit-task-recurrence-end" value="${task.recurrence_end_date ? new Date(task.recurrence_end_date).toISOString().slice(0, 10) : ''}">
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Salvează modificări</button>
                     <button type="button" class="btn btn-secondary" id="cancel-edit-task">Anulează</button>
@@ -814,67 +880,85 @@ function showEditTaskForm(task) {
             </div>
         </div>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', html);
-    
+
+    // Load users into checkbox list, pre-check current task owner
+    fetch('/api/users').then(r => r.json()).then(users => {
+        const container = document.getElementById('edit-task-users-list');
+        if (!users.length) {
+            container.innerHTML = '<em>Nu există utilizatori</em>';
+            return;
+        }
+        container.innerHTML = users.map(u => `
+            <label class="user-checkbox-item" style="--user-color:${u.color}">
+                <input type="checkbox" name="edit-task-user" value="${u.id}"
+                    ${String(u.id) === String(task.user_id) ? 'checked' : ''}>
+                <span class="user-checkbox-dot"></span>
+                ${u.name}
+            </label>
+        `).join('');
+    });
+
     // Form submission
     document.getElementById('edit-task-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const description = document.getElementById('edit-task-description').value.trim();
         const date = document.getElementById('edit-task-date').value;
         const recurrence = document.getElementById('edit-task-recurrence').value;
         const recurrenceEnd = document.getElementById('edit-task-recurrence-end').value;
-        
+        const selectedUsers = Array.from(document.querySelectorAll('input[name="edit-task-user"]:checked'))
+            .map(cb => parseInt(cb.value));
+
         if (!description) {
             alert('Descrierea taskului este obligatorie');
             return;
         }
-        
-        const taskData = {
-            description: description,
-            scheduled_date: date
-        };
-        
-        if (recurrence !== 'none') {
-            taskData.recurrence_pattern = recurrence;
-            if (recurrenceEnd) {
-                taskData.recurrence_end_date = recurrenceEnd;
-            } else {
-                taskData.recurrence_end_date = null;
-            }
-        } else {
-            taskData.recurrence_pattern = 'none';
-            taskData.recurrence_end_date = null;
+        if (selectedUsers.length === 0) {
+            alert('Selectează cel puțin un utilizator');
+            return;
         }
-        
-        fetch(`/api/tasks/${task.id}`, {
+
+        const baseTaskData = { description, scheduled_date: date };
+        if (recurrence !== 'none') {
+            baseTaskData.recurrence_pattern = recurrence;
+            baseTaskData.recurrence_end_date = recurrenceEnd || null;
+        } else {
+            baseTaskData.recurrence_pattern = 'none';
+            baseTaskData.recurrence_end_date = null;
+        }
+
+        const activeUserId = document.querySelector('.user-item.active').dataset.userId;
+
+        // Update existing task for first selected user
+        const updateRequest = fetch(`/api/tasks/${task.id}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(taskData)
-        })
-        .then(response => {
-            if (response.ok) {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...baseTaskData, user_id: selectedUsers[0] })
+        }).then(r => r.ok ? r.json() : r.json().then(err => Promise.reject(err)));
+
+        // Create new tasks for any additional selected users
+        const createRequests = selectedUsers.slice(1).map(uid =>
+            fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...baseTaskData, user_id: uid })
+            }).then(r => r.ok ? r.json() : r.json().then(err => Promise.reject(err)))
+        );
+
+        Promise.all([updateRequest, ...createRequests])
+            .then(() => {
                 closeModal();
-                loadTasksForUser(document.querySelector('.user-item.active').dataset.userId);
+                loadTasksForUser(activeUserId);
                 loadTodayTasks();
-            } else {
-                return response.json().then(err => alert('Eroare: ' + (err.error || 'Unknown error')));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Eroare la actualizarea taskului');
-        });
+            })
+            .catch(err => alert('Eroare: ' + (err.error || 'Unknown error')));
     });
-    
+
     // Cancel button
-    document.getElementById('cancel-edit-task').addEventListener('click', function() {
-        closeModal();
-    });
-    
+    document.getElementById('cancel-edit-task').addEventListener('click', closeModal);
+
     // Close on overlay click
     document.querySelector('.task-modal').addEventListener('click', function(e) {
         if (e.target === this) { closeModal(); }
@@ -884,62 +968,111 @@ function showEditTaskForm(task) {
 function showAddCommentForm(taskId) {
     const html = `
         <div class="task-modal">
-            <div class="modal-content">
-                <h2>Adaugă comentariu</h2>
-                <form id="add-comment-form">
-                    <div class="form-group">
-                        <label for="comment-text">Comentariu:</label>
-                        <textarea id="comment-text" rows="4" required></textarea>
+            <div class="modal-content comments-modal-content">
+                <h2>Comentarii</h2>
+                <div id="comments-list" class="comments-list">
+                    <em class="comments-loading">Se încarcă...</em>
+                </div>
+                <form id="add-comment-form" class="add-comment-form">
+                    <select id="comment-user" class="comment-user-select">
+                        <option value="">Se încarcă utilizatorii...</option>
+                    </select>
+                    <textarea id="comment-text" rows="2" placeholder="Scrie un comentariu..." required></textarea>
+                    <div class="add-comment-actions">
+                        <button type="submit" class="btn btn-primary btn-sm">Trimite</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="cancel-add-comment">Închide</button>
                     </div>
-                    <button type="submit" class="btn btn-primary">Adaugă comentariu</button>
-                    <button type="button" class="btn btn-secondary" id="cancel-add-comment">Anulează</button>
                 </form>
             </div>
         </div>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', html);
-    
+
+    const activeUserId = document.querySelector('.user-item.active')?.dataset.userId;
+    let usersCache = [];
+
+    // Load users into select and cache them for comment display
+    fetch('/api/users').then(r => r.json()).then(users => {
+        usersCache = users;
+        const select = document.getElementById('comment-user');
+        if (!select) return;
+        select.innerHTML = users.map(u =>
+            `<option value="${u.id}" data-color="${u.color}" ${String(u.id) === String(activeUserId) ? 'selected' : ''}>${u.name}</option>`
+        ).join('');
+    });
+
+    function loadComments() {
+        fetch(`/api/tasks/${taskId}/comments`).then(r => r.json()).then(comments => {
+            const container = document.getElementById('comments-list');
+            if (!container) return;
+
+            if (!comments.length) {
+                container.innerHTML = '<p class="comments-empty">Nu există comentarii încă.</p>';
+                return;
+            }
+
+            const userMap = {};
+            usersCache.forEach(u => { userMap[u.id] = u; });
+
+            container.innerHTML = comments.map(c => {
+                const user = userMap[c.user_id];
+                const userName = user ? user.name : 'Utilizator șters';
+                const userColor = user ? user.color : '#aaa';
+                const date = new Date(c.created_at).toLocaleString('ro-RO', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                return `
+                    <div class="comment-item">
+                        <div class="comment-header">
+                            <span class="comment-author-dot" style="background:${userColor}"></span>
+                            <span class="comment-author">${userName}</span>
+                            <span class="comment-date">${date}</span>
+                        </div>
+                        <p class="comment-text">${c.text}</p>
+                    </div>
+                `;
+            }).join('');
+        }).catch(() => {
+            const container = document.getElementById('comments-list');
+            if (container) container.innerHTML = '<p class="comments-empty">Eroare la încărcarea comentariilor.</p>';
+        });
+    }
+
+    loadComments();
+
     // Form submission
     document.getElementById('add-comment-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const text = document.getElementById('comment-text').value.trim();
-        const userId = document.querySelector('.user-item.active')?.dataset.userId || 1;
-        
-        if (!text) {
-            alert('Comentariul este obligatoriu');
-            return;
-        }
-        
+        const userId = document.getElementById('comment-user').value;
+
+        if (!text) return;
+
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+
         fetch(`/api/tasks/${taskId}/comments`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ text: text, user_id: parseInt(userId) })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, user_id: parseInt(userId) })
         })
         .then(response => {
             if (response.ok) {
-                closeModal();
-                // Reload tasks to see updated comments
-                loadTasksForUser(document.querySelector('.user-item.active').dataset.userId);
+                document.getElementById('comment-text').value = '';
+                loadComments();
             } else {
                 return response.json().then(err => alert('Eroare: ' + (err.error || 'Unknown error')));
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Eroare la adăugarea comentariului');
-        });
+        .catch(() => alert('Eroare la adăugarea comentariului'))
+        .finally(() => { submitBtn.disabled = false; });
     });
-    
-    // Cancel button
-    document.getElementById('cancel-add-comment').addEventListener('click', function() {
-        closeModal();
-    });
-    
-    // Close on overlay click
+
+    document.getElementById('cancel-add-comment').addEventListener('click', closeModal);
+
     document.querySelector('.task-modal').addEventListener('click', function(e) {
         if (e.target === this) { closeModal(); }
     });
@@ -977,6 +1110,30 @@ function closeModal() {
     if (modal) {
         modal.remove();
     }
+}
+
+function showConfirmDialog(message, onConfirm, confirmLabel = 'Confirma', confirmClass = 'btn-danger') {
+    const html = `
+        <div class="task-modal" id="confirm-dialog">
+            <div class="modal-content" style="max-width:360px;text-align:center;">
+                <p style="margin:0 0 1.5rem;font-size:1rem;">${message}</p>
+                <button type="button" class="btn ${confirmClass}" id="confirm-yes">${confirmLabel}</button>
+                <button type="button" class="btn btn-secondary" id="confirm-no">Anulează</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+    const dialog = document.getElementById('confirm-dialog');
+    dialog.querySelector('#confirm-yes').addEventListener('click', function() {
+        dialog.remove();
+        onConfirm();
+    });
+    dialog.querySelector('#confirm-no').addEventListener('click', function() {
+        dialog.remove();
+    });
+    dialog.addEventListener('click', function(e) {
+        if (e.target === dialog) dialog.remove();
+    });
 }
 
 // CSS for modals (added dynamically)
@@ -1322,26 +1479,51 @@ function initChat() {
         });
     });
     
-    // Add sample messages on load
-    setTimeout(() => {
-        addAIMessage('Salut! Sunt HomeTasks AI assistant. Cum vă pot ajuta astăzi?');
-    }, 500);
+    // Restore chat history or show welcome message
+    const existing = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || '[]');
+    if (existing.length > 0) {
+        restoreChatHistory();
+    } else {
+        setTimeout(() => {
+            addAIMessage('Salut! Sunt HomeTasks AI assistant. Cum vă pot ajuta astăzi?');
+        }, 500);
+    }
+}
+
+// ── Chat persistence ──────────────────────────────────
+const CHAT_STORAGE_KEY = 'hometasks_chat_history';
+
+function saveChatMessage(role, message) {
+    const history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || '[]');
+    history.push({ role, message });
+    // Keep last 100 messages
+    if (history.length > 100) history.splice(0, history.length - 100);
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
+}
+
+function restoreChatHistory() {
+    const history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || '[]');
+    history.forEach(({ role, message }) => {
+        if (role === 'user') addUserMessage(message, false);
+        else addAIMessage(message, false);
+    });
 }
 
 // Add user message to chat
-function addUserMessage(message) {
+function addUserMessage(message, save = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message user-message';
     messageDiv.innerHTML = `<p>${message}</p>`;
-    
+
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(messageDiv);
-    
+
+    if (save) saveChatMessage('user', message);
     scrollToBottom();
 }
 
 // Add AI message to chat
-function addAIMessage(message) {
+function addAIMessage(message, save = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message ai-message';
     messageDiv.title = 'Click pentru a asculta mesajul';
@@ -1369,6 +1551,7 @@ function addAIMessage(message) {
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(messageDiv);
 
+    if (save) saveChatMessage('ai', message);
     scrollToBottom();
 }
 

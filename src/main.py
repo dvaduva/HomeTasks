@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request, render_template
 import logging
 import os
 import re
+from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
@@ -571,7 +572,15 @@ def get_tasks():
             start_date=parsed_start_date,
             end_date=parsed_end_date
         )
-        
+
+        task_ids = [t.id for t in tasks]
+        comment_counts = {
+            row.task_id: row.count
+            for row in db.query(Comment.task_id, func.count(Comment.id).label('count'))
+                         .filter(Comment.task_id.in_(task_ids))
+                         .group_by(Comment.task_id).all()
+        } if task_ids else {}
+
         return jsonify([{
             'id': t.id,
             'description': t.description,
@@ -581,7 +590,8 @@ def get_tasks():
             'created_at': t.created_at.isoformat() if t.created_at else None,
             'updated_at': t.updated_at.isoformat() if t.updated_at else None,
             'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
-            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
+            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None,
+            'comment_count': comment_counts.get(t.id, 0)
         } for t in tasks])
     finally:
         db.close()
@@ -742,6 +752,15 @@ def get_today_tasks():
     try:
         task_repo = TaskRepository(db)
         tasks = task_repo.get_today_tasks()
+
+        task_ids = [t.id for t in tasks]
+        comment_counts = {
+            row.task_id: row.count
+            for row in db.query(Comment.task_id, func.count(Comment.id).label('count'))
+                         .filter(Comment.task_id.in_(task_ids))
+                         .group_by(Comment.task_id).all()
+        } if task_ids else {}
+
         return jsonify([{
             'id': t.id,
             'description': t.description,
@@ -752,7 +771,8 @@ def get_today_tasks():
             'created_at': t.created_at.isoformat() if t.created_at else None,
             'updated_at': t.updated_at.isoformat() if t.updated_at else None,
             'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern else None,
-            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
+            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None,
+            'comment_count': comment_counts.get(t.id, 0)
         } for t in tasks])
     finally:
         db.close()
@@ -764,6 +784,15 @@ def get_upcoming_tasks():
         days = request.args.get('days', 7, type=int)
         task_repo = TaskRepository(db)
         tasks = task_repo.get_upcoming_tasks(days=days)
+
+        task_ids = [t.id for t in tasks]
+        comment_counts = {
+            row.task_id: row.count
+            for row in db.query(Comment.task_id, func.count(Comment.id).label('count'))
+                         .filter(Comment.task_id.in_(task_ids))
+                         .group_by(Comment.task_id).all()
+        } if task_ids else {}
+
         return jsonify([{
             'id': t.id,
             'description': t.description,
@@ -773,7 +802,8 @@ def get_upcoming_tasks():
             'created_at': t.created_at.isoformat() if t.created_at else None,
             'updated_at': t.updated_at.isoformat() if t.updated_at else None,
             'recurrence_pattern': t.recurrence_pattern.value if t.recurrence_pattern != None else None,
-            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None
+            'recurrence_end_date': t.recurrence_end_date.isoformat() if t.recurrence_end_date else None,
+            'comment_count': comment_counts.get(t.id, 0)
         } for t in tasks])
     finally:
         db.close()

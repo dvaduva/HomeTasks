@@ -1,7 +1,7 @@
 /* HomeTasks — layout fără sidebar */
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { height: 100%; overflow: hidden; }
+html, body { height: 100%; overflow: hidden; -webkit-user-select: none; user-select: none; }
 
 :root {
     --blue:    #1d4ed8;
@@ -113,14 +113,15 @@ body {
    ===================================================== */
 .weather-popup {
     position: fixed;
-    top: calc(var(--fh) + 6px);
-    right: 54px;
-    width: 420px;
-    max-width: calc(100vw - 24px);
+    top: calc(var(--fh) + 12px);
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: none;
     background: var(--white);
     border: 1px solid var(--gray-200);
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    border-radius: 16px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
     z-index: 900;
     overflow: hidden;
     animation: popup-in 0.18s ease;
@@ -134,12 +135,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px 8px;
+    padding: 14px 20px 12px;
     border-bottom: 1px solid var(--gray-100);
 }
 .weather-popup-title {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
     color: var(--gray-700);
 }
 .weather-popup-close {
@@ -155,8 +156,8 @@ body {
 .weather-popup-close:hover { background: var(--gray-100); color: var(--gray-900); }
 
 .weather-popup-chart-wrap {
-    padding: 8px 14px 0;
-    height: 100px;
+    padding: 12px 20px 0;
+    height: 140px;
     position: relative;
 }
 .weather-chart {
@@ -167,22 +168,19 @@ body {
 }
 
 .weather-popup-hours {
-    display: flex;
-    gap: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding: 6px 10px 12px;
+    position: relative;
+    height: 88px;
+    margin: 4px 0 8px;
 }
-.weather-popup-hours::-webkit-scrollbar { display: none; }
 
 .weather-hour-item {
+    position: absolute;
+    transform: translateX(-50%);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
-    min-width: 52px;
-    flex-shrink: 0;
-    padding: 5px 4px;
+    gap: 2px;
+    padding: 3px 4px;
     border-radius: 8px;
     transition: background 0.12s;
 }
@@ -794,6 +792,8 @@ body {
 .tab-content.active { display: flex; }
 
 .form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-row { display: flex; gap: 12px; }
+.form-row .form-group { flex: 1; min-width: 0; }
 .form-hint { font-size: 12px; color: var(--gray-500); }
 
 .form-inline {
@@ -1024,3 +1024,196 @@ body {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+
+/* Users checkbox list in add-task form */
+.users-checkbox-list {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--gray-50, #f9fafb);
+}
+
+.user-checkbox-item {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--gray-800, #1f2937) !important;
+    padding: 4px 8px !important;
+    border-radius: 6px;
+    border: 1px solid var(--gray-200);
+    background: white;
+    transition: border-color 0.15s, background 0.15s;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.user-checkbox-item:hover {
+    border-color: var(--user-color, #3498db);
+    background: var(--gray-50, #f9fafb);
+}
+
+.user-checkbox-item input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.user-checkbox-dot {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    border: 2px solid var(--user-color, #3498db);
+    flex-shrink: 0;
+    transition: background 0.15s;
+    background: transparent;
+}
+
+.user-checkbox-item input[type="checkbox"]:checked ~ .user-checkbox-dot {
+    background: var(--user-color, #3498db);
+}
+
+.user-checkbox-item:has(input:checked) {
+    border-color: var(--user-color, #3498db);
+    background: color-mix(in srgb, var(--user-color, #3498db) 10%, white);
+}
+
+/* Comments modal */
+.comments-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+}
+
+.comments-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+    min-height: 60px;
+    max-height: 340px;
+}
+
+.comments-loading,
+.comments-empty {
+    color: var(--gray-400, #9ca3af);
+    font-size: 13px;
+    text-align: center;
+    padding: 16px 0;
+}
+
+.comment-item {
+    background: var(--gray-50, #f9fafb);
+    border: 1px solid var(--gray-200, #e5e7eb);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.comment-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.comment-author-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.comment-author {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-700, #374151);
+}
+
+.comment-date {
+    font-size: 11px;
+    color: var(--gray-400, #9ca3af);
+    margin-left: auto;
+}
+
+.comment-text {
+    font-size: 13px;
+    color: var(--gray-800, #1f2937);
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.add-comment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 1px solid var(--gray-200, #e5e7eb);
+    padding-top: 12px;
+}
+
+.add-comment-form textarea {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: var(--font);
+    border: 1px solid var(--gray-300, #d1d5db);
+    border-radius: 6px;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.add-comment-form textarea:focus {
+    border-color: var(--blue, #1d4ed8);
+    box-shadow: 0 0 0 3px rgba(29,78,216,0.08);
+}
+
+.add-comment-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.comment-user-select {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: var(--font);
+    border: 1px solid var(--gray-300, #d1d5db);
+    border-radius: 6px;
+    background: white;
+    color: var(--gray-900, #111827);
+    outline: none;
+}
+
+.comment-user-select:focus {
+    border-color: var(--blue, #1d4ed8);
+    box-shadow: 0 0 0 3px rgba(29,78,216,0.08);
+}
+
+/* Comment count badge on button */
+.comment-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.3);
+    border-radius: 10px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: middle;
+}
