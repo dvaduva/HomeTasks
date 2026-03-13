@@ -497,7 +497,7 @@ def get_user(user_id):
             'id': user.id,
             'name': user.name,
             'color': user.color,
-            'created_at': u.created_at.isoformat() if u.created_at else None
+            'created_at': user.created_at.isoformat() if user.created_at else None
         })
     finally:
         db.close()
@@ -808,7 +808,7 @@ def get_preferences():
 def update_preferences():
     db = get_db()
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         

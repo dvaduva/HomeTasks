@@ -5,7 +5,10 @@
       "Bash(venv/Scripts/python --version)",
       "Bash(venv/Scripts/pip install:*)",
       "Bash(venv/Scripts/pip index:*)",
-      "Bash(venv/Scripts/python -c \"from sqlalchemy.orm import sessionmaker; print\\(''SQLAlchemy import OK''\\)\")"
+      "Bash(venv/Scripts/python -c \"from sqlalchemy.orm import sessionmaker; print\\(''SQLAlchemy import OK''\\)\")",
+      "Bash(find /d/Surse/Proiecte/HomeTasks -not -path */venv/* -type d)",
+      "Bash(wc -l /d/Surse/Proiecte/HomeTasks/src/main.py /d/Surse/Proiecte/HomeTasks/src/task_manager/*.py /d/Surse/Proiecte/HomeTasks/src/voice/service.py /d/Surse/Proiecte/HomeTasks/src/weather/service.py /d/Surse/Proiecte/HomeTasks/src/ollama/client.py)",
+      "Bash(python -m pytest tests/ -v --tb=short)"
     ]
   }
 }
