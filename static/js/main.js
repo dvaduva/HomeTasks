@@ -4,7 +4,8 @@
 // Global voice preferences object
 const voicePrefs = {
     language: 'ro-RO',  // Default language
-    sensitivity: 0.5    // Default sensitivity
+    sensitivity: 0.5,   // Default sensitivity
+    ttsVoiceName: localStorage.getItem('ttsVoiceName') || ''  // TTS voice (persisted locally)
 };
 
 // Initialize voice recognition
@@ -1101,6 +1102,26 @@ modalStyle.textContent = `
 document.head.appendChild(modalStyle);
 
 
+// Populate TTS voice selector with all available voices
+function populateTTSVoices() {
+    const select = document.getElementById('tts-voice');
+    if (!select || !window.speechSynthesis) return;
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) return;
+
+    // Keep the default "auto" option, then rebuild the rest
+    select.innerHTML = '<option value="">— automat (limbă curentă) —</option>';
+
+    voices.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.name;
+        opt.textContent = `${v.name} (${v.lang})${v.localService ? '' : ' ☁'}`;
+        if (v.name === voicePrefs.ttsVoiceName) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
 // Speak text using browser TTS
 function speakText(text) {
     if (!window.speechSynthesis) return;
@@ -1113,11 +1134,16 @@ function speakText(text) {
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
-    // Prefer a voice matching the language
     const voices = window.speechSynthesis.getVoices();
-    const match = voices.find(v => v.lang === voicePrefs.language)
-                || voices.find(v => v.lang.startsWith(voicePrefs.language.split('-')[0]));
-    if (match) utterance.voice = match;
+    if (voicePrefs.ttsVoiceName) {
+        const saved = voices.find(v => v.name === voicePrefs.ttsVoiceName);
+        if (saved) utterance.voice = saved;
+    } else {
+        // Auto: prefer a voice matching the recognition language
+        const match = voices.find(v => v.lang === voicePrefs.language)
+                    || voices.find(v => v.lang.startsWith(voicePrefs.language.split('-')[0]));
+        if (match) utterance.voice = match;
+    }
 
     window.speechSynthesis.speak(utterance);
 }
@@ -1424,6 +1450,22 @@ function initSettings() {
             voiceSensValue.textContent = this.value;
         });
     }
+
+    // Populate TTS voice list when the Vocal tab is opened
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-tab') === 'voice') {
+            btn.addEventListener('click', populateTTSVoices);
+        }
+    });
+
+    // Save TTS voice selection immediately on change
+    const ttsVoiceSelect = document.getElementById('tts-voice');
+    if (ttsVoiceSelect) {
+        ttsVoiceSelect.addEventListener('change', function() {
+            voicePrefs.ttsVoiceName = this.value;
+            localStorage.setItem('ttsVoiceName', this.value);
+        });
+    }
 }
 
 // Load settings from backend and populate form
@@ -1669,6 +1711,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize voice recognition
     initVoiceRecognition();
+
+    // Load TTS voices (may be async in some browsers)
+    if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = populateTTSVoices;
+        populateTTSVoices(); // also try immediately (Chrome desktop loads sync)
+    }
 
     // Initialize chat
     initChat();
