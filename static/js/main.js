@@ -1101,45 +1101,73 @@ modalStyle.textContent = `
 document.head.appendChild(modalStyle);
 
 
-// Process voice command by sending to backend
+// Speak text using browser TTS
+function speakText(text) {
+    if (!window.speechSynthesis) return;
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = voicePrefs.language;
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    // Prefer a voice matching the language
+    const voices = window.speechSynthesis.getVoices();
+    const match = voices.find(v => v.lang === voicePrefs.language)
+                || voices.find(v => v.lang.startsWith(voicePrefs.language.split('-')[0]));
+    if (match) utterance.voice = match;
+
+    window.speechSynthesis.speak(utterance);
+}
+
+// Process voice command by sending to AI chat
 function processVoiceCommand(command) {
-    showVoiceFeedback('Procesare comandă: "' + command + '"', false);
-    
-    fetch('/api/voice-command', {
+    showVoiceFeedback('Am auzit: "' + command + '"', false);
+
+    // Open the chat panel and show the voice command as user message
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer && !chatContainer.classList.contains('open')) {
+        chatContainer.classList.add('open');
+    }
+
+    addUserMessage('🎙️ ' + command);
+    showTypingIndicator();
+
+    fetch('/api/ai/chat', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ command: command })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: command })
     })
     .then(response => {
         if (!response.ok) {
-            throw new Error('Network response was not ok');
+            return response.json().then(err => { throw new Error(err.error || 'Network error'); });
         }
         return response.json();
     })
     .then(data => {
-        console.log('Voice command response:', data);
-        showVoiceFeedback(data.response, false);
-        
-        // If the command was to add a task, refresh the task list
-        if (command.toLowerCase().includes('adaugă task') || command.toLowerCase().includes('add task')) {
-            // Reload tasks for current user
+        removeTypingIndicator();
+        const reply = data.response || 'Nu am putut genera un răspuns.';
+        addAIMessage(reply);
+        scrollToBottom();
+        speakText(reply);
+
+        if (data.action === 'task_created') {
+            loadTodayTasks();
             const activeUser = document.querySelector('.user-item.active');
-            if (activeUser) {
-                loadTasksForUser(activeUser.dataset.userId);
-                loadTodayTasks();
-            }
+            if (activeUser) loadTasksForUser(activeUser.dataset.userId);
         }
-        
-        // If the command was about weather, refresh weather
-        if (command.toLowerCase().includes('vreme') || command.toLowerCase().includes('weather')) {
+        if (data.action === 'weather_data') {
             loadWeather();
         }
     })
     .catch(error => {
         console.error('Error processing voice command:', error);
-        showVoiceFeedback('Eroare la procesarea comenzii vocale', true);
+        removeTypingIndicator();
+        addAIMessage('Eroare la procesarea comenzii vocale.');
+        scrollToBottom();
+        showVoiceFeedback('Eroare la comunicarea cu AI', true);
     });
 }
 
