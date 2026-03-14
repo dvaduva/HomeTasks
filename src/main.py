@@ -15,6 +15,7 @@ import json
 from weather.service import WeatherService
 from ollama.client import ollama_client
 from voice.service import voice_service
+from tuya.service import tuya_service
 
 # Load environment variables
 load_dotenv()
@@ -70,6 +71,19 @@ def initialize_database():
 # Initialize database on startup
 with app.app_context():
     initialize_database()
+    # Apply Tuya credentials from DB preferences (override env defaults if set)
+    try:
+        _db = get_db()
+        _prefs = PreferencesRepository(_db).get_or_create()
+        if _prefs.tuya_access_id:
+            tuya_service.access_id = _prefs.tuya_access_id
+        if _prefs.tuya_access_secret:
+            tuya_service.access_secret = _prefs.tuya_access_secret
+        if _prefs.tuya_api_region:
+            tuya_service.api_region = _prefs.tuya_api_region
+        _db.close()
+    except Exception:
+        pass
 
 # Helper function to get database session
 def get_db():
@@ -836,7 +850,10 @@ def get_preferences():
             'ai_max_tokens': prefs.ai_max_tokens,
             'voice_language': prefs.voice_language,
             'voice_sensitivity': prefs.voice_sensitivity,
-            'voice_auto_start': prefs.voice_auto_start
+            'voice_auto_start': prefs.voice_auto_start,
+            'tuya_access_id': prefs.tuya_access_id or '',
+            'tuya_access_secret': prefs.tuya_access_secret or '',
+            'tuya_api_region': prefs.tuya_api_region or 'eu',
         })
     finally:
         db.close()
@@ -866,6 +883,10 @@ def update_preferences():
             ollama_client.model = data['ai_model']
         if 'language' in data or 'weather_city' in data:
             weather_service.cache.clear()
+        if any(k in data for k in ('tuya_access_id', 'tuya_access_secret', 'tuya_api_region')):
+            tuya_service.access_id = prefs.tuya_access_id or tuya_service.access_id
+            tuya_service.access_secret = prefs.tuya_access_secret or tuya_service.access_secret
+            tuya_service.api_region = prefs.tuya_api_region or tuya_service.api_region
 
         return jsonify({
             'id': prefs.id,
@@ -881,7 +902,10 @@ def update_preferences():
             'ai_max_tokens': prefs.ai_max_tokens,
             'voice_language': prefs.voice_language,
             'voice_sensitivity': prefs.voice_sensitivity,
-            'voice_auto_start': prefs.voice_auto_start
+            'voice_auto_start': prefs.voice_auto_start,
+            'tuya_access_id': prefs.tuya_access_id or '',
+            'tuya_access_secret': prefs.tuya_access_secret or '',
+            'tuya_api_region': prefs.tuya_api_region or 'eu',
         })
     except Exception as e:
         db.rollback()
@@ -1004,6 +1028,32 @@ def process_voice_command(command: str) -> str:
     # Default response for unrecognized commands
     else:
         return f"Nu am înțeles comanda: '{command}'. Încearcă să spui ceva precum 'adaugă task cumpără pâine' sau 'care e vremea astăzi?'."
+
+
+# ── Tuya ─────────────────────────────────────────────────────────────────────
+
+@app.route('/api/tuya/temperatures')
+def get_tuya_temperatures():
+    """Return current temperatures from cached tuya_devices.json."""
+    try:
+        data = tuya_service.get_temperatures()
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Error reading Tuya temperatures: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tuya/refresh', methods=['POST'])
+def refresh_tuya():
+    """Fetch fresh data from Tuya Cloud and update tuya_devices.json."""
+    try:
+        result = tuya_service.refresh_from_cloud()
+        if 'error' in result:
+            return jsonify(result), 502
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error refreshing Tuya data: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

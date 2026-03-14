@@ -174,6 +174,20 @@ const TRANSLATIONS = {
         history_status_completed: 'Finalizat',
         history_status_refused: 'Refuzat',
         history_status_pending: 'În așteptare',
+        // Tuya
+        tuya_btn_label: 'Temperaturi',
+        tuya_modal_title: 'Temperaturi camere',
+        tuya_refresh_title: 'Actualizează din cloud',
+        tuya_no_devices: 'Niciun dispozitiv găsit.',
+        tuya_updated_prefix: 'Actualizat: ',
+        tuya_target_prefix: 'Țintă: ',
+        tuya_online: 'Online',
+        tuya_offline: 'Offline',
+        tuya_connecting: 'Se conectează la Tuya Cloud...',
+        tuya_load_error: 'Eroare la încărcare: ',
+        tuya_lbl_access_id: 'Access ID',
+        tuya_lbl_access_secret: 'Access Secret',
+        tuya_lbl_region: 'Regiune API',
     },
     en: {
         // Voice
@@ -344,6 +358,20 @@ const TRANSLATIONS = {
         history_status_completed: 'Completed',
         history_status_refused: 'Refused',
         history_status_pending: 'Pending',
+        // Tuya
+        tuya_btn_label: 'Temperatures',
+        tuya_modal_title: 'Room temperatures',
+        tuya_refresh_title: 'Refresh from cloud',
+        tuya_no_devices: 'No devices found.',
+        tuya_updated_prefix: 'Updated: ',
+        tuya_target_prefix: 'Target: ',
+        tuya_online: 'Online',
+        tuya_offline: 'Offline',
+        tuya_connecting: 'Connecting to Tuya Cloud...',
+        tuya_load_error: 'Load error: ',
+        tuya_lbl_access_id: 'Access ID',
+        tuya_lbl_access_secret: 'Access Secret',
+        tuya_lbl_region: 'API Region',
     }
 };
 
@@ -2392,6 +2420,14 @@ function loadSettings() {
             if (voiceAutoStartCheckbox && settings.voice_auto_start !== undefined) {
                 voiceAutoStartCheckbox.checked = settings.voice_auto_start;
             }
+
+            // Populate Tuya settings
+            const tuyaAccessId = document.getElementById('tuya-access-id');
+            if (tuyaAccessId) tuyaAccessId.value = settings.tuya_access_id || '';
+            const tuyaAccessSecret = document.getElementById('tuya-access-secret');
+            if (tuyaAccessSecret) tuyaAccessSecret.value = settings.tuya_access_secret || '';
+            const tuyaApiRegion = document.getElementById('tuya-api-region');
+            if (tuyaApiRegion) tuyaApiRegion.value = settings.tuya_api_region || 'eu';
         })
         .catch(error => {
             console.error('Error loading settings:', error);
@@ -2421,7 +2457,12 @@ function saveSettings() {
         // Voice
         voice_language: document.getElementById('voice-language')?.value,
         voice_sensitivity: parseFloat(document.getElementById('voice-sensitivity')?.value) || 0.5,
-        voice_auto_start: document.getElementById('voice-auto-start')?.checked || false
+        voice_auto_start: document.getElementById('voice-auto-start')?.checked || false,
+
+        // Tuya
+        tuya_access_id: document.getElementById('tuya-access-id')?.value?.trim() || '',
+        tuya_access_secret: document.getElementById('tuya-access-secret')?.value?.trim() || '',
+        tuya_api_region: document.getElementById('tuya-api-region')?.value || 'eu',
     };
     
     // Remove undefined values
@@ -2720,4 +2761,105 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize history panel
     initHistoryPanel();
+
+    // Initialize Tuya temperatures panel
+    initTuyaPanel();
 });
+
+// ============================================================
+// TUYA — Temperature panel
+// ============================================================
+
+function initTuyaPanel() {
+    document.getElementById('tuya-btn')?.addEventListener('click', openTuyaPanel);
+    document.getElementById('close-tuya-btn')?.addEventListener('click', closeTuyaPanel);
+    document.getElementById('tuya-modal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeTuyaPanel();
+    });
+    document.getElementById('tuya-refresh-btn')?.addEventListener('click', refreshTuyaFromCloud);
+}
+
+function openTuyaPanel() {
+    document.getElementById('tuya-modal')?.classList.add('active');
+    loadTuyaTemperatures();
+}
+
+function closeTuyaPanel() {
+    document.getElementById('tuya-modal')?.classList.remove('active');
+}
+
+async function loadTuyaTemperatures() {
+    const grid = document.getElementById('tuya-grid');
+    grid.innerHTML = `<p class="empty">${t('loading')}</p>`;
+    try {
+        const res = await fetch('/api/tuya/temperatures');
+        const data = await res.json();
+        renderTuyaGrid(data);
+    } catch (e) {
+        grid.innerHTML = `<p class="empty">${t('tuya_load_error')}${e.message}</p>`;
+    }
+}
+
+function renderTuyaGrid(data) {
+    const grid = document.getElementById('tuya-grid');
+    const updatedEl = document.getElementById('tuya-updated');
+
+    if (data.error) {
+        grid.innerHTML = `<p class="empty">${data.error}</p>`;
+        updatedEl.textContent = '';
+        return;
+    }
+
+    if (data.generated_at) {
+        const d = new Date(data.generated_at);
+        const locale = currentLang === 'en' ? 'en-GB' : 'ro-RO';
+        updatedEl.textContent = t('tuya_updated_prefix') + d.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    const devices = data.devices || [];
+    if (!devices.length) {
+        grid.innerHTML = `<p class="empty">${t('tuya_no_devices')}</p>`;
+        return;
+    }
+
+    grid.innerHTML = devices.map(dev => {
+        const tempDisplay = dev.temp_current !== null ? dev.temp_current.toFixed(1) + '°C' : '—';
+        const setDisplay = dev.temp_set !== null ? `${t('tuya_target_prefix')}${dev.temp_set.toFixed(1)}°C` : '';
+        const tempClass = dev.temp_current === null ? 'neutral'
+            : dev.temp_current >= (dev.temp_set ?? dev.temp_current) ? 'warm' : 'cool';
+        const onlineClass = dev.online ? 'online' : 'offline';
+        const onlineLabel = dev.online ? t('tuya_online') : t('tuya_offline');
+        return `
+        <div class="tuya-card ${dev.online ? '' : 'offline'}">
+            <div class="tuya-card-name" title="${dev.name}">${dev.name}</div>
+            <div class="tuya-card-temp ${tempClass}">${tempDisplay}</div>
+            ${setDisplay ? `<div class="tuya-card-set">${setDisplay}</div>` : ''}
+            <div class="tuya-card-status">
+                <span class="tuya-dot ${onlineClass}"></span>
+                <span>${onlineLabel}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function refreshTuyaFromCloud() {
+    const btn = document.getElementById('tuya-refresh-btn');
+    const grid = document.getElementById('tuya-grid');
+    btn.classList.add('tuya-refreshing');
+    btn.disabled = true;
+    grid.innerHTML = `<p class="empty">${t('tuya_connecting')}</p>`;
+    try {
+        const res = await fetch('/api/tuya/refresh', { method: 'POST' });
+        const data = await res.json();
+        if (data.error) {
+            grid.innerHTML = `<p class="empty">${t('error_prefix')}${data.error}</p>`;
+        } else {
+            await loadTuyaTemperatures();
+        }
+    } catch (e) {
+        grid.innerHTML = `<p class="empty">${t('error_prefix')}${e.message}</p>`;
+    } finally {
+        btn.classList.remove('tuya-refreshing');
+        btn.disabled = false;
+    }
+}

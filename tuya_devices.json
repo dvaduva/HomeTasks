@@ -1,0 +1,342 @@
+{
+  "generated_at": "2026-03-14T16:14:10.435463+00:00",
+  "devices": [
+    {
+      "id": "bfa6b3cbe1619cde3fuum7",
+      "name": "Cameră Ana",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 208
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773504854348,
+        "tid": "d7fef5321fc011f18255b6b5e3717ca9"
+      }
+    },
+    {
+      "id": "bfecca7b4fe5b60ac0fksr",
+      "name": "Dormitor",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 208
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 50
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773504855347,
+        "tid": "d897cf711fc011f18410e21ddda0be51"
+      }
+    },
+    {
+      "id": "bff64cfd0cf77efbf2ngph",
+      "name": "Bucătărie",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 218
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773504856339,
+        "tid": "d92e20bc1fc011f18410e21ddda0be51"
+      }
+    },
+    {
+      "id": "bf7c77962ec398ffa6sn3f",
+      "name": "Living",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 211
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773504857312,
+        "tid": "d9c0b3f01fc011f18255b6b5e3717ca9"
+      }
+    },
+    {
+      "id": "bf8423321cc1f58beb6fyy",
+      "name": "Birou",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 210
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773504858255,
+        "tid": "da52d1bc1fc011f18410e21ddda0be51"
+      }
+    },
+    {
+      "id": "bf3b11f7ec82aed0967swk",
+      "name": "Dormitor Parter",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 170
+          },
+          {
+            "code": "temp_current",
+            "value": 182
+          },
+          {
+            "code": "mode",
+            "value": "home"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773504859221,
+        "tid": "dae407dd1fc011f18410e21ddda0be51"
+      }
+    },
+    {
+      "id": "bfcfd3dac3f3760173hipk",
+      "name": "Irigație grădină",
+      "product_name": "6路智能水阀控制器",
+      "model": "",
+      "online": false,
+      "status": {
+        "result": [],
+        "success": true,
+        "t": 1773504860168,
+        "tid": "db7793631fc011f18255b6b5e3717ca9"
+      }
+    }
+  ]
+}

@@ -5,7 +5,13 @@
       "Bash(grep -rn \"Limba\\\\|Language\\\\|app-language\" d:/Surse/Proiecte/HomeTasks --include=\"*.html\" --include=\"*.js\" ! -path \"*/venv/*\")",
       "Bash(grep -rn \"Limba\\\\|Language\\\\|app-language\" d:/Surse/Proiecte/HomeTasks --include=*.html --include=*.js)",
       "Bash(python3 -c \":*)",
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Bash(find /d/Surse/Proiecte/HomeTasks -maxdepth 3 -type d -not -path */venv* -not -path */__pycache__* -not -path */.git* -not -path */.pytest*)",
+      "Bash(pip --version)",
+      "Bash(python -m venv venv)"
+    ],
+    "additionalDirectories": [
+      "d:\\Surse\\Proiecte\\HomeTasks\\src"
     ]
   }
 }

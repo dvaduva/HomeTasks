@@ -91,6 +91,10 @@ class Preferences(Base):
     voice_language = Column(String(10), default='ro-RO')  # ro-RO, en-US, en-GB
     voice_sensitivity = Column(Float, default=0.5)
     voice_auto_start = Column(Boolean, default=False)
+    # Tuya Cloud settings
+    tuya_access_id = Column(String(100), default='')
+    tuya_access_secret = Column(String(100), default='')
+    tuya_api_region = Column(String(10), default='eu')
     # Updated timestamp
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

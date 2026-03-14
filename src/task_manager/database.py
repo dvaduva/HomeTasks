@@ -35,6 +35,9 @@ def _migrate_preferences(engine):
         ("ai_max_tokens",           "INTEGER DEFAULT 500"),
         ("voice_sensitivity",       "REAL DEFAULT 0.5"),
         ("voice_auto_start",        "BOOLEAN DEFAULT 0"),
+        ("tuya_access_id",          "VARCHAR(100) DEFAULT ''"),
+        ("tuya_access_secret",      "VARCHAR(100) DEFAULT ''"),
+        ("tuya_api_region",         "VARCHAR(10) DEFAULT 'eu'"),
     ]
     with engine.connect() as conn:
         existing = {row[1] for row in conn.execute(text("PRAGMA table_info(preferences)"))}

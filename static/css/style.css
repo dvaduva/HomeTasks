@@ -1411,3 +1411,100 @@ body {
     font-weight: 700;
     line-height: 1;
 }
+
+/* =====================================================
+   TUYA — Temperature modal
+   ===================================================== */
+.tuya-modal {
+    width: min(700px, 96vw);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.tuya-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 0;
+    gap: 10px;
+}
+
+.tuya-updated {
+    font-size: 12px;
+    color: var(--gray-500);
+}
+
+.tuya-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    overflow-y: auto;
+    padding: 12px 16px 16px;
+}
+
+.tuya-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 16px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--white);
+    transition: box-shadow 0.15s;
+}
+
+.tuya-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+
+.tuya-card-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-700);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tuya-card-temp {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.tuya-card-temp.warm { color: #ea580c; }
+.tuya-card-temp.cool { color: var(--blue); }
+.tuya-card-temp.neutral { color: var(--gray-700); }
+
+.tuya-card-set {
+    font-size: 12px;
+    color: var(--gray-500);
+}
+
+.tuya-card-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.tuya-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tuya-dot.online  { background: var(--green); }
+.tuya-dot.offline { background: var(--gray-300); }
+
+.tuya-card.offline {
+    opacity: 0.6;
+    background: var(--gray-50);
+}
+
+.tuya-refreshing { opacity: 0.5; pointer-events: none; }
+
+.btn-tuya { color: #ea580c; }
+.btn-tuya:hover { color: #c2410c; }
