@@ -1,6 +1,341 @@
 // Main JavaScript for HomeTasks frontend - Faza 7: Interfața de gestionare a taskurilor
 // Faza 8: Interfața vocală (client-side)
 
+// ============================================================
+// i18n — Translations
+// ============================================================
+const TRANSLATIONS = {
+    ro: {
+        // Voice
+        voice_unavailable: 'Recunoașterea vocală nu este disponibilă în acest browser',
+        mic_unavailable: 'Microfon: indisponibil',
+        mic_available: 'Microfon: disponibil',
+        listening: 'Ascult...',
+        stop_listening: 'Oprire ascultare',
+        start_listening: 'Pornește ascultarea',
+        mic_available_status: 'Disponibil',
+        mic_denied: 'Microfon: acces refuzat',
+        voice_error: 'Eroare la recunoașterea vorbirii: ',
+        voice_listening_prompt: 'Ascult... Vorbesc acum',
+        voice_error_start: 'Eroare la pornirea recunoașterii vocale',
+        voice_heard: 'Am auzit: "',
+        // Users
+        all_users: 'Toți',
+        loading_users_error: 'Eroare la încărcarea utilizatorilor',
+        no_users: 'Nu există utilizatori',
+        deleted_user: 'Utilizator șters',
+        prompt_user_name: 'Introduceți numele utilizatorului:',
+        // Loading
+        loading: 'Se încarcă...',
+        loading_error: 'Eroare la încărcare.',
+        loading_tasks_error: 'Eroare la încărcarea taskurilor',
+        loading_today_error: 'Eroare la încărcarea taskurilor de azi',
+        // Tasks
+        no_tasks: 'Nu există taskuri.',
+        no_tasks_today: 'Nu există taskuri pentru astăzi.',
+        btn_undo_complete: 'Anulează finalizare',
+        btn_complete: 'Finalizează',
+        btn_undo_refuse: 'Anulează refuz',
+        btn_refuse: 'Refuză',
+        btn_comments: 'Comentarii',
+        btn_edit: 'Editează',
+        btn_delete: 'Șterge',
+        recur_none: 'Fără recurență',
+        recur_daily: 'Zilnic',
+        recur_weekly: 'Săptămânal',
+        recur_monthly: 'Lunar',
+        recur_yearly: 'Anual',
+        confirm_task_complete: 'Marchezi taskul ca finalizat?',
+        confirm_task_undo_complete: 'Anulezi finalizarea taskului?',
+        confirm_task_refuse: 'Refuzi acest task?',
+        confirm_task_undo_refuse: 'Anulezi refuzul taskului?',
+        confirm_task_delete: 'Sigur doriți să ștergeți acest task?',
+        modal_add_task_title: 'Adaugă task nou',
+        lbl_task_desc: 'Descriere:',
+        lbl_task_date: 'Data și oră:',
+        lbl_task_users: 'Utilizatori:',
+        lbl_task_recurrence: 'Recurență:',
+        lbl_task_recurrence_end: 'Sfârșit recurență (opțional):',
+        btn_add_task: 'Adaugă task',
+        validation_task_desc: 'Descrierea taskului este obligatorie',
+        validation_task_users: 'Selectează cel puțin un utilizator',
+        error_prefix: 'Eroare: ',
+        error_create_user: 'Eroare la crearea utilizatorului',
+        modal_edit_task_title: 'Editează task',
+        btn_save_changes: 'Salvează modificări',
+        btn_cancel: 'Anulează',
+        // Comments
+        modal_comments_title: 'Comentarii',
+        comment_placeholder: 'Scrie un comentariu...',
+        btn_send: 'Trimite',
+        btn_close: 'Închide',
+        no_comments: 'Nu există comentarii încă.',
+        loading_comments_error: 'Eroare la încărcarea comentariilor.',
+        error_comment: 'Eroare la adăugarea comentariului',
+        // Confirm dialog
+        btn_confirm: 'Confirmă',
+        // Weather
+        weather_hourly_prefix: 'Prognoză orară — ',
+        day_names_short: ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm'],
+        today_label: 'Azi',
+        // AI Chat
+        ai_no_response: 'Nu am putut genera un răspuns.',
+        ai_voice_error: 'Eroare la procesarea comenzii vocale.',
+        ai_connection_error: 'Eroare la comunicarea cu AI',
+        ai_no_response_full: 'Îmi pare rău, nu am putut genera un răspuns. Vă rugăm să încercați din nou.',
+        ai_server_error: 'A apărut o eroare la comunicarea cu serverul AI. Vă rugăm să încercați din nou.',
+        tts_click_hint: 'Click pentru a asculta mesajul',
+        ai_typing: 'AI scrie...',
+        chat_welcome: 'Salut! Sunt HomeTasks AI assistant. Cum vă pot ajuta astăzi?',
+        chat_initial_msg: 'Salut! Cum vă pot ajuta?',
+        // Settings
+        settings_loading_error: 'Eroare la încărcarea setărilor',
+        settings_users_error: 'Eroare la încărcarea utilizatorilor.',
+        settings_no_users: 'Niciun utilizator creat.',
+        user_name_placeholder: 'Nume utilizator',
+        user_empty_name: 'Numele nu poate fi gol.',
+        user_updated: 'Utilizator actualizat.',
+        user_update_error: 'Eroare la actualizare.',
+        user_delete_confirm: (name) => `Ștergi utilizatorul "${name}"?\nTaskurile sale vor rămâne în baza de date.`,
+        user_deleted: 'Utilizator șters.',
+        user_delete_error: 'Eroare la ștergere.',
+        user_enter_name: 'Introduceți un nume.',
+        user_added: 'Utilizator adăugat.',
+        user_add_error: 'Eroare la adăugare.',
+        ollama_unavailable: '— Ollama indisponibil —',
+        settings_saved: 'Setările au fost salvate cu succes!',
+        settings_saved_applied: 'Setările au fost salvate și aplicate!',
+        settings_save_error: 'Eroare la salvarea setărilor',
+        models_btn_label: '↻ Modele',
+        // Static HTML (data-i18n keys)
+        title_weather: 'Click pentru prognoză orară',
+        title_reload: 'Reîncarcă pagina',
+        title_settings: 'Setări',
+        title_new_task: 'Task nou',
+        title_check_models: 'Verifică modele disponibile',
+        col_all_tasks: 'Toate taskurile',
+        col_today: 'Astăzi',
+        select_user_msg: 'Selectați un utilizator.',
+        voice_btn_label: 'Comandă Vocală',
+        voice_status_inactive: 'Inactiv',
+        weather_popup_title: 'Prognoză vreme',
+        chat_assistant_name: 'Asistent',
+        chat_online_status: '● online',
+        chat_placeholder: 'Scrieți un mesaj...',
+        chat_send_title: 'Trimite',
+        settings_title: 'Setări',
+        tab_general: 'General',
+        tab_users: 'Utilizatori',
+        tab_weather: 'Vreme',
+        tab_voice: 'Vocal',
+        lbl_language: 'Limbă',
+        opt_romanian: 'Română',
+        opt_english: 'Engleză',
+        lbl_date_format: 'Format dată',
+        opt_date_short: 'Scurt (dd/mm/yyyy)',
+        opt_date_long: 'Lung',
+        opt_date_full: 'Complet',
+        lbl_time_format: 'Format oră',
+        lbl_weather_city: 'Oraș',
+        lbl_weather_units: 'Unități',
+        lbl_weather_update: 'Actualizare (minute)',
+        lbl_ollama_url: 'URL Server Ollama',
+        lbl_ai_model: 'Model AI',
+        opt_select_model: '— selectați modelul —',
+        lbl_ai_temp: 'Creativitate —',
+        lbl_ai_tokens: 'Max tokeni',
+        lbl_voice_lang: 'Limbă recunoaștere',
+        opt_voice_ro: 'Română',
+        opt_voice_en_us: 'Engleză (SUA)',
+        opt_voice_en_gb: 'Engleză (UK)',
+        lbl_tts_voice: 'Voce răspuns AI',
+        opt_tts_auto: '— automat (limbă curentă) —',
+        hint_tts_voices: 'Vocile disponibile depind de browser și sistemul de operare.',
+        lbl_sensitivity: 'Sensibilitate —',
+        lbl_auto_start: 'Autopornire',
+        btn_save: 'Salvează',
+        new_user_placeholder: 'Nume utilizator nou',
+        color_user_title: 'Culoare utilizator',
+        btn_add_user: '＋ Adaugă',
+    },
+    en: {
+        // Voice
+        voice_unavailable: 'Speech recognition is not available in this browser',
+        mic_unavailable: 'Microphone: unavailable',
+        mic_available: 'Microphone: available',
+        listening: 'Listening...',
+        stop_listening: 'Stop listening',
+        start_listening: 'Start listening',
+        mic_available_status: 'Available',
+        mic_denied: 'Microphone: access denied',
+        voice_error: 'Speech recognition error: ',
+        voice_listening_prompt: 'Listening... Speak now',
+        voice_error_start: 'Error starting speech recognition',
+        voice_heard: 'I heard: "',
+        // Users
+        all_users: 'All',
+        loading_users_error: 'Error loading users',
+        no_users: 'No users',
+        deleted_user: 'Deleted user',
+        prompt_user_name: 'Enter user name:',
+        // Loading
+        loading: 'Loading...',
+        loading_error: 'Loading error.',
+        loading_tasks_error: 'Error loading tasks',
+        loading_today_error: "Error loading today's tasks",
+        // Tasks
+        no_tasks: 'No tasks.',
+        no_tasks_today: 'No tasks for today.',
+        btn_undo_complete: 'Undo complete',
+        btn_complete: 'Complete',
+        btn_undo_refuse: 'Undo refuse',
+        btn_refuse: 'Refuse',
+        btn_comments: 'Comments',
+        btn_edit: 'Edit',
+        btn_delete: 'Delete',
+        recur_none: 'No recurrence',
+        recur_daily: 'Daily',
+        recur_weekly: 'Weekly',
+        recur_monthly: 'Monthly',
+        recur_yearly: 'Yearly',
+        confirm_task_complete: 'Mark task as completed?',
+        confirm_task_undo_complete: 'Undo task completion?',
+        confirm_task_refuse: 'Refuse this task?',
+        confirm_task_undo_refuse: 'Undo task refusal?',
+        confirm_task_delete: 'Are you sure you want to delete this task?',
+        modal_add_task_title: 'Add new task',
+        lbl_task_desc: 'Description:',
+        lbl_task_date: 'Date and time:',
+        lbl_task_users: 'Users:',
+        lbl_task_recurrence: 'Recurrence:',
+        lbl_task_recurrence_end: 'Recurrence end (optional):',
+        btn_add_task: 'Add task',
+        validation_task_desc: 'Task description is required',
+        validation_task_users: 'Select at least one user',
+        error_prefix: 'Error: ',
+        error_create_user: 'Error creating user',
+        modal_edit_task_title: 'Edit task',
+        btn_save_changes: 'Save changes',
+        btn_cancel: 'Cancel',
+        // Comments
+        modal_comments_title: 'Comments',
+        comment_placeholder: 'Write a comment...',
+        btn_send: 'Send',
+        btn_close: 'Close',
+        no_comments: 'No comments yet.',
+        loading_comments_error: 'Error loading comments.',
+        error_comment: 'Error adding comment',
+        // Confirm dialog
+        btn_confirm: 'Confirm',
+        // Weather
+        weather_hourly_prefix: 'Hourly forecast — ',
+        day_names_short: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        today_label: 'Today',
+        // AI Chat
+        ai_no_response: 'Could not generate a response.',
+        ai_voice_error: 'Error processing voice command.',
+        ai_connection_error: 'Error communicating with AI',
+        ai_no_response_full: "I'm sorry, I couldn't generate a response. Please try again.",
+        ai_server_error: 'An error occurred communicating with the AI server. Please try again.',
+        tts_click_hint: 'Click to listen to message',
+        ai_typing: 'AI typing...',
+        chat_welcome: "Hello! I'm HomeTasks AI assistant. How can I help you today?",
+        chat_initial_msg: 'Hello! How can I help you?',
+        // Settings
+        settings_loading_error: 'Error loading settings',
+        settings_users_error: 'Error loading users.',
+        settings_no_users: 'No users created.',
+        user_name_placeholder: 'User name',
+        user_empty_name: 'Name cannot be empty.',
+        user_updated: 'User updated.',
+        user_update_error: 'Update error.',
+        user_delete_confirm: (name) => `Delete user "${name}"?\nTheir tasks will remain in the database.`,
+        user_deleted: 'User deleted.',
+        user_delete_error: 'Delete error.',
+        user_enter_name: 'Enter a name.',
+        user_added: 'User added.',
+        user_add_error: 'Add error.',
+        ollama_unavailable: '— Ollama unavailable —',
+        settings_saved: 'Settings saved successfully!',
+        settings_saved_applied: 'Settings saved and applied!',
+        settings_save_error: 'Error saving settings',
+        models_btn_label: '↻ Models',
+        // Static HTML (data-i18n keys)
+        title_weather: 'Click for hourly forecast',
+        title_reload: 'Reload page',
+        title_settings: 'Settings',
+        title_new_task: 'New task',
+        title_check_models: 'Check available models',
+        col_all_tasks: 'All tasks',
+        col_today: 'Today',
+        select_user_msg: 'Select a user.',
+        voice_btn_label: 'Voice Command',
+        voice_status_inactive: 'Inactive',
+        weather_popup_title: 'Weather Forecast',
+        chat_assistant_name: 'Assistant',
+        chat_online_status: '● online',
+        chat_placeholder: 'Type a message...',
+        chat_send_title: 'Send',
+        settings_title: 'Settings',
+        tab_general: 'General',
+        tab_users: 'Users',
+        tab_weather: 'Weather',
+        tab_voice: 'Voice',
+        lbl_language: 'Language',
+        opt_romanian: 'Romanian',
+        opt_english: 'English',
+        lbl_date_format: 'Date format',
+        opt_date_short: 'Short (dd/mm/yyyy)',
+        opt_date_long: 'Long',
+        opt_date_full: 'Full',
+        lbl_time_format: 'Time format',
+        lbl_weather_city: 'City',
+        lbl_weather_units: 'Units',
+        lbl_weather_update: 'Update (minutes)',
+        lbl_ollama_url: 'Ollama Server URL',
+        lbl_ai_model: 'AI Model',
+        opt_select_model: '— select model —',
+        lbl_ai_temp: 'Creativity —',
+        lbl_ai_tokens: 'Max tokens',
+        lbl_voice_lang: 'Recognition language',
+        opt_voice_ro: 'Romanian',
+        opt_voice_en_us: 'English (US)',
+        opt_voice_en_gb: 'English (UK)',
+        lbl_tts_voice: 'AI response voice',
+        opt_tts_auto: '— automatic (current language) —',
+        hint_tts_voices: 'Available voices depend on browser and operating system.',
+        lbl_sensitivity: 'Sensitivity —',
+        lbl_auto_start: 'Auto-start',
+        btn_save: 'Save',
+        new_user_placeholder: 'New user name',
+        color_user_title: 'User color',
+        btn_add_user: '＋ Add',
+    }
+};
+
+let currentLang = 'ro';
+
+function t(key, ...args) {
+    const dict = TRANSLATIONS[currentLang] || TRANSLATIONS.ro;
+    const val = dict[key] !== undefined ? dict[key] : (TRANSLATIONS.ro[key] !== undefined ? TRANSLATIONS.ro[key] : key);
+    if (typeof val === 'function') return val(...args);
+    return val;
+}
+
+function applyLanguage(lang) {
+    currentLang = lang || 'ro';
+    document.documentElement.lang = currentLang;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.title = t(el.getAttribute('data-i18n-title'));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+    });
+}
+
 // Global voice preferences object
 const voicePrefs = {
     language: 'ro-RO',  // Default language
@@ -17,14 +352,14 @@ function initVoiceRecognition() {
 
     if (!window.SpeechRecognition) {
         console.warn('SpeechRecognition not supported in this browser');
-        document.getElementById('voice-btn').title = 'Recunoașterea vocală nu este disponibilă în acest browser';
+        document.getElementById('voice-btn').title = t('voice_unavailable');
         document.getElementById('voice-btn').style.opacity = '0.5';
         document.getElementById('voice-btn').style.cursor = 'not-allowed';
-        voiceStatus.textContent = 'Microfon: indisponibil';
+        voiceStatus.textContent = t('mic_unavailable');
         return;
     }
 
-    voiceStatus.textContent = 'Microfon: disponibil';
+    voiceStatus.textContent = t('mic_available');
 
     let isListening = false;
     let currentRecognition = null;
@@ -34,17 +369,17 @@ function initVoiceRecognition() {
         const voiceBtn = document.getElementById('voice-btn');
         const label = document.getElementById('voice-btn-label');
         if (listening) {
-            if (label) label.textContent = 'Ascult...';
+            if (label) label.textContent = t('listening');
             voiceBtn.style.removeProperty('background-color');
             voiceBtn.classList.add('listening');
-            voiceBtn.title = 'Oprire ascultare';
-            voiceStatus.textContent = 'Ascult...';
+            voiceBtn.title = t('stop_listening');
+            voiceStatus.textContent = t('listening');
         } else {
-            if (label) label.textContent = 'Comandă Vocală';
+            if (label) label.textContent = t('voice_btn_label');
             voiceBtn.style.removeProperty('background-color');
             voiceBtn.classList.remove('listening');
-            voiceBtn.title = 'Pornește ascultarea';
-            voiceStatus.textContent = 'Disponibil';
+            voiceBtn.title = t('start_listening');
+            voiceStatus.textContent = t('mic_available_status');
         }
     }
     
@@ -83,10 +418,10 @@ function initVoiceRecognition() {
                     }
                     
                     if (event.error === 'not-allowed') {
-                        voiceStatus.textContent = 'Microfon: acces refuzat';
+                        voiceStatus.textContent = t('mic_denied');
                     }
                     // Show error feedback
-                    showVoiceFeedback('Eroare la recunoașterea vorbirii: ' + event.error, true);
+                    showVoiceFeedback(t('voice_error') + event.error, true);
                 };
                 
                 currentRecognition.onend = function() {
@@ -100,10 +435,10 @@ function initVoiceRecognition() {
                 isListening = true;
                 updateVoiceButton(isListening);
                 
-                showVoiceFeedback('Ascult... Vorbesc acum', false);
+                showVoiceFeedback(t('voice_listening_prompt'), false);
             } catch (err) {
                 console.error('Error starting speech recognition:', err);
-                showVoiceFeedback('Eroare la pornirea recunoașterii vocale', true);
+                showVoiceFeedback(t('voice_error_start'), true);
                 if (currentRecognition) {
                     currentRecognition = null;
                 }
@@ -118,16 +453,17 @@ function initVoiceRecognition() {
             isListening = false;
             updateVoiceButton(isListening);
             currentRecognition = null;
-            showVoiceFeedback('Oprire ascultare', false);
+            showVoiceFeedback(t('stop_listening'), false);
         }
     });
 }
 
 function updateDateTime() {
     const now = new Date();
+    const locale = currentLang === 'en' ? 'en-US' : 'ro-RO';
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    const dateString = now.toLocaleDateString('ro-RO', options);
-    const timeString = now.toLocaleTimeString('ro-RO');
+    const dateString = now.toLocaleDateString(locale, options);
+    const timeString = now.toLocaleTimeString(locale);
     document.getElementById('date-time').textContent = `${dateString}, ${timeString}`;
 }
 
@@ -146,7 +482,7 @@ function loadUsers() {
         const allItem = document.createElement('div');
         allItem.className = 'user-item active';
         allItem.dataset.userId = 'all';
-        allItem.innerHTML = `<span>Toți</span>`;
+        allItem.innerHTML = `<span>${t('all_users')}</span>`;
         userList.appendChild(allItem);
 
         users.forEach(user => {
@@ -167,7 +503,7 @@ function loadUsers() {
         updateTasksDisplay(tasks);
     }).catch(error => {
         console.error('Error loading users:', error);
-        document.getElementById('user-list').innerHTML = '<p>Eroare la încărcarea utilizatorilor</p>';
+        document.getElementById('user-list').innerHTML = `<p>${t('loading_users_error')}</p>`;
     });
 }
 
@@ -197,7 +533,7 @@ function refreshUserTaskCounts() {
 }
 
 function loadAllTasks() {
-    document.getElementById('tasks-list').innerHTML = '<p class="empty">Se încarcă...</p>';
+    document.getElementById('tasks-list').innerHTML = `<p class="empty">${t('loading')}</p>`;
     fetch('/api/tasks')
         .then(r => r.json())
         .then(tasks => {
@@ -205,14 +541,14 @@ function loadAllTasks() {
             refreshUserTaskCounts();
         })
         .catch(() => {
-            document.getElementById('tasks-list').innerHTML = '<p class="empty">Eroare la încărcare.</p>';
+            document.getElementById('tasks-list').innerHTML = `<p class="empty">${t('loading_error')}</p>`;
         });
 }
 
 function loadTasksForUser(userId) {
     if (!userId || userId === 'all') return loadAllTasks();
     // Clear immediately so old tasks don't linger while loading
-    document.getElementById('tasks-list').innerHTML = '<p class="empty">Se încarcă...</p>';
+    document.getElementById('tasks-list').innerHTML = `<p class="empty">${t('loading')}</p>`;
 
     fetch(`/api/tasks?user_id=${userId}`)
         .then(response => response.json())
@@ -223,7 +559,7 @@ function loadTasksForUser(userId) {
         })
         .catch(error => {
             console.error('Error loading tasks:', error);
-            document.getElementById('tasks-list').innerHTML = '<p>Eroare la încărcarea taskurilor</p>';
+            document.getElementById('tasks-list').innerHTML = `<p>${t('loading_tasks_error')}</p>`;
         });
 }
 
@@ -272,13 +608,13 @@ function loadWeather() {
             const forecastEl = document.getElementById('weather-popup-forecast');
             if (!forecastEl || !data.daily) return;
 
-            const dayNames = ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm'];
+            const dayNames = t('day_names_short');
             const today = new Date().toDateString();
 
             const html = data.daily.slice(0, 5).map(day => {
                 const date = new Date(day.date);
                 const isToday = date.toDateString() === today;
-                const label = isToday ? 'Azi' : dayNames[date.getDay()];
+                const label = isToday ? t('today_label') : dayNames[date.getDay()];
                 const emoji = weatherEmoji(day.icon);
                 const popText = day.pop_avg > 0.1
                     ? `<span class="forecast-pop">💧${Math.round(day.pop_avg * 100)}%</span>`
@@ -337,7 +673,7 @@ function renderWeatherPopup(data) {
     const hours = data.hourly || [];
     const city = data.city || '';
     document.getElementById('weather-popup-title').textContent =
-        `Prognoză orară — ${city}`;
+        t('weather_hourly_prefix') + city;
 
     // ── Render hour items ──
     const hoursEl = document.getElementById('weather-popup-hours');
@@ -463,7 +799,7 @@ function loadTodayTasks() {
         })
         .catch(error => {
             console.error('Error loading today\'s tasks:', error);
-            document.getElementById('today-tasks-list').innerHTML = '<p>Eroare la încărcarea taskurilor de azi</p>';
+            document.getElementById('today-tasks-list').innerHTML = `<p>${t('loading_today_error')}</p>`;
         });
 }
 
@@ -475,7 +811,7 @@ function updateTasksDisplay(tasks) {
     if (badge) { badge.textContent = tasks.length; badge.hidden = tasks.length === 0; }
 
     if (tasks.length === 0) {
-        tasksList.innerHTML = '<p class="empty">Nu există taskuri.</p>';
+        tasksList.innerHTML = `<p class="empty">${t('no_tasks')}</p>`;
         return;
     }
 
@@ -498,7 +834,7 @@ function updateTodayTasksDisplay(tasks) {
     if (badge) { badge.textContent = tasks.length; badge.hidden = tasks.length === 0; }
 
     if (tasks.length === 0) {
-        todayTasksList.innerHTML = '<p class="empty">Nu există taskuri pentru astăzi.</p>';
+        todayTasksList.innerHTML = `<p class="empty">${t('no_tasks_today')}</p>`;
         return;
     }
 
@@ -528,19 +864,19 @@ function taskActionButtons(task, includeEditDelete = false) {
     const isRefused   = task.status === 'refused';
 
     const statusBtn = isCompleted
-        ? `<button class="task-btn task-btn-undo" data-action="toggle-status" title="Anulează finalizare">${TASK_ICONS.undo}</button>`
-        : `<button class="task-btn task-btn-complete" data-action="toggle-status" title="Finalizează">${TASK_ICONS.check}</button>`;
+        ? `<button class="task-btn task-btn-undo" data-action="toggle-status" data-i18n-title="btn_undo_complete" title="${t('btn_undo_complete')}">${TASK_ICONS.undo}</button>`
+        : `<button class="task-btn task-btn-complete" data-action="toggle-status" data-i18n-title="btn_complete" title="${t('btn_complete')}">${TASK_ICONS.check}</button>`;
 
     const refuseBtn = isRefused
-        ? `<button class="task-btn task-btn-undo" data-action="toggle-refuse" title="Anulează refuz">${TASK_ICONS.undo}</button>`
-        : `<button class="task-btn task-btn-refuse" data-action="toggle-refuse" title="Refuză">${TASK_ICONS.x}</button>`;
+        ? `<button class="task-btn task-btn-undo" data-action="toggle-refuse" data-i18n-title="btn_undo_refuse" title="${t('btn_undo_refuse')}">${TASK_ICONS.undo}</button>`
+        : `<button class="task-btn task-btn-refuse" data-action="toggle-refuse" data-i18n-title="btn_refuse" title="${t('btn_refuse')}">${TASK_ICONS.x}</button>`;
 
     const commentBadge = task.comment_count > 0 ? `<span class="comment-badge">${task.comment_count}</span>` : '';
-    const commentBtn = `<button class="task-btn task-btn-comment" data-action="add-comment" title="Comentarii">${TASK_ICONS.comment}${commentBadge}</button>`;
+    const commentBtn = `<button class="task-btn task-btn-comment" data-action="add-comment" data-i18n-title="btn_comments" title="${t('btn_comments')}">${TASK_ICONS.comment}${commentBadge}</button>`;
 
     const extraBtns = includeEditDelete ? `
-        <button class="task-btn task-btn-edit"   data-action="edit-task"   title="Editează">${TASK_ICONS.edit}</button>
-        <button class="task-btn task-btn-delete" data-action="delete-task" title="Șterge">${TASK_ICONS.trash}</button>
+        <button class="task-btn task-btn-edit"   data-action="edit-task"   data-i18n-title="btn_edit"   title="${t('btn_edit')}">${TASK_ICONS.edit}</button>
+        <button class="task-btn task-btn-delete" data-action="delete-task" data-i18n-title="btn_delete" title="${t('btn_delete')}">${TASK_ICONS.trash}</button>
     ` : '';
 
     return `<div class="task-actions">${statusBtn}${refuseBtn}${commentBtn}${extraBtns}</div>`;
@@ -569,7 +905,8 @@ function createTaskElement(task) {
 function createTodayTaskElement(task) {
     const statusClass = task.status === 'completed' ? 'completed' :
                         task.status === 'refused'   ? 'refused'   : '';
-    const timeStr = new Date(task.scheduled_date).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+    const locale = currentLang === 'en' ? 'en-US' : 'ro-RO';
+    const timeStr = new Date(task.scheduled_date).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
     return `
         <div class="task-item today-task ${statusClass}" data-task-id="${task.id}">
@@ -577,7 +914,7 @@ function createTodayTaskElement(task) {
                 <div class="task-time">${timeStr}</div>
                 <div class="task-details">
                     <h4>${task.description}</h4>
-                    <p class="task-user">${task.user_name || 'Utilizator ID: ' + task.user_id}</p>
+                    <p class="task-user">${task.user_name || 'User ID: ' + task.user_id}</p>
                     ${task.recurrence_pattern !== 'none'
                         ? `<span class="badge badge-info">${getRecurrenceLabel(task.recurrence_pattern)}</span>` : ''}
                 </div>
@@ -588,22 +925,23 @@ function createTodayTaskElement(task) {
 }
 
 function getRecurrenceLabel(pattern) {
-    const labels = {
-        'daily': 'Zilnic',
-        'weekly': 'Săptămânal',
-        'monthly': 'Lunar',
-        'yearly': 'Anual'
+    const keys = {
+        'daily': 'recur_daily',
+        'weekly': 'recur_weekly',
+        'monthly': 'recur_monthly',
+        'yearly': 'recur_yearly'
     };
-    return labels[pattern] || pattern;
+    return keys[pattern] ? t(keys[pattern]) : pattern;
 }
 
 function formatDate(dateString) {
     const date = new Date(dateString);
-    return date.toLocaleDateString('ro-RO', { 
-        weekday: 'short', 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
+    const locale = currentLang === 'en' ? 'en-US' : 'ro-RO';
+    return date.toLocaleDateString(locale, {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
     });
 }
 
@@ -628,7 +966,7 @@ function setupEventListeners() {
     // Add user button (may not exist if UI uses settings modal instead)
     const addUserBtn = document.getElementById('add-user-btn');
     if (addUserBtn) addUserBtn.addEventListener('click', function() {
-        const name = prompt('Introduceți numele utilizatorului:');
+        const name = prompt(t('prompt_user_name'));
         if (name && name.trim() !== '') {
             fetch('/api/users', {
                 method: 'POST',
@@ -641,12 +979,12 @@ function setupEventListeners() {
                 if (response.ok) {
                     loadUsers(); // Refresh user list
                 } else {
-                    return response.json().then(err => alert('Eroare: ' + (err.error || 'Unknown error')));
+                    return response.json().then(err => showToast(t('error_prefix') + (err.error || 'Unknown error'), true));
                 }
             })
             .catch(error => {
                 console.error('Error creating user:', error);
-                alert('Eroare la crearea utilizatorului');
+                showToast(t('error_create_user'), true);
             });
         }
     });
@@ -664,8 +1002,8 @@ function setupTaskEventListeners(taskElement, task) {
     if (statusBtn) {
         statusBtn.addEventListener('click', function() {
             const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-            const msg = newStatus === 'completed' ? 'Marchezi taskul ca finalizat?' : 'Anulezi finalizarea taskului?';
-            const label = newStatus === 'completed' ? 'Finalizează' : 'Anulează';
+            const msg = newStatus === 'completed' ? t('confirm_task_complete') : t('confirm_task_undo_complete');
+            const label = newStatus === 'completed' ? t('btn_complete') : t('btn_cancel');
             const cls = newStatus === 'completed' ? 'btn-primary' : 'btn-secondary';
             showConfirmDialog(msg, () => {
                 updateTask(task.id, { status: newStatus }).then(() => {
@@ -681,8 +1019,8 @@ function setupTaskEventListeners(taskElement, task) {
     if (refuseBtn) {
         refuseBtn.addEventListener('click', function() {
             const newStatus = task.status === 'refused' ? 'pending' : 'refused';
-            const msg = newStatus === 'refused' ? 'Refuzi acest task?' : 'Anulezi refuzul taskului?';
-            const label = newStatus === 'refused' ? 'Refuză' : 'Anulează refuz';
+            const msg = newStatus === 'refused' ? t('confirm_task_refuse') : t('confirm_task_undo_refuse');
+            const label = newStatus === 'refused' ? t('btn_refuse') : t('btn_undo_refuse');
             const cls = newStatus === 'refused' ? 'btn-warning' : 'btn-secondary';
             showConfirmDialog(msg, () => {
                 updateTask(task.id, { status: newStatus }).then(() => {
@@ -713,7 +1051,7 @@ function setupTaskEventListeners(taskElement, task) {
     const deleteBtn = taskElement.querySelector('[data-action="delete-task"]');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function() {
-            showConfirmDialog('Sigur doriți să ștergeți acest task?', function() {
+            showConfirmDialog(t('confirm_task_delete'), function() {
                 deleteTask(task.id)
                     .then(() => {
                         loadTasksForUser(document.querySelector('.user-item.active').dataset.userId);
@@ -730,8 +1068,8 @@ function setupTodayTaskEventListeners(taskElement, task) {
     if (statusBtn) {
         statusBtn.addEventListener('click', function() {
             const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-            const msg = newStatus === 'completed' ? 'Marchezi taskul ca finalizat?' : 'Anulezi finalizarea taskului?';
-            const label = newStatus === 'completed' ? 'Finalizează' : 'Anulează';
+            const msg = newStatus === 'completed' ? t('confirm_task_complete') : t('confirm_task_undo_complete');
+            const label = newStatus === 'completed' ? t('btn_complete') : t('btn_cancel');
             const cls = newStatus === 'completed' ? 'btn-primary' : 'btn-secondary';
             showConfirmDialog(msg, () => {
                 updateTask(task.id, { status: newStatus }).then(() => {
@@ -747,8 +1085,8 @@ function setupTodayTaskEventListeners(taskElement, task) {
     if (refuseBtn) {
         refuseBtn.addEventListener('click', function() {
             const newStatus = task.status === 'refused' ? 'pending' : 'refused';
-            const msg = newStatus === 'refused' ? 'Refuzi acest task?' : 'Anulezi refuzul taskului?';
-            const label = newStatus === 'refused' ? 'Refuză' : 'Anulează refuz';
+            const msg = newStatus === 'refused' ? t('confirm_task_refuse') : t('confirm_task_undo_refuse');
+            const label = newStatus === 'refused' ? t('btn_refuse') : t('btn_undo_refuse');
             const cls = newStatus === 'refused' ? 'btn-warning' : 'btn-secondary';
             showConfirmDialog(msg, () => {
                 updateTask(task.id, { status: newStatus }).then(() => {
@@ -774,40 +1112,40 @@ function showAddTaskForm() {
     const html = `
         <div class="task-modal">
             <div class="modal-content">
-                <h2>Adaugă task nou</h2>
+                <h2>${t('modal_add_task_title')}</h2>
                 <form id="add-task-form">
                     <div class="form-group">
-                        <label for="task-description">Descriere:</label>
+                        <label for="task-description">${t('lbl_task_desc')}</label>
                         <input type="text" id="task-description" required>
                     </div>
                     <div class="form-group">
-                        <label for="task-date">Data și oră:</label>
+                        <label for="task-date">${t('lbl_task_date')}</label>
                         <input type="datetime-local" id="task-date" required>
                     </div>
                     <div class="form-group">
-                        <label>Utilizatori:</label>
+                        <label>${t('lbl_task_users')}</label>
                         <div id="task-users-list" class="users-checkbox-list">
-                            <em>Se încarcă...</em>
+                            <em>${t('loading')}</em>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="task-recurrence">Recurență:</label>
+                            <label for="task-recurrence">${t('lbl_task_recurrence')}</label>
                             <select id="task-recurrence">
-                                <option value="none">Fără recurență</option>
-                                <option value="daily">Zilnic</option>
-                                <option value="weekly">Săptămânal</option>
-                                <option value="monthly">Lunar</option>
-                                <option value="yearly">Anual</option>
+                                <option value="none">${t('recur_none')}</option>
+                                <option value="daily">${t('recur_daily')}</option>
+                                <option value="weekly">${t('recur_weekly')}</option>
+                                <option value="monthly">${t('recur_monthly')}</option>
+                                <option value="yearly">${t('recur_yearly')}</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="task-recurrence-end">Sfârșit recurență (opțional):</label>
+                            <label for="task-recurrence-end">${t('lbl_task_recurrence_end')}</label>
                             <input type="date" id="task-recurrence-end">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Adaugă task</button>
-                    <button type="button" class="btn btn-secondary" id="cancel-add-task">Anulează</button>
+                    <button type="submit" class="btn btn-primary">${t('btn_add_task')}</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-add-task">${t('btn_cancel')}</button>
                 </form>
             </div>
         </div>
@@ -826,7 +1164,7 @@ function showAddTaskForm() {
         .then(users => {
             const container = document.getElementById('task-users-list');
             if (!users.length) {
-                container.innerHTML = '<em>Nu există utilizatori</em>';
+                container.innerHTML = `<em>${t('no_users')}</em>`;
                 return;
             }
             container.innerHTML = users.map(u => `
@@ -851,11 +1189,11 @@ function showAddTaskForm() {
             .map(cb => parseInt(cb.value));
 
         if (!description) {
-            alert('Descrierea taskului este obligatorie');
+            showToast(t('validation_task_desc'), true);
             return;
         }
         if (selectedUsers.length === 0) {
-            alert('Selectează cel puțin un utilizator');
+            showToast(t('validation_task_users'), true);
             return;
         }
 
@@ -879,7 +1217,7 @@ function showAddTaskForm() {
                 loadTasksForUser(activeUserId);
                 loadTodayTasks();
             })
-            .catch(err => alert('Eroare: ' + (err.error || 'Unknown error')));
+            .catch(err => showToast(t('error_prefix') + (err.error || 'Unknown error'), true));
     });
 
     // Cancel button
@@ -897,40 +1235,40 @@ function showEditTaskForm(task) {
     const html = `
         <div class="task-modal">
             <div class="modal-content">
-                <h2>Editează task</h2>
+                <h2>${t('modal_edit_task_title')}</h2>
                 <form id="edit-task-form">
                     <div class="form-group">
-                        <label for="edit-task-description">Descriere:</label>
+                        <label for="edit-task-description">${t('lbl_task_desc')}</label>
                         <input type="text" id="edit-task-description" value="${task.description}" required>
                     </div>
                     <div class="form-group">
-                        <label for="edit-task-date">Data și oră:</label>
+                        <label for="edit-task-date">${t('lbl_task_date')}</label>
                         <input type="datetime-local" id="edit-task-date" value="${new Date(task.scheduled_date).toISOString().slice(0, 16)}" required>
                     </div>
                     <div class="form-group">
-                        <label>Utilizatori:</label>
+                        <label>${t('lbl_task_users')}</label>
                         <div id="edit-task-users-list" class="users-checkbox-list">
-                            <em>Se încarcă...</em>
+                            <em>${t('loading')}</em>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="edit-task-recurrence">Recurență:</label>
+                            <label for="edit-task-recurrence">${t('lbl_task_recurrence')}</label>
                             <select id="edit-task-recurrence">
-                                <option value="none" ${task.recurrence_pattern === 'none' ? 'selected' : ''}>Fără recurență</option>
-                                <option value="daily" ${task.recurrence_pattern === 'daily' ? 'selected' : ''}>Zilnic</option>
-                                <option value="weekly" ${task.recurrence_pattern === 'weekly' ? 'selected' : ''}>Săptămânal</option>
-                                <option value="monthly" ${task.recurrence_pattern === 'monthly' ? 'selected' : ''}>Lunar</option>
-                                <option value="yearly" ${task.recurrence_pattern === 'yearly' ? 'selected' : ''}>Anual</option>
+                                <option value="none" ${task.recurrence_pattern === 'none' ? 'selected' : ''}>${t('recur_none')}</option>
+                                <option value="daily" ${task.recurrence_pattern === 'daily' ? 'selected' : ''}>${t('recur_daily')}</option>
+                                <option value="weekly" ${task.recurrence_pattern === 'weekly' ? 'selected' : ''}>${t('recur_weekly')}</option>
+                                <option value="monthly" ${task.recurrence_pattern === 'monthly' ? 'selected' : ''}>${t('recur_monthly')}</option>
+                                <option value="yearly" ${task.recurrence_pattern === 'yearly' ? 'selected' : ''}>${t('recur_yearly')}</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="edit-task-recurrence-end">Sfârșit recurență (opțional):</label>
+                            <label for="edit-task-recurrence-end">${t('lbl_task_recurrence_end')}</label>
                             <input type="date" id="edit-task-recurrence-end" value="${task.recurrence_end_date ? new Date(task.recurrence_end_date).toISOString().slice(0, 10) : ''}">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Salvează modificări</button>
-                    <button type="button" class="btn btn-secondary" id="cancel-edit-task">Anulează</button>
+                    <button type="submit" class="btn btn-primary">${t('btn_save_changes')}</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-edit-task">${t('btn_cancel')}</button>
                 </form>
             </div>
         </div>
@@ -942,7 +1280,7 @@ function showEditTaskForm(task) {
     fetch('/api/users').then(r => r.json()).then(users => {
         const container = document.getElementById('edit-task-users-list');
         if (!users.length) {
-            container.innerHTML = '<em>Nu există utilizatori</em>';
+            container.innerHTML = `<em>${t('no_users')}</em>`;
             return;
         }
         container.innerHTML = users.map(u => `
@@ -967,11 +1305,11 @@ function showEditTaskForm(task) {
             .map(cb => parseInt(cb.value));
 
         if (!description) {
-            alert('Descrierea taskului este obligatorie');
+            showToast(t('validation_task_desc'), true);
             return;
         }
         if (selectedUsers.length === 0) {
-            alert('Selectează cel puțin un utilizator');
+            showToast(t('validation_task_users'), true);
             return;
         }
 
@@ -1008,7 +1346,7 @@ function showEditTaskForm(task) {
                 loadTasksForUser(activeUserId);
                 loadTodayTasks();
             })
-            .catch(err => alert('Eroare: ' + (err.error || 'Unknown error')));
+            .catch(err => showToast(t('error_prefix') + (err.error || 'Unknown error'), true));
     });
 
     // Cancel button
@@ -1024,18 +1362,18 @@ function showAddCommentForm(taskId) {
     const html = `
         <div class="task-modal">
             <div class="modal-content comments-modal-content">
-                <h2>Comentarii</h2>
+                <h2>${t('modal_comments_title')}</h2>
                 <div id="comments-list" class="comments-list">
-                    <em class="comments-loading">Se încarcă...</em>
+                    <em class="comments-loading">${t('loading')}</em>
                 </div>
                 <form id="add-comment-form" class="add-comment-form">
                     <select id="comment-user" class="comment-user-select">
-                        <option value="">Se încarcă utilizatorii...</option>
+                        <option value="">${t('loading')}</option>
                     </select>
-                    <textarea id="comment-text" rows="2" placeholder="Scrie un comentariu..." required></textarea>
+                    <textarea id="comment-text" rows="2" placeholder="${t('comment_placeholder')}" required></textarea>
                     <div class="add-comment-actions">
-                        <button type="submit" class="btn btn-primary btn-sm">Trimite</button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="cancel-add-comment">Închide</button>
+                        <button type="submit" class="btn btn-primary btn-sm">${t('btn_send')}</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="cancel-add-comment">${t('btn_close')}</button>
                     </div>
                 </form>
             </div>
@@ -1063,7 +1401,7 @@ function showAddCommentForm(taskId) {
             if (!container) return;
 
             if (!comments.length) {
-                container.innerHTML = '<p class="comments-empty">Nu există comentarii încă.</p>';
+                container.innerHTML = `<p class="comments-empty">${t('no_comments')}</p>`;
                 return;
             }
 
@@ -1072,9 +1410,9 @@ function showAddCommentForm(taskId) {
 
             container.innerHTML = comments.map(c => {
                 const user = userMap[c.user_id];
-                const userName = user ? user.name : 'Utilizator șters';
+                const userName = user ? user.name : t('deleted_user');
                 const userColor = user ? user.color : '#aaa';
-                const date = new Date(c.created_at).toLocaleString('ro-RO', {
+                const date = new Date(c.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'ro-RO', {
                     day: '2-digit', month: '2-digit', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
                 });
@@ -1091,7 +1429,7 @@ function showAddCommentForm(taskId) {
             }).join('');
         }).catch(() => {
             const container = document.getElementById('comments-list');
-            if (container) container.innerHTML = '<p class="comments-empty">Eroare la încărcarea comentariilor.</p>';
+            if (container) container.innerHTML = `<p class="comments-empty">${t('loading_comments_error')}</p>`;
         });
     }
 
@@ -1119,10 +1457,10 @@ function showAddCommentForm(taskId) {
                 document.getElementById('comment-text').value = '';
                 loadComments();
             } else {
-                return response.json().then(err => alert('Eroare: ' + (err.error || 'Unknown error')));
+                return response.json().then(err => showToast(t('error_prefix') + (err.error || 'Unknown error'), true));
             }
         })
-        .catch(() => alert('Eroare la adăugarea comentariului'))
+        .catch(() => showToast(t('error_comment'), true))
         .finally(() => { submitBtn.disabled = false; });
     });
 
@@ -1167,13 +1505,14 @@ function closeModal() {
     }
 }
 
-function showConfirmDialog(message, onConfirm, confirmLabel = 'Confirma', confirmClass = 'btn-danger') {
+function showConfirmDialog(message, onConfirm, confirmLabel = null, confirmClass = 'btn-danger') {
+    if (!confirmLabel) confirmLabel = t('btn_confirm');
     const html = `
         <div class="task-modal" id="confirm-dialog">
             <div class="modal-content" style="max-width:360px;text-align:center;">
                 <p style="margin:0 0 1.5rem;font-size:1rem;">${message}</p>
                 <button type="button" class="btn ${confirmClass}" id="confirm-yes">${confirmLabel}</button>
-                <button type="button" class="btn btn-secondary" id="confirm-no">Anulează</button>
+                <button type="button" class="btn btn-secondary" id="confirm-no">${t('btn_cancel')}</button>
             </div>
         </div>
     `;
@@ -1363,7 +1702,7 @@ function speakText(text) {
 
 // Process voice command by sending to AI chat
 function processVoiceCommand(command) {
-    showVoiceFeedback('Am auzit: "' + command + '"', false);
+    showVoiceFeedback(t('voice_heard') + command + '"', false);
 
     // Open the chat panel and show the voice command as user message
     const chatContainer = document.getElementById('chat-container');
@@ -1387,7 +1726,7 @@ function processVoiceCommand(command) {
     })
     .then(data => {
         removeTypingIndicator();
-        const reply = data.response || 'Nu am putut genera un răspuns.';
+        const reply = data.response || t('ai_no_response');
         addAIMessage(reply);
         scrollToBottom();
         speakText(reply);
@@ -1404,9 +1743,9 @@ function processVoiceCommand(command) {
     .catch(error => {
         console.error('Error processing voice command:', error);
         removeTypingIndicator();
-        addAIMessage('Eroare la procesarea comenzii vocale.');
+        addAIMessage(t('ai_voice_error'));
         scrollToBottom();
-        showVoiceFeedback('Eroare la comunicarea cu AI', true);
+        showVoiceFeedback(t('ai_connection_error'), true);
     });
 }
 
@@ -1506,7 +1845,7 @@ function initChat() {
             if (data.response) {
                 addAIMessage(data.response);
             } else {
-                addAIMessage('Îmi pare rău, nu am putut genera un răspuns. Vă rugăm să încercați din nou.');
+                addAIMessage(t('ai_no_response_full'));
             }
 
             // If a task was created, refresh the task lists
@@ -1527,7 +1866,7 @@ function initChat() {
             removeTypingIndicator();
             
             // Add error message
-            addAIMessage('A apărut o eroare la comunicarea cu serverul AI. Vă rugăm să încercați din nou.');
+            addAIMessage(t('ai_server_error'));
             
             // Scroll to bottom
             scrollToBottom();
@@ -1540,7 +1879,7 @@ function initChat() {
         restoreChatHistory();
     } else {
         setTimeout(() => {
-            addAIMessage('Salut! Sunt HomeTasks AI assistant. Cum vă pot ajuta astăzi?');
+            addAIMessage(t('chat_welcome'));
         }, 500);
     }
 }
@@ -1581,7 +1920,7 @@ function addUserMessage(message, save = true) {
 function addAIMessage(message, save = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message ai-message';
-    messageDiv.title = 'Click pentru a asculta mesajul';
+    messageDiv.title = t('tts_click_hint');
     messageDiv.innerHTML = `<p>${message}<span class="tts-icon">🔊</span></p>`;
 
     messageDiv.addEventListener('click', function () {
@@ -1617,7 +1956,7 @@ function showTypingIndicator() {
     
     const typingDiv = document.createElement('div');
     typingDiv.className = 'message ai-message typing-indicator';
-    typingDiv.innerHTML = `<p>AI scrie...</p>`;
+    typingDiv.innerHTML = `<p>${t('ai_typing')}</p>`;
     
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(typingDiv);
@@ -1657,12 +1996,12 @@ function escapeHtml(str) {
 function loadSettingsUsersTab() {
     const container = document.getElementById('settings-users-list');
     if (!container) return;
-    container.innerHTML = '<p class="settings-empty">Se încarcă...</p>';
+    container.innerHTML = `<p class="settings-empty">${t('loading')}</p>`;
     fetch('/api/users')
         .then(r => r.json())
         .then(users => renderSettingsUsersList(users))
         .catch(() => {
-            container.innerHTML = '<p class="settings-empty">Eroare la încărcarea utilizatorilor.</p>';
+            container.innerHTML = `<p class="settings-empty">${t('settings_users_error')}</p>`;
         });
 }
 
@@ -1670,7 +2009,7 @@ function renderSettingsUsersList(users) {
     const container = document.getElementById('settings-users-list');
     if (!container) return;
     if (!users.length) {
-        container.innerHTML = '<p class="settings-empty">Niciun utilizator creat.</p>';
+        container.innerHTML = `<p class="settings-empty">${t('settings_no_users')}</p>`;
         return;
     }
     container.innerHTML = users.map(u => `
@@ -1678,8 +2017,8 @@ function renderSettingsUsersList(users) {
             <span class="user-color-dot" style="background:${escapeHtml(u.color)}"></span>
             <span class="settings-user-name">${escapeHtml(u.name)}</span>
             <div class="settings-user-actions">
-                <button class="btn btn-sm btn-secondary" onclick="editUserInSettings(${u.id},'${escapeHtml(u.name)}','${escapeHtml(u.color)}')" title="Editează">✏️</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteUserFromSettings(${u.id},'${escapeHtml(u.name)}')" title="Șterge">🗑️</button>
+                <button class="btn btn-sm btn-secondary" onclick="editUserInSettings(${u.id},'${escapeHtml(u.name)}','${escapeHtml(u.color)}')" title="${t('btn_edit')}">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteUserFromSettings(${u.id},'${escapeHtml(u.name)}')" title="${t('btn_delete')}">🗑️</button>
             </div>
         </div>
     `).join('');
@@ -1690,10 +2029,10 @@ function editUserInSettings(userId, name, color) {
     if (!row) return;
     row.innerHTML = `
         <input type="color" value="${escapeHtml(color)}" id="edit-color-${userId}" title="Culoare">
-        <input type="text" value="${escapeHtml(name)}" id="edit-name-${userId}" style="flex:1" placeholder="Nume utilizator">
+        <input type="text" value="${escapeHtml(name)}" id="edit-name-${userId}" style="flex:1" placeholder="${t('user_name_placeholder')}">
         <div class="settings-user-actions">
-            <button class="btn btn-sm btn-primary" onclick="saveUserEditFromSettings(${userId})" title="Salvează">✓</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadSettingsUsersTab()" title="Anulează">✗</button>
+            <button class="btn btn-sm btn-primary" onclick="saveUserEditFromSettings(${userId})" title="${t('btn_save')}">✓</button>
+            <button class="btn btn-sm btn-secondary" onclick="loadSettingsUsersTab()" title="${t('btn_cancel')}">✗</button>
         </div>
     `;
     document.getElementById(`edit-name-${userId}`)?.focus();
@@ -1706,7 +2045,7 @@ function editUserInSettings(userId, name, color) {
 function saveUserEditFromSettings(userId) {
     const name = document.getElementById(`edit-name-${userId}`)?.value?.trim();
     const color = document.getElementById(`edit-color-${userId}`)?.value;
-    if (!name) { showToast('Numele nu poate fi gol.', true); return; }
+    if (!name) { showToast(t('user_empty_name'), true); return; }
     fetch(`/api/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1716,21 +2055,22 @@ function saveUserEditFromSettings(userId) {
     .then(() => {
         loadSettingsUsersTab();
         loadUsers();
-        showToast('Utilizator actualizat.');
+        showToast(t('user_updated'));
     })
-    .catch(() => showToast('Eroare la actualizare.', true));
+    .catch(() => showToast(t('user_update_error'), true));
 }
 
 function deleteUserFromSettings(userId, name) {
-    if (!confirm(`Ștergi utilizatorul "${name}"?\nTaskurile sale vor rămâne în baza de date.`)) return;
-    fetch(`/api/users/${userId}`, { method: 'DELETE' })
-        .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-        .then(() => {
-            loadSettingsUsersTab();
-            loadUsers();
-            showToast('Utilizator șters.');
-        })
-        .catch(() => showToast('Eroare la ștergere.', true));
+    showConfirmDialog(t('user_delete_confirm', name), () => {
+        fetch(`/api/users/${userId}`, { method: 'DELETE' })
+            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+            .then(() => {
+                loadSettingsUsersTab();
+                loadUsers();
+                showToast(t('user_deleted'));
+            })
+            .catch(() => showToast(t('user_delete_error'), true));
+    });
 }
 
 function addUserFromSettings() {
@@ -1738,7 +2078,7 @@ function addUserFromSettings() {
     const colorInput = document.getElementById('settings-new-user-color');
     const name = nameInput?.value?.trim();
     const color = colorInput?.value || '#3498db';
-    if (!name) { showToast('Introduceți un nume.', true); nameInput?.focus(); return; }
+    if (!name) { showToast(t('user_enter_name'), true); nameInput?.focus(); return; }
     fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1750,9 +2090,9 @@ function addUserFromSettings() {
         if (colorInput) colorInput.value = '#3498db';
         loadSettingsUsersTab();
         loadUsers();
-        showToast('Utilizator adăugat.');
+        showToast(t('user_added'));
     })
-    .catch(() => showToast('Eroare la adăugare.', true));
+    .catch(() => showToast(t('user_add_error'), true));
 }
 
 // ============================================================
@@ -1766,7 +2106,7 @@ function loadAvailableModels(currentModel) {
         .then(data => {
             if (data.error || !data.models?.length) {
                 if (!currentModel) {
-                    select.innerHTML = '<option value="">— Ollama indisponibil —</option>';
+                    select.innerHTML = `<option value="">${t('ollama_unavailable')}</option>`;
                 } else {
                     select.innerHTML = `<option value="${escapeHtml(currentModel)}">${escapeHtml(currentModel)}</option>`;
                 }
@@ -1781,7 +2121,7 @@ function loadAvailableModels(currentModel) {
             if (currentModel) {
                 select.innerHTML = `<option value="${escapeHtml(currentModel)}">${escapeHtml(currentModel)}</option>`;
             } else {
-                select.innerHTML = '<option value="">— Ollama indisponibil —</option>';
+                select.innerHTML = `<option value="">${t('ollama_unavailable')}</option>`;
             }
         });
 }
@@ -1795,6 +2135,14 @@ function loadStartupPreferences() {
         .then(prefs => {
             if (prefs.voice_language) voicePrefs.language = prefs.voice_language;
             if (prefs.voice_sensitivity !== undefined) voicePrefs.sensitivity = prefs.voice_sensitivity;
+            if (prefs.language && prefs.language !== currentLang) {
+                applyLanguage(prefs.language);
+                // Reload tasks with new language
+                const activeUser = document.querySelector('.user-item.active');
+                if (activeUser) loadTasksForUser(activeUser.dataset.userId);
+                loadTodayTasks();
+                loadUsers(); // also updates "Toți/All" button
+            }
         })
         .catch(() => {});
 }
@@ -1849,7 +2197,6 @@ function initSettings() {
     saveSettingsBtn.addEventListener('click', function() {
         saveSettings();
         settingsModal.classList.remove('active');
-        showToast('Setările au fost salvate cu succes!');
     });
     
     // AI temperature slider
@@ -1909,7 +2256,7 @@ function initSettings() {
         loadModelsBtn.addEventListener('click', function () {
             this.textContent = '↻ ...';
             loadAvailableModels();
-            setTimeout(() => { this.textContent = '↻ Modele'; }, 2000);
+            setTimeout(() => { this.textContent = t('models_btn_label'); }, 2000);
         });
     }
 
@@ -2014,7 +2361,7 @@ function loadSettings() {
         })
         .catch(error => {
             console.error('Error loading settings:', error);
-            showToast('Eroare la încărcarea setărilor', true);
+            showToast(t('settings_loading_error'), true);
         });
 }
 
@@ -2066,11 +2413,11 @@ function saveSettings() {
     .then(data => {
         // Apply settings immediately
         applySettings(data);
-        showToast('Setările au fost salvate și aplicate!');
+        showToast(t('settings_saved_applied'));
     })
     .catch(error => {
         console.error('Error saving settings:', error);
-        showToast('Eroare la salvarea setărilor', true);
+        showToast(t('settings_save_error'), true);
     });
 }
 
@@ -2078,8 +2425,11 @@ function saveSettings() {
 function applySettings(settings) {
     // Apply general settings
     if (settings.language) {
-        document.documentElement.lang = settings.language;
-        // Update date/time formatting would happen on next update
+        applyLanguage(settings.language);
+        // Reload tasks so dynamically generated buttons get retranslated
+        const activeUser = document.querySelector('.user-item.active');
+        if (activeUser) loadTasksForUser(activeUser.dataset.userId);
+        loadTodayTasks();
     }
     
     // Apply weather settings

@@ -194,13 +194,18 @@ def handle_weather_intent(message: str, db):
         prefs_repo = PreferencesRepository(db)
         prefs = prefs_repo.get_or_create()
         city = prefs.weather_city or 'București'
+    else:
+        prefs_repo = PreferencesRepository(db)
+        prefs = prefs_repo.get_or_create()
+
+    lang = prefs.language or 'ro'
 
     days_ahead = _detect_forecast_day(message)
 
     try:
         if days_ahead is None:
             # Current weather
-            d = weather_service.get_current_weather(city)
+            d = weather_service.get_current_weather(city, lang=lang)
             return (
                 f"Vremea actuală în {d['city']}, {d['country']}: "
                 f"Temperatură: {d['temperature']}°C (se simte ca {d['feels_like']}°C), "
@@ -209,7 +214,7 @@ def handle_weather_intent(message: str, db):
             )
         else:
             # Forecast — fetch enough days to cover the target day
-            forecast = weather_service.get_forecast(city, days=days_ahead + 1)
+            forecast = weather_service.get_forecast(city, days=days_ahead + 1, lang=lang)
             from datetime import date as dt_date
             target_date = (datetime.now() + timedelta(days=days_ahead)).date()
             day_data = next(
@@ -253,16 +258,17 @@ def test():
 def get_current_weather():
     try:
         city = request.args.get('city')
-        if not city:
-            db = get_db()
-            try:
-                prefs_repo = PreferencesRepository(db)
-                prefs = prefs_repo.get_or_create()
+        db = get_db()
+        try:
+            prefs_repo = PreferencesRepository(db)
+            prefs = prefs_repo.get_or_create()
+            if not city:
                 city = prefs.weather_city or 'București'
-            finally:
-                db.close()
+            lang = prefs.language or 'ro'
+        finally:
+            db.close()
 
-        weather_data = weather_service.get_current_weather(city)
+        weather_data = weather_service.get_current_weather(city, lang=lang)
 
         return jsonify({
             'city': weather_data['city'],
@@ -282,22 +288,23 @@ def get_weather_forecast():
     try:
         # Get city from query params, preferences, or use default
         city = request.args.get('city')
-        if not city:
-            db = get_db()
-            try:
-                prefs_repo = PreferencesRepository(db)
-                prefs = prefs_repo.get_or_create()
+        db = get_db()
+        try:
+            prefs_repo = PreferencesRepository(db)
+            prefs = prefs_repo.get_or_create()
+            if not city:
                 city = prefs.weather_city or 'București'
-            finally:
-                db.close()
-        
+            lang = prefs.language or 'ro'
+        finally:
+            db.close()
+
         days = request.args.get('days', 7, type=int)
-        
+
         # Validate days
         if days < 1 or days > 7:
             return jsonify({'error': 'Days must be between 1 and 7'}), 400
-        
-        forecast_data = weather_service.get_forecast(city, days)
+
+        forecast_data = weather_service.get_forecast(city, days, lang=lang)
         
         return jsonify({
             'city': forecast_data['city'],
@@ -857,6 +864,8 @@ def update_preferences():
             ollama_client.base_url = data['ollama_base_url']
         if 'ai_model' in data and data['ai_model']:
             ollama_client.model = data['ai_model']
+        if 'language' in data or 'weather_city' in data:
+            weather_service.cache.clear()
 
         return jsonify({
             'id': prefs.id,

@@ -39,29 +39,31 @@ class WeatherService:
         """Save data to cache with timestamp."""
         self.cache[cache_key] = (datetime.now(), data)
     
-    def get_current_weather(self, city: str = None) -> Dict:
+    def get_current_weather(self, city: str = None, lang: str = 'ro') -> Dict:
         """
         Get current weather for a city.
-        
+
         Args:
             city: City name. If not provided, uses default from preferences.
-            
+            lang: Language code for descriptions (e.g., 'ro', 'en').
+
         Returns:
             Dictionary with weather information.
         """
         if not city:
             # Try to get default city from preferences (we'll implement this later)
             city = "București"  # Default fallback
-        
-        cache_key = f"current_weather_{city}"
+
+        cache_key = f"current_weather_{city}_{lang}"
         cached_data = self._get_from_cache(cache_key)
         if cached_data:
             return cached_data
-        
+
         params = {
             'q': city,
             'appid': self.api_key,
-            'units': 'metric'  # Use metric for Celsius
+            'units': 'metric',  # Use metric for Celsius
+            'lang': lang
         }
         
         try:
@@ -96,33 +98,35 @@ class WeatherService:
                 return cached_data
             raise Exception(f"Failed to fetch weather data: {str(e)}")
     
-    def get_forecast(self, city: str = None, days: int = 7) -> Dict:
+    def get_forecast(self, city: str = None, days: int = 7, lang: str = 'ro') -> Dict:
         """
         Get weather forecast for a city.
-        
+
         Args:
             city: City name. If not provided, uses default from preferences.
             days: Number of days for forecast (max 7 for free API).
-            
+            lang: Language code for descriptions (e.g., 'ro', 'en').
+
         Returns:
             Dictionary with forecast information.
         """
         if not city:
             city = "București"  # Default fallback
-            
+
         # Limit days to 7 for free API
         days = min(days, 7)
-        
-        cache_key = f"forecast_{city}_{days}"
+
+        cache_key = f"forecast_{city}_{days}_{lang}"
         cached_data = self._get_from_cache(cache_key)
         if cached_data:
             return cached_data
-        
+
         params = {
             'q': city,
             'appid': self.api_key,
             'units': 'metric',
-            'cnt': days * 8  # 8 forecasts per day (3-hour intervals)
+            'cnt': days * 8,  # 8 forecasts per day (3-hour intervals)
+            'lang': lang
         }
         
         try:

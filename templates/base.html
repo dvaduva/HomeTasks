@@ -16,11 +16,11 @@
         </div>
         <div class="date-time" id="date-time"></div>
         <div class="header-right">
-            <div class="weather" id="weather" title="Click pentru prognoză orară"><span class="dim">—°</span></div>
-            <button type="button" class="icon-btn" id="refresh-btn" title="Reîncarcă pagina" onclick="location.reload()">
+            <div class="weather" id="weather" data-i18n-title="title_weather" title="Click pentru prognoză orară"><span class="dim">—°</span></div>
+            <button type="button" class="icon-btn" id="refresh-btn" data-i18n-title="title_reload" title="Reîncarcă pagina" onclick="location.reload()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             </button>
-            <button type="button" class="icon-btn" id="settings-btn" title="Setări">
+            <button type="button" class="icon-btn" id="settings-btn" data-i18n-title="title_settings" title="Setări">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
         </div>
@@ -29,7 +29,7 @@
     <!-- BARA UTILIZATORI -->
     <div class="user-bar">
         <div class="user-list" id="user-list"></div>
-        <button type="button" class="btn-add-task" id="add-task-btn" title="Task nou">＋</button>
+        <button type="button" class="btn-add-task" id="add-task-btn" data-i18n-title="title_new_task" title="Task nou">＋</button>
     </div>
 
     <!-- TASKURI -->
@@ -38,21 +38,21 @@
             <div class="task-col">
                 <div class="col-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Toate taskurile
+                    <span data-i18n="col_all_tasks">Toate taskurile</span>
                     <span class="col-count" id="all-tasks-count" hidden>0</span>
                 </div>
                 <div class="task-list" id="tasks-list">
-                    <p class="empty">Selectați un utilizator.</p>
+                    <p class="empty" data-i18n="select_user_msg">Selectați un utilizator.</p>
                 </div>
             </div>
             <div class="task-col">
                 <div class="col-label today-col">
                     <span class="pulse-dot"></span>
-                    Astăzi
+                    <span data-i18n="col_today">Astăzi</span>
                     <span class="col-count" id="today-tasks-count" hidden>0</span>
                 </div>
                 <div class="task-list" id="today-tasks-list">
-                    <p class="empty">Se încarcă...</p>
+                    <p class="empty" data-i18n="loading">Se încarcă...</p>
                 </div>
             </div>
         </div>
@@ -61,11 +61,11 @@
     <!-- FOOTER -->
     <footer class="footer">
         <div class="footer-left">
-            <button type="button" class="footer-btn btn-voice" id="voice-btn" title="Comandă Vocală">
+            <button type="button" class="footer-btn btn-voice" id="voice-btn" data-i18n-title="voice_btn_label" title="Comandă Vocală">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                <span id="voice-btn-label">Comandă Vocală</span>
+                <span id="voice-btn-label" data-i18n="voice_btn_label">Comandă Vocală</span>
             </button>
-            <span class="status-text" id="voice-status">Inactiv</span>
+            <span class="status-text" id="voice-status" data-i18n="voice_status_inactive">Inactiv</span>
         </div>
         <div class="footer-right">
             <button type="button" class="footer-btn btn-ai" id="ai-btn" title="AI Chat">
@@ -80,10 +80,9 @@
 <!-- POPUP VREME ORARĂ -->
 <div class="weather-popup" id="weather-popup" hidden>
     <div class="weather-popup-head">
-        <span class="weather-popup-title" id="weather-popup-title">Prognoză vreme</span>
-        <button type="button" class="weather-popup-close" id="weather-popup-close" title="Închide">✕</button>
+        <span class="weather-popup-title" id="weather-popup-title" data-i18n="weather_popup_title">Prognoză vreme</span>
+        <button type="button" class="weather-popup-close" id="weather-popup-close" data-i18n-title="btn_close" title="Închide">✕</button>
     </div>
-    <!-- PROGNOZĂ 5 ZILE (mutat în popup) -->
     <div class="weather-popup-forecast" id="weather-popup-forecast">
         <span class="forecast-skeleton"></span>
         <span class="forecast-skeleton"></span>
@@ -103,19 +102,19 @@
         <div class="chat-head-info">
             <span class="chat-avatar">AI</span>
             <div>
-                <strong>Asistent</strong>
-                <span class="chat-online">● online</span>
+                <strong data-i18n="chat_assistant_name">Asistent</strong>
+                <span class="chat-online" data-i18n="chat_online_status">● online</span>
             </div>
         </div>
-        <button type="button" class="icon-btn" id="close-chat-btn" title="Închide">✕</button>
+        <button type="button" class="icon-btn" id="close-chat-btn" data-i18n-title="btn_close" title="Închide">✕</button>
     </div>
     <div class="chat-messages" id="chat-messages">
-        <div class="message ai-message"><p>Salut! Cum vă pot ajuta?</p></div>
+        <div class="message ai-message"><p data-i18n="chat_initial_msg">Salut! Cum vă pot ajuta?</p></div>
     </div>
     <div class="chat-input-wrap">
         <form id="chat-form">
-            <input type="text" id="chat-input" placeholder="Scrieți un mesaj..." autocomplete="off">
-            <button type="submit" class="btn-send" title="Trimite">
+            <input type="text" id="chat-input" data-i18n-placeholder="chat_placeholder" placeholder="Scrieți un mesaj..." autocomplete="off">
+            <button type="submit" class="btn-send" data-i18n-title="chat_send_title" title="Trimite">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
         </form>
@@ -126,46 +125,46 @@
 <div class="modal-overlay" id="settings-modal">
     <div class="modal">
         <div class="modal-head">
-            <h2>Setări</h2>
-            <button type="button" class="icon-btn" id="cancel-settings" title="Închide">✕</button>
+            <h2 data-i18n="settings_title">Setări</h2>
+            <button type="button" class="icon-btn" id="cancel-settings" data-i18n-title="btn_close" title="Închide">✕</button>
         </div>
         <div class="settings-tabs">
-            <button type="button" class="tab-btn active" data-tab="general">General</button>
-            <button type="button" class="tab-btn" data-tab="utilizatori">Utilizatori</button>
-            <button type="button" class="tab-btn" data-tab="weather">Vreme</button>
+            <button type="button" class="tab-btn active" data-tab="general" data-i18n="tab_general">General</button>
+            <button type="button" class="tab-btn" data-tab="utilizatori" data-i18n="tab_users">Utilizatori</button>
+            <button type="button" class="tab-btn" data-tab="weather" data-i18n="tab_weather">Vreme</button>
             <button type="button" class="tab-btn" data-tab="ai">AI</button>
-            <button type="button" class="tab-btn" data-tab="voice">Vocal</button>
+            <button type="button" class="tab-btn" data-tab="voice" data-i18n="tab_voice">Vocal</button>
         </div>
 
         <div class="tab-content" id="utilizatori-tab">
             <div class="settings-users-list" id="settings-users-list">
-                <p class="settings-empty">Se încarcă...</p>
+                <p class="settings-empty" data-i18n="loading">Se încarcă...</p>
             </div>
             <div class="settings-add-user">
-                <input type="text" id="settings-new-user-name" placeholder="Nume utilizator nou">
-                <input type="color" id="settings-new-user-color" value="#3498db" title="Culoare utilizator">
-                <button type="button" class="btn btn-primary btn-sm" id="settings-add-user-btn">＋ Adaugă</button>
+                <input type="text" id="settings-new-user-name" data-i18n-placeholder="new_user_placeholder" placeholder="Nume utilizator nou">
+                <input type="color" id="settings-new-user-color" value="#3498db" data-i18n-title="color_user_title" title="Culoare utilizator">
+                <button type="button" class="btn btn-primary btn-sm" id="settings-add-user-btn" data-i18n="btn_add_user">＋ Adaugă</button>
             </div>
         </div>
 
         <div class="tab-content active" id="general-tab">
             <div class="form-group">
-                <label for="app-language">Limbă</label>
+                <label for="app-language" data-i18n="lbl_language">Limbă</label>
                 <select id="app-language">
-                    <option value="ro">Română</option>
-                    <option value="en">Engleză</option>
+                    <option value="ro" data-i18n="opt_romanian">Română</option>
+                    <option value="en" data-i18n="opt_english">Engleză</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="date-format">Format dată</label>
+                <label for="date-format" data-i18n="lbl_date_format">Format dată</label>
                 <select id="date-format">
-                    <option value="short">Scurt (dd/mm/yyyy)</option>
-                    <option value="long">Lung</option>
-                    <option value="full">Complet</option>
+                    <option value="short" data-i18n="opt_date_short">Scurt (dd/mm/yyyy)</option>
+                    <option value="long" data-i18n="opt_date_long">Lung</option>
+                    <option value="full" data-i18n="opt_date_full">Complet</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="time-format">Format oră</label>
+                <label for="time-format" data-i18n="lbl_time_format">Format oră</label>
                 <select id="time-format">
                     <option value="24">24h</option>
                     <option value="12">12h AM/PM</option>
@@ -175,75 +174,75 @@
 
         <div class="tab-content" id="weather-tab">
             <div class="form-group">
-                <label for="weather-city">Oraș</label>
+                <label for="weather-city" data-i18n="lbl_weather_city">Oraș</label>
                 <input type="text" id="weather-city" value="București">
             </div>
             <div class="form-group">
-                <label for="weather-units">Unități</label>
+                <label for="weather-units" data-i18n="lbl_weather_units">Unități</label>
                 <select id="weather-units">
                     <option value="metric">Metric (°C)</option>
                     <option value="imperial">Imperial (°F)</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="weather-update">Actualizare (minute)</label>
+                <label for="weather-update" data-i18n="lbl_weather_update">Actualizare (minute)</label>
                 <input type="number" id="weather-update" value="30" min="5" max="1440">
             </div>
         </div>
 
         <div class="tab-content" id="ai-tab">
             <div class="form-group">
-                <label for="ollama-url">URL Server Ollama</label>
+                <label for="ollama-url" data-i18n="lbl_ollama_url">URL Server Ollama</label>
                 <div class="input-with-btn">
                     <input type="text" id="ollama-url" placeholder="http://localhost:11434">
-                    <button type="button" class="btn btn-secondary btn-sm" id="load-models-btn" title="Verifică modele disponibile">↻ Modele</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="load-models-btn" data-i18n-title="title_check_models" title="Verifică modele disponibile" data-i18n="models_btn_label">↻ Modele</button>
                 </div>
             </div>
             <div class="form-group">
-                <label for="ai-model">Model AI</label>
+                <label for="ai-model" data-i18n="lbl_ai_model">Model AI</label>
                 <select id="ai-model">
-                    <option value="">— selectați modelul —</option>
+                    <option value="" data-i18n="opt_select_model">— selectați modelul —</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="ai-temperature">Creativitate — <span id="ai-temp-value">0.7</span></label>
+                <label for="ai-temperature"><span data-i18n="lbl_ai_temp">Creativitate —</span> <span id="ai-temp-value">0.7</span></label>
                 <input type="range" id="ai-temperature" min="0" max="2" step="0.1" value="0.7">
             </div>
             <div class="form-group">
-                <label for="ai-max-tokens">Max tokeni</label>
+                <label for="ai-max-tokens" data-i18n="lbl_ai_tokens">Max tokeni</label>
                 <input type="number" id="ai-max-tokens" value="500" min="50" max="2000">
             </div>
         </div>
 
         <div class="tab-content" id="voice-tab">
             <div class="form-group">
-                <label for="voice-language">Limbă recunoaștere</label>
+                <label for="voice-language" data-i18n="lbl_voice_lang">Limbă recunoaștere</label>
                 <select id="voice-language">
-                    <option value="ro-RO">Română</option>
-                    <option value="en-US">Engleză (SUA)</option>
-                    <option value="en-GB">Engleză (UK)</option>
+                    <option value="ro-RO" data-i18n="opt_voice_ro">Română</option>
+                    <option value="en-US" data-i18n="opt_voice_en_us">Engleză (SUA)</option>
+                    <option value="en-GB" data-i18n="opt_voice_en_gb">Engleză (UK)</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="tts-voice">Voce răspuns AI</label>
+                <label for="tts-voice" data-i18n="lbl_tts_voice">Voce răspuns AI</label>
                 <select id="tts-voice">
-                    <option value="">— automat (limbă curentă) —</option>
+                    <option value="" data-i18n="opt_tts_auto">— automat (limbă curentă) —</option>
                 </select>
-                <small class="form-hint">Vocile disponibile depind de browser și sistemul de operare.</small>
+                <small class="form-hint" data-i18n="hint_tts_voices">Vocile disponibile depind de browser și sistemul de operare.</small>
             </div>
             <div class="form-group">
-                <label for="voice-sensitivity">Sensibilitate — <span id="voice-sens-value">0.5</span></label>
+                <label for="voice-sensitivity"><span data-i18n="lbl_sensitivity">Sensibilitate —</span> <span id="voice-sens-value">0.5</span></label>
                 <input type="range" id="voice-sensitivity" min="0" max="1" step="0.1" value="0.5">
             </div>
             <div class="form-group form-inline">
-                <label for="voice-auto-start">Autopornire</label>
+                <label for="voice-auto-start" data-i18n="lbl_auto_start">Autopornire</label>
                 <input type="checkbox" id="voice-auto-start">
             </div>
         </div>
 
         <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" id="cancel-settings-footer">Anulează</button>
-            <button type="button" class="btn btn-primary" id="save-settings">Salvează</button>
+            <button type="button" class="btn btn-secondary" id="cancel-settings-footer" data-i18n="btn_cancel">Anulează</button>
+            <button type="button" class="btn btn-primary" id="save-settings" data-i18n="btn_save">Salvează</button>
         </div>
     </div>
 </div>
