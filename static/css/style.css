@@ -1392,9 +1392,6 @@ body {
     vertical-align: middle;
 }
 
-.btn-history { color: var(--gray-700); }
-.btn-history:hover { color: var(--blue); }
-
 /* ── Comment count badge on button ── */
 /* Comment count badge on button */
 .comment-badge {
@@ -1506,5 +1503,3 @@ body {
 
 .tuya-refreshing { opacity: 0.5; pointer-events: none; }
 
-.btn-tuya { color: #ea580c; }
-.btn-tuya:hover { color: #c2410c; }

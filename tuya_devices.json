@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T16:14:10.435463+00:00",
+  "generated_at": "2026-03-14T16:49:38.775872+00:00",
   "devices": [
     {
       "id": "bfa6b3cbe1619cde3fuum7",
@@ -19,7 +19,7 @@
           },
           {
             "code": "temp_current",
-            "value": 208
+            "value": 207
           },
           {
             "code": "mode",
@@ -51,8 +51,8 @@
           }
         ],
         "success": true,
-        "t": 1773504854348,
-        "tid": "d7fef5321fc011f18255b6b5e3717ca9"
+        "t": 1773506982334,
+        "tid": "cc5ace081fc511f18410e21ddda0be51"
       }
     },
     {
@@ -73,7 +73,7 @@
           },
           {
             "code": "temp_current",
-            "value": 208
+            "value": 206
           },
           {
             "code": "mode",
@@ -105,8 +105,8 @@
           }
         ],
         "success": true,
-        "t": 1773504855347,
-        "tid": "d897cf711fc011f18410e21ddda0be51"
+        "t": 1773506982976,
+        "tid": "ccc1b7271fc511f18410e21ddda0be51"
       }
     },
     {
@@ -127,7 +127,7 @@
           },
           {
             "code": "temp_current",
-            "value": 218
+            "value": 213
           },
           {
             "code": "mode",
@@ -159,8 +159,8 @@
           }
         ],
         "success": true,
-        "t": 1773504856339,
-        "tid": "d92e20bc1fc011f18410e21ddda0be51"
+        "t": 1773506983631,
+        "tid": "cd232bce1fc511f18410e21ddda0be51"
       }
     },
     {
@@ -181,7 +181,7 @@
           },
           {
             "code": "temp_current",
-            "value": 211
+            "value": 210
           },
           {
             "code": "mode",
@@ -213,8 +213,8 @@
           }
         ],
         "success": true,
-        "t": 1773504857312,
-        "tid": "d9c0b3f01fc011f18255b6b5e3717ca9"
+        "t": 1773506984312,
+        "tid": "cd87aac81fc511f1a0e39aa9e01ed45b"
       }
     },
     {
@@ -267,8 +267,8 @@
           }
         ],
         "success": true,
-        "t": 1773504858255,
-        "tid": "da52d1bc1fc011f18410e21ddda0be51"
+        "t": 1773506984966,
+        "tid": "cdefe8bf1fc511f1a0e39aa9e01ed45b"
       }
     },
     {
@@ -321,8 +321,8 @@
           }
         ],
         "success": true,
-        "t": 1773504859221,
-        "tid": "dae407dd1fc011f18410e21ddda0be51"
+        "t": 1773506985627,
+        "tid": "ce53263c1fc511f18255b6b5e3717ca9"
       }
     },
     {
@@ -334,8 +334,8 @@
       "status": {
         "result": [],
         "success": true,
-        "t": 1773504860168,
-        "tid": "db7793631fc011f18255b6b5e3717ca9"
+        "t": 1773506986281,
+        "tid": "ceb9cc5d1fc511f1a0e39aa9e01ed45b"
       }
     }
   ]
