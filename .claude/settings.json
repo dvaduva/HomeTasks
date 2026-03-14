@@ -3,7 +3,9 @@
     "allow": [
       "Bash(grep -r \"language\\\\|locale\\\\|i18n\\\\|translat\" d:/Surse/Proiecte/HomeTasks --include=*.py ! -path */venv/*)",
       "Bash(grep -rn \"Limba\\\\|Language\\\\|app-language\" d:/Surse/Proiecte/HomeTasks --include=\"*.html\" --include=\"*.js\" ! -path \"*/venv/*\")",
-      "Bash(grep -rn \"Limba\\\\|Language\\\\|app-language\" d:/Surse/Proiecte/HomeTasks --include=*.html --include=*.js)"
+      "Bash(grep -rn \"Limba\\\\|Language\\\\|app-language\" d:/Surse/Proiecte/HomeTasks --include=*.html --include=*.js)",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)"
     ]
   }
 }

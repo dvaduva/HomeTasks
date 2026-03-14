@@ -86,8 +86,8 @@ const TRANSLATIONS = {
         ai_server_error: 'A apărut o eroare la comunicarea cu serverul AI. Vă rugăm să încercați din nou.',
         tts_click_hint: 'Click pentru a asculta mesajul',
         ai_typing: 'AI scrie...',
-        chat_welcome: 'Salut! Sunt HomeTasks AI assistant. Cum vă pot ajuta astăzi?',
-        chat_initial_msg: 'Salut! Cum vă pot ajuta?',
+        chat_welcome: 'Salut! Sunt HomeTasks asistentul tău AI. Cum vă pot să te ajut?',
+        chat_initial_msg: 'Salut! Cum te pot ajuta?',
         // Settings
         settings_loading_error: 'Eroare la încărcarea setărilor',
         settings_users_error: 'Eroare la încărcarea utilizatorilor.',
@@ -157,6 +157,23 @@ const TRANSLATIONS = {
         new_user_placeholder: 'Nume utilizator nou',
         color_user_title: 'Culoare utilizator',
         btn_add_user: '＋ Adaugă',
+        // History
+        history_title: 'Istoric Taskuri',
+        history_btn_label: 'Istoric',
+        history_filter_all_users: 'Toți utilizatorii',
+        history_filter_all_status: 'Toate statusurile',
+        history_filter_completed: 'Finalizate',
+        history_filter_refused: 'Refuzate',
+        history_filter_pending: 'În așteptare',
+        history_period_7: 'Ultimele 7 zile',
+        history_period_30: 'Ultima lună',
+        history_period_90: 'Ultimele 3 luni',
+        history_period_365: 'Ultimul an',
+        history_period_all: 'Tot istoricul',
+        no_history_tasks: 'Nu există taskuri în această perioadă.',
+        history_status_completed: 'Finalizat',
+        history_status_refused: 'Refuzat',
+        history_status_pending: 'În așteptare',
     },
     en: {
         // Voice
@@ -310,6 +327,23 @@ const TRANSLATIONS = {
         new_user_placeholder: 'New user name',
         color_user_title: 'User color',
         btn_add_user: '＋ Add',
+        // History
+        history_title: 'Task History',
+        history_btn_label: 'History',
+        history_filter_all_users: 'All users',
+        history_filter_all_status: 'All statuses',
+        history_filter_completed: 'Completed',
+        history_filter_refused: 'Refused',
+        history_filter_pending: 'Pending',
+        history_period_7: 'Last 7 days',
+        history_period_30: 'Last month',
+        history_period_90: 'Last 3 months',
+        history_period_365: 'Last year',
+        history_period_all: 'All history',
+        no_history_tasks: 'No tasks in this period.',
+        history_status_completed: 'Completed',
+        history_status_refused: 'Refused',
+        history_status_pending: 'Pending',
     }
 };
 
@@ -2506,6 +2540,154 @@ function showToast(message, isError = false) {
     }, 3000);
 }
 
+// ============================================================
+// History Panel
+// ============================================================
+
+let historyUsersCache = [];
+
+function openHistoryPanel() {
+    const modal = document.getElementById('history-modal');
+    if (!modal) return;
+    modal.classList.add('active');
+    populateHistoryUserFilter();
+    loadHistoryTasks();
+}
+
+function closeHistoryPanel() {
+    const modal = document.getElementById('history-modal');
+    if (modal) modal.classList.remove('active');
+}
+
+function populateHistoryUserFilter() {
+    fetch('/api/users')
+        .then(r => r.json())
+        .then(users => {
+            historyUsersCache = users;
+            const sel = document.getElementById('history-user-filter');
+            if (!sel) return;
+            const currentVal = sel.value;
+            sel.innerHTML = `<option value="">${t('history_filter_all_users')}</option>` +
+                users.map(u => `<option value="${u.id}"${currentVal == u.id ? ' selected' : ''}>${u.name}</option>`).join('');
+        })
+        .catch(() => {});
+}
+
+function toLocalISOString(date) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function loadHistoryTasks() {
+    const listEl = document.getElementById('history-list');
+    if (!listEl) return;
+    listEl.innerHTML = `<p class="empty">${t('loading')}</p>`;
+
+    const userId  = document.getElementById('history-user-filter')?.value || '';
+    const status  = document.getElementById('history-status-filter')?.value || '';
+    const days    = parseInt(document.getElementById('history-period-filter')?.value ?? '30', 10);
+
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 0);
+
+    let url = `/api/tasks?end_date=${encodeURIComponent(toLocalISOString(endDate))}`;
+    if (userId) url += `&user_id=${userId}`;
+    if (status) url += `&status=${status}`;
+    if (days > 0) {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+        startDate.setHours(0, 0, 0, 0);
+        url += `&start_date=${encodeURIComponent(toLocalISOString(startDate))}`;
+    }
+
+    fetch(url)
+        .then(r => r.json())
+        .then(tasks => renderHistoryTasks(Array.isArray(tasks) ? tasks : []))
+        .catch(() => {
+            listEl.innerHTML = `<p class="empty">${t('loading_error')}</p>`;
+        });
+}
+
+function renderHistoryTasks(tasks) {
+    const listEl = document.getElementById('history-list');
+    if (!listEl) return;
+
+    if (tasks.length === 0) {
+        listEl.innerHTML = `<p class="empty">${t('no_history_tasks')}</p>`;
+        return;
+    }
+
+    // Build user lookup
+    const userMap = {};
+    historyUsersCache.forEach(u => { userMap[u.id] = u; });
+
+    // Group by month
+    const groups = {};
+    const locale = currentLang === 'en' ? 'en-US' : 'ro-RO';
+    tasks.forEach(task => {
+        const d = task.scheduled_date ? new Date(task.scheduled_date) : null;
+        const key = d
+            ? d.toLocaleDateString(locale, { year: 'numeric', month: 'long' })
+            : (currentLang === 'en' ? 'No date' : 'Fără dată');
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(task);
+    });
+
+    const statusLabels = {
+        completed: t('history_status_completed'),
+        refused:   t('history_status_refused'),
+        pending:   t('history_status_pending'),
+    };
+
+    let html = '';
+    for (const [month, monthTasks] of Object.entries(groups)) {
+        html += `<div class="history-group-header">${month} <span style="font-weight:400;opacity:.7">(${monthTasks.length})</span></div>`;
+        monthTasks.forEach(task => {
+            const status = task.status || 'pending';
+            const user = userMap[task.user_id];
+            const dateStr = task.scheduled_date
+                ? new Date(task.scheduled_date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })
+                : '—';
+            const userDot = user
+                ? `<span class="history-user-dot" style="background:${user.color}"></span>${user.name}`
+                : '';
+            const recurrenceHtml = task.recurrence_pattern && task.recurrence_pattern !== 'none'
+                ? `<span class="badge recurrence-badge">${getRecurrenceLabel(task.recurrence_pattern)}</span>`
+                : '';
+            const commentHtml = task.comment_count > 0
+                ? `<span title="${t('btn_comments')}">💬 ${task.comment_count}</span>`
+                : '';
+
+            html += `
+                <div class="history-task ${status}" data-task-id="${task.id}">
+                    <div class="history-status-dot ${status}"></div>
+                    <div class="history-task-body">
+                        <div class="history-task-desc">${task.description}</div>
+                        <div class="history-task-meta">
+                            <span>${dateStr}</span>
+                            ${userDot ? `<span>${userDot}</span>` : ''}
+                            <span>${statusLabels[status] || status}</span>
+                            ${recurrenceHtml}
+                            ${commentHtml}
+                        </div>
+                    </div>
+                </div>`;
+        });
+    }
+    listEl.innerHTML = html;
+}
+
+function initHistoryPanel() {
+    document.getElementById('history-btn')?.addEventListener('click', openHistoryPanel);
+    document.getElementById('close-history-btn')?.addEventListener('click', closeHistoryPanel);
+    document.getElementById('history-modal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeHistoryPanel();
+    });
+    ['history-user-filter', 'history-status-filter', 'history-period-filter'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', loadHistoryTasks);
+    });
+}
+
 // Initialize settings when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Load initial data
@@ -2538,4 +2720,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Setup weather popup
     setupWeatherPopup();
+
+    // Initialize history panel
+    initHistoryPanel();
 });

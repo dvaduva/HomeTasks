@@ -68,6 +68,10 @@
             <span class="status-text" id="voice-status" data-i18n="voice_status_inactive">Inactiv</span>
         </div>
         <div class="footer-right">
+            <button type="button" class="footer-btn btn-history" id="history-btn" data-i18n-title="history_btn_label" title="Istoric">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span data-i18n="history_btn_label">Istoric</span>
+            </button>
             <button type="button" class="footer-btn btn-ai" id="ai-btn" title="AI Chat">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 AI Chat
@@ -118,6 +122,37 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
         </form>
+    </div>
+</div>
+
+<!-- MODAL ISTORIC -->
+<div class="modal-overlay" id="history-modal">
+    <div class="modal history-modal">
+        <div class="modal-head">
+            <h2 data-i18n="history_title">Istoric Taskuri</h2>
+            <button type="button" class="icon-btn" id="close-history-btn" data-i18n-title="btn_close" title="Închide">✕</button>
+        </div>
+        <div class="history-filters">
+            <select id="history-user-filter" data-i18n-title="history_filter_all_users" title="Filtrează după utilizator">
+                <option value="" data-i18n="history_filter_all_users">Toți utilizatorii</option>
+            </select>
+            <select id="history-status-filter" data-i18n-title="history_filter_all_status" title="Filtrează după status">
+                <option value="" data-i18n="history_filter_all_status">Toate statusurile</option>
+                <option value="completed" data-i18n="history_filter_completed">Finalizate</option>
+                <option value="refused" data-i18n="history_filter_refused">Refuzate</option>
+                <option value="pending" data-i18n="history_filter_pending">În așteptare</option>
+            </select>
+            <select id="history-period-filter" data-i18n-title="history_period_30" title="Perioadă">
+                <option value="7" data-i18n="history_period_7">Ultimele 7 zile</option>
+                <option value="30" selected data-i18n="history_period_30">Ultima lună</option>
+                <option value="90" data-i18n="history_period_90">Ultimele 3 luni</option>
+                <option value="365" data-i18n="history_period_365">Ultimul an</option>
+                <option value="0" data-i18n="history_period_all">Tot istoricul</option>
+            </select>
+        </div>
+        <div class="history-list" id="history-list">
+            <p class="empty" data-i18n="loading">Se încarcă...</p>
+        </div>
     </div>
 </div>
 
