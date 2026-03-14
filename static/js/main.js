@@ -2587,17 +2587,14 @@ function loadHistoryTasks() {
     const status  = document.getElementById('history-status-filter')?.value || '';
     const days    = parseInt(document.getElementById('history-period-filter')?.value ?? '30', 10);
 
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 0);
-
-    let url = `/api/tasks?end_date=${encodeURIComponent(toLocalISOString(endDate))}`;
-    if (userId) url += `&user_id=${userId}`;
-    if (status) url += `&status=${status}`;
+    let url = `/api/tasks?`;
+    if (userId) url += `user_id=${userId}&`;
+    if (status) url += `status=${status}&`;
     if (days > 0) {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
         startDate.setHours(0, 0, 0, 0);
-        url += `&start_date=${encodeURIComponent(toLocalISOString(startDate))}`;
+        url += `start_date=${encodeURIComponent(toLocalISOString(startDate))}`;
     }
 
     fetch(url)
