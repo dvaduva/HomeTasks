@@ -17,37 +17,29 @@
         <div class="date-time" id="date-time"></div>
         <div class="header-right">
             <div class="weather" id="weather" title="Click pentru prognoză orară"><span class="dim">—°</span></div>
+            <button type="button" class="icon-btn" id="refresh-btn" title="Reîncarcă pagina" onclick="location.reload()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
             <button type="button" class="icon-btn" id="settings-btn" title="Setări">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
         </div>
     </header>
 
-    <!-- PROGNOZĂ 5 ZILE -->
-    <div class="forecast-strip" id="weather-forecast">
-        <span class="forecast-skeleton"></span>
-        <span class="forecast-skeleton"></span>
-        <span class="forecast-skeleton"></span>
-        <span class="forecast-skeleton"></span>
-        <span class="forecast-skeleton"></span>
-    </div>
-
     <!-- BARA UTILIZATORI -->
     <div class="user-bar">
         <div class="user-list" id="user-list"></div>
+        <button type="button" class="btn-add-task" id="add-task-btn" title="Task nou">＋</button>
     </div>
 
     <!-- TASKURI -->
     <div class="tasks-wrap">
-        <div class="tasks-toolbar">
-            <h2 class="tasks-title" id="tasks-title">Bun venit!</h2>
-            <button type="button" class="btn-primary" id="add-task-btn">＋ Task nou</button>
-        </div>
         <div class="tasks-grid">
             <div class="task-col">
                 <div class="col-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     Toate taskurile
+                    <span class="col-count" id="all-tasks-count" hidden>0</span>
                 </div>
                 <div class="task-list" id="tasks-list">
                     <p class="empty">Selectați un utilizator.</p>
@@ -57,6 +49,7 @@
                 <div class="col-label today-col">
                     <span class="pulse-dot"></span>
                     Astăzi
+                    <span class="col-count" id="today-tasks-count" hidden>0</span>
                 </div>
                 <div class="task-list" id="today-tasks-list">
                     <p class="empty">Se încarcă...</p>
@@ -87,8 +80,16 @@
 <!-- POPUP VREME ORARĂ -->
 <div class="weather-popup" id="weather-popup" hidden>
     <div class="weather-popup-head">
-        <span class="weather-popup-title" id="weather-popup-title">Prognoză orară</span>
+        <span class="weather-popup-title" id="weather-popup-title">Prognoză vreme</span>
         <button type="button" class="weather-popup-close" id="weather-popup-close" title="Închide">✕</button>
+    </div>
+    <!-- PROGNOZĂ 5 ZILE (mutat în popup) -->
+    <div class="weather-popup-forecast" id="weather-popup-forecast">
+        <span class="forecast-skeleton"></span>
+        <span class="forecast-skeleton"></span>
+        <span class="forecast-skeleton"></span>
+        <span class="forecast-skeleton"></span>
+        <span class="forecast-skeleton"></span>
     </div>
     <div class="weather-popup-chart-wrap">
         <svg class="weather-chart" id="weather-chart" preserveAspectRatio="none"></svg>

@@ -132,50 +132,94 @@ function updateDateTime() {
 }
 
 function loadUsers() {
-    fetch('/api/users')
-        .then(response => response.json())
-        .then(users => {
-            const userList = document.getElementById('user-list');
-            userList.innerHTML = '';
-            
-            users.forEach(user => {
-                const userElement = document.createElement('div');
-                userElement.className = 'user-item';
-                userElement.dataset.userId = user.id;
-                userElement.innerHTML = `
-                    <div class="user-color" style="background-color: ${user.color}"></div>
-                    <span>${user.name}</span>
-                `;
-                userList.appendChild(userElement);
-            });
-            
-            // Select first user by default
-            if (users.length > 0) {
-                const firstUser = userList.firstChild;
-                if (firstUser) {
-                    firstUser.classList.add('active');
-                    loadTasksForUser(firstUser.dataset.userId);
+    Promise.all([
+        fetch('/api/users').then(r => r.json()),
+        fetch('/api/tasks').then(r => r.json())
+    ]).then(([users, tasks]) => {
+        const counts = {};
+        tasks.forEach(t => { counts[t.user_id] = (counts[t.user_id] || 0) + 1; });
+
+        const userList = document.getElementById('user-list');
+        userList.innerHTML = '';
+
+        // "Toți utilizatorii" button — always first
+        const allItem = document.createElement('div');
+        allItem.className = 'user-item active';
+        allItem.dataset.userId = 'all';
+        allItem.innerHTML = `<span>Toți</span>`;
+        userList.appendChild(allItem);
+
+        users.forEach(user => {
+            const count = counts[user.id] || 0;
+            const countBadge = count > 0 ? `<span class="user-task-count">${count}</span>` : '';
+            const userElement = document.createElement('div');
+            userElement.className = 'user-item';
+            userElement.dataset.userId = user.id;
+            userElement.innerHTML = `
+                <div class="user-color" style="background-color: ${user.color}"></div>
+                <span>${user.name}</span>
+                ${countBadge}
+            `;
+            userList.appendChild(userElement);
+        });
+
+        // Display already-fetched tasks
+        updateTasksDisplay(tasks);
+    }).catch(error => {
+        console.error('Error loading users:', error);
+        document.getElementById('user-list').innerHTML = '<p>Eroare la încărcarea utilizatorilor</p>';
+    });
+}
+
+function refreshUserTaskCounts() {
+    fetch('/api/tasks')
+        .then(r => r.json())
+        .then(tasks => {
+            const counts = {};
+            tasks.forEach(t => { counts[t.user_id] = (counts[t.user_id] || 0) + 1; });
+            document.querySelectorAll('.user-item[data-user-id]').forEach(item => {
+                if (item.dataset.userId === 'all') return;
+                const count = counts[Number(item.dataset.userId)] || 0;
+                let badge = item.querySelector('.user-task-count');
+                if (count > 0) {
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'user-task-count';
+                        item.appendChild(badge);
+                    }
+                    badge.textContent = count;
+                } else if (badge) {
+                    badge.remove();
                 }
-            }
+            });
         })
-        .catch(error => {
-            console.error('Error loading users:', error);
-            document.getElementById('user-list').innerHTML = '<p>Eroare la încărcarea utilizatorilor</p>';
+        .catch(() => {});
+}
+
+function loadAllTasks() {
+    document.getElementById('tasks-list').innerHTML = '<p class="empty">Se încarcă...</p>';
+    fetch('/api/tasks')
+        .then(r => r.json())
+        .then(tasks => {
+            updateTasksDisplay(tasks);
+            refreshUserTaskCounts();
+        })
+        .catch(() => {
+            document.getElementById('tasks-list').innerHTML = '<p class="empty">Eroare la încărcare.</p>';
         });
 }
 
 function loadTasksForUser(userId) {
+    if (!userId || userId === 'all') return loadAllTasks();
     // Clear immediately so old tasks don't linger while loading
-    document.getElementById('tasks-list').innerHTML = '<p>Se încarcă...</p>';
+    document.getElementById('tasks-list').innerHTML = '<p class="empty">Se încarcă...</p>';
 
     fetch(`/api/tasks?user_id=${userId}`)
         .then(response => response.json())
         .then(tasks => {
-            // Update tasks display
             updateTasksDisplay(Array.isArray(tasks) ? tasks : []);
-            
-            // Update today's tasks section
             loadTodayTasks();
+            refreshUserTaskCounts();
         })
         .catch(error => {
             console.error('Error loading tasks:', error);
@@ -183,17 +227,17 @@ function loadTasksForUser(userId) {
         });
 }
 
-// Map OpenWeatherMap icon codes to emoji
+// Map OpenWeatherMap icon codes to Unicode symbols (basic Misc Symbols, renders everywhere)
 const WEATHER_EMOJI = {
-    '01d': '☀️',  '01n': '🌙',
-    '02d': '🌤️', '02n': '🌤️',
+    '01d': '☀',  '01n': '☽',
+    '02d': '⛅',  '02n': '⛅',
     '03d': '⛅',  '03n': '⛅',
-    '04d': '☁️',  '04n': '☁️',
-    '09d': '🌧️', '09n': '🌧️',
-    '10d': '🌦️', '10n': '🌧️',
-    '11d': '⛈️',  '11n': '⛈️',
-    '13d': '❄️',  '13n': '❄️',
-    '50d': '🌫️', '50n': '🌫️',
+    '04d': '☁',  '04n': '☁',
+    '09d': '☂',  '09n': '☂',
+    '10d': '⛅',  '10n': '☂',
+    '11d': '⚡',  '11n': '⚡',
+    '13d': '❄',  '13n': '❄',
+    '50d': '☁',  '50n': '☁',
 };
 
 function weatherEmoji(icon) {
@@ -221,11 +265,11 @@ function loadWeather() {
             console.warn('Weather not available:', error);
         });
 
-    // 5-day forecast strip
+    // 5-day forecast (în popup)
     fetch('/api/weather/forecast?days=5')
         .then(response => response.json())
         .then(data => {
-            const forecastEl = document.getElementById('weather-forecast');
+            const forecastEl = document.getElementById('weather-popup-forecast');
             if (!forecastEl || !data.daily) return;
 
             const dayNames = ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm'];
@@ -309,7 +353,7 @@ function renderWeatherPopup(data) {
         const hh = dt.getHours();
         const label = hh === 0 ? '00:00' : `${String(hh).padStart(2, '0')}:00`;
         const isNow = dt.getDate() === now.getDate() && hh === currentHour;
-        const iconUrl = `https://openweathermap.org/img/wn/${h.icon}@2x.png`;
+        const emoji = weatherEmoji(h.icon);
         const popHtml = h.pop > 0.05
             ? `<span class="wh-pop">💧${Math.round(h.pop * 100)}%</span>`
             : `<span class="wh-pop" style="visibility:hidden">–</span>`;
@@ -320,7 +364,7 @@ function renderWeatherPopup(data) {
 
         return `<div class="weather-hour-item${isNow ? ' current-hour' : ''}" style="${pos}">
             <span class="wh-time">${label}</span>
-            <img class="wh-icon" src="${iconUrl}" alt="${h.description}" title="${h.description}">
+            <span class="wh-emoji" title="${h.description}">${emoji}</span>
             <span class="wh-temp">${Math.round(h.temperature)}°</span>
             ${popHtml}
         </div>`;
@@ -426,13 +470,17 @@ function loadTodayTasks() {
 function updateTasksDisplay(tasks) {
     const tasksList = document.getElementById('tasks-list');
     if (!tasksList) return;
+
+    const badge = document.getElementById('all-tasks-count');
+    if (badge) { badge.textContent = tasks.length; badge.hidden = tasks.length === 0; }
+
     if (tasks.length === 0) {
-        tasksList.innerHTML = '<p>Nu există taskuri pentru acest utilizator.</p>';
+        tasksList.innerHTML = '<p class="empty">Nu există taskuri.</p>';
         return;
     }
-    
+
     tasksList.innerHTML = tasks.map(task => createTaskElement(task)).join('');
-    
+
     // Add event listeners to task elements
     tasks.forEach((task, index) => {
         const taskElement = tasksList.children[index];
@@ -445,13 +493,17 @@ function updateTasksDisplay(tasks) {
 function updateTodayTasksDisplay(tasks) {
     const todayTasksList = document.getElementById('today-tasks-list');
     if (!todayTasksList) return;
+
+    const badge = document.getElementById('today-tasks-count');
+    if (badge) { badge.textContent = tasks.length; badge.hidden = tasks.length === 0; }
+
     if (tasks.length === 0) {
-        todayTasksList.innerHTML = '<p>Nu există taskuri pentru astăzi.</p>';
+        todayTasksList.innerHTML = '<p class="empty">Nu există taskuri pentru astăzi.</p>';
         return;
     }
-    
+
     todayTasksList.innerHTML = tasks.map(task => createTodayTaskElement(task)).join('');
-    
+
     // Add event listeners to today's task elements
     tasks.forEach((task, index) => {
         const taskElement = todayTasksList.children[index];
@@ -461,12 +513,45 @@ function updateTodayTasksDisplay(tasks) {
     });
 }
 
+// SVG icons for task action buttons
+const TASK_ICONS = {
+    check:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    undo:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.96"/></svg>`,
+    x:       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    comment: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    edit:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+    trash:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 0-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+};
+
+function taskActionButtons(task, includeEditDelete = false) {
+    const isCompleted = task.status === 'completed';
+    const isRefused   = task.status === 'refused';
+
+    const statusBtn = isCompleted
+        ? `<button class="task-btn task-btn-undo" data-action="toggle-status" title="Anulează finalizare">${TASK_ICONS.undo}</button>`
+        : `<button class="task-btn task-btn-complete" data-action="toggle-status" title="Finalizează">${TASK_ICONS.check}</button>`;
+
+    const refuseBtn = isRefused
+        ? `<button class="task-btn task-btn-undo" data-action="toggle-refuse" title="Anulează refuz">${TASK_ICONS.undo}</button>`
+        : `<button class="task-btn task-btn-refuse" data-action="toggle-refuse" title="Refuză">${TASK_ICONS.x}</button>`;
+
+    const commentBadge = task.comment_count > 0 ? `<span class="comment-badge">${task.comment_count}</span>` : '';
+    const commentBtn = `<button class="task-btn task-btn-comment" data-action="add-comment" title="Comentarii">${TASK_ICONS.comment}${commentBadge}</button>`;
+
+    const extraBtns = includeEditDelete ? `
+        <button class="task-btn task-btn-edit"   data-action="edit-task"   title="Editează">${TASK_ICONS.edit}</button>
+        <button class="task-btn task-btn-delete" data-action="delete-task" title="Șterge">${TASK_ICONS.trash}</button>
+    ` : '';
+
+    return `<div class="task-actions">${statusBtn}${refuseBtn}${commentBtn}${extraBtns}</div>`;
+}
+
 function createTaskElement(task) {
-    const statusClass = task.status === 'completed' ? 'completed' : 
-                       task.status === 'refused' ? 'refused' : '';
-    const recurrenceBadge = task.recurrence_pattern !== 'none' ? 
-        `<span class="badge recurrence-badge">${getRecurrenceLabel(task.recurrence_pattern)}</span>` : '';
-    
+    const statusClass = task.status === 'completed' ? 'completed' :
+                        task.status === 'refused'   ? 'refused'   : '';
+    const recurrenceBadge = task.recurrence_pattern !== 'none'
+        ? `<span class="badge recurrence-badge">${getRecurrenceLabel(task.recurrence_pattern)}</span>` : '';
+
     return `
         <div class="task-item ${statusClass}" data-task-id="${task.id}">
             <div class="task-content">
@@ -475,35 +560,17 @@ function createTaskElement(task) {
                     <span class="task-date">${formatDate(task.scheduled_date)}</span>
                     ${recurrenceBadge}
                 </div>
-                <div class="task-actions">
-                    <button class="btn btn-sm btn-${task.status === 'completed' ? 'secondary' : 'primary'}" 
-                            data-action="toggle-status">
-                        ${task.status === 'completed' ? 'Anulează' : 'Finalizează'}
-                    </button>
-                    <button class="btn btn-sm btn-${task.status === 'refused' ? 'secondary' : 'warning'}" 
-                            data-action="toggle-refuse">
-                        ${task.status === 'refused' ? 'Anulează refuz' : 'Refuză'}
-                    </button>
-                    <button class="btn btn-sm btn-info" data-action="add-comment">
-                        Comentarii${task.comment_count > 0 ? ` <span class="comment-badge">${task.comment_count}</span>` : ''}
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary" data-action="edit-task">
-                        Editează
-                    </button>
-                    <button class="btn btn-sm btn-danger" data-action="delete-task">
-                        Șterge
-                    </button>
-                </div>
+                ${taskActionButtons(task, true)}
             </div>
         </div>
     `;
 }
 
 function createTodayTaskElement(task) {
-    const statusClass = task.status === 'completed' ? 'completed' : 
-                       task.status === 'refused' ? 'refused' : '';
+    const statusClass = task.status === 'completed' ? 'completed' :
+                        task.status === 'refused'   ? 'refused'   : '';
     const timeStr = new Date(task.scheduled_date).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
-    
+
     return `
         <div class="task-item today-task ${statusClass}" data-task-id="${task.id}">
             <div class="task-content">
@@ -511,22 +578,10 @@ function createTodayTaskElement(task) {
                 <div class="task-details">
                     <h4>${task.description}</h4>
                     <p class="task-user">${task.user_name || 'Utilizator ID: ' + task.user_id}</p>
-                    ${task.recurrence_pattern !== 'none' ? 
-                        `<span class="badge badge-info">${getRecurrenceLabel(task.recurrence_pattern)}</span>` : ''}
+                    ${task.recurrence_pattern !== 'none'
+                        ? `<span class="badge badge-info">${getRecurrenceLabel(task.recurrence_pattern)}</span>` : ''}
                 </div>
-                <div class="task-actions today">
-                    <button class="btn btn-sm btn-${task.status === 'completed' ? 'secondary' : 'primary'}"
-                            data-action="toggle-status">
-                        ${task.status === 'completed' ? 'Anulează' : 'Finalizează'}
-                    </button>
-                    <button class="btn btn-sm btn-${task.status === 'refused' ? 'secondary' : 'warning'}"
-                            data-action="toggle-refuse">
-                        ${task.status === 'refused' ? 'Anulează refuz' : 'Refuză'}
-                    </button>
-                    <button class="btn btn-sm btn-info" data-action="add-comment">
-                        Comentarii${task.comment_count > 0 ? ` <span class="comment-badge">${task.comment_count}</span>` : ''}
-                    </button>
-                </div>
+                ${taskActionButtons(task, false)}
             </div>
         </div>
     `;

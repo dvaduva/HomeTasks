@@ -100,8 +100,8 @@ sudo apt install python3 python3-pip -y
 # Navigați în directorul waar doriți să instalați aplicația
 # Exemplu pentru Raspberry Pi:
 cd /home/pi
-mkdir hometask
-cd hometask
+mkdir HomeTasks
+cd HomeTasks
 
 # Creați mediul virtual
 python3 -m venv venv
@@ -120,12 +120,13 @@ which python  # Trebuie să pointeze către venv/bin/python
 pip install --upgrade pip
 
 # Instalați dependințele de bază pentru aplicația web
-pip install flask  # sau fastapi
-pip install python-dateutil
+pip install flask
 pip install requests
-pip install SpeechRecognition  # opțional, doar dacă implementați STT pe server
-pip install pyaudio            # opțional, doar dacă implementați STT pe server
+pip install SQLAlchemy
 pip install python-dotenv
+
+# Server de producție (opțional)
+pip install gunicorn
 
 # Dependențe de sistem pentru PyAudio (pe Raspberry Pi OS, doar dacă nevoie pentru STT pe server):
 # sudo apt install portaudio19-dev python3-pyaudio -y
@@ -153,7 +154,7 @@ FLASK_ENV=development  # schimbați în production pentru producere
 SECRET_KEY=cheia_secreta_pentru_sesiuni  # generați o valoare aleatoare sigură
 WEATHER_API_KEY=cheia_tua_pentru_serviciul_meteorologic
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=llama3:8b
+OLLAMA_MODEL=qwen3:4b
 DEFAULT_LANGUAGE=ro  # sau en pentru engleză
 VOICE_ACTIVATION_WORD=Hey HomeTasks
 TEMPERATURE_UNIT=C  # sau F
@@ -221,7 +222,7 @@ cd /home/pi/hometask/HomeTasks
 source venv/bin/activate  # Dacă nu este deja activat
 
 # Instalați dependințele specifice aplicației
-pip install -r src/requirements.txt
+pip install -r requirements.txt
 
 # Rulează aplicația
 python src/main.py
@@ -232,7 +233,7 @@ Aplicația va porni pe http://localhost:5000
 ### Configurarea aplicației pentru a porni la pornirea sistemului
 1. Creați un fișier de serviciu systemd pentru aplicația HomeTasks:
    ```bash
-   sudo nano /etc/systemd/system/hometask.service
+   sudo nano /etc/systemd/system/hometasks.service
    ```
 2. Adăugați următorul conținut:
    ```ini
@@ -243,9 +244,9 @@ Aplicația va porni pe http://localhost:5000
    [Service]
    Type=simple
    User=pi
-   WorkingDirectory=/home/pi/hometask/HomeTasks
-   Environment=PATH=/home/pi/hometask/HomeTasks/venv/bin
-   ExecStart=/home/pi/hometask/HomeTasks/venv/bin/python /home/pi/hometask/HomeTasks/src/main.py
+   WorkingDirectory=/home/pi/HomeTasks
+   Environment=PATH=/home/pi/HomeTasks/venv/bin
+   ExecStart=/home/pi/HomeTasks/venv/bin/python /home/pi/HomeTasks/src/main.py
    Restart=always
    RestartSec=10
 
@@ -256,12 +257,12 @@ Aplicația va porni pe http://localhost:5000
 4. Activați serviciul:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable hometask
-   sudo systemctl start hometask
+   sudo systemctl enable hometasks
+   sudo systemctl start hometasks
    ```
 5. Verificați starea:
    ```bash
-   sudo systemctl status hometask
+   sudo systemctl status hometasks
    ```
 
 ### Accesarea aplicației
@@ -269,6 +270,59 @@ Aplicația va porni pe http://localhost:5000
 - Pentru acces de pe alte dispozitive în rețea locală: `http://<ip-address>:5000`
   - Găsiți adresa IP cu: `hostname -I` sau `ip addr show`
   - Exemplu: `http://192.168.1.100:5000`
+
+### Pornirea automată a browserului în modul kiosk (ecran local pe Raspberry Pi)
+
+Dacă aveți un ecran conectat la Raspberry Pi și doriți ca aplicația să se deschidă automat în browser la pornirea sistemului, urmați pașii de mai jos.
+
+**Cerință**: Raspberry Pi OS cu interfață grafică (Desktop), nu versiunea Lite.
+
+1. Instalați Chromium dacă nu este deja instalat:
+   ```bash
+   sudo apt install chromium-browser -y
+   ```
+
+2. Creați directorul autostart dacă nu există:
+   ```bash
+   mkdir -p ~/.config/autostart
+   ```
+
+3. Creați fișierul de autostart pentru kiosk:
+   ```bash
+   nano ~/.config/autostart/hometasks-kiosk.desktop
+   ```
+
+4. Adăugați următorul conținut:
+   ```ini
+   [Desktop Entry]
+   Type=Application
+   Name=HomeTasks Kiosk
+   Exec=bash -c "sleep 5 && chromium-browser --kiosk --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --use-fake-ui-for-media-stream http://localhost:5000"
+   X-GNOME-Autostart-enabled=true
+   ```
+   > `sleep 5` asigură că serviciul `hometasks` pornește înainte de a deschide browserul.
+
+5. Salvați și ieșiți (Ctrl+O, Enter, Ctrl+X în nano)
+
+6. Opțional — dezactivați screensaver-ul și economisirea energiei pentru ecran:
+   ```bash
+   # Adăugați în ~/.config/autostart/disable-screensaver.desktop
+   nano ~/.config/autostart/disable-screensaver.desktop
+   ```
+   ```ini
+   [Desktop Entry]
+   Type=Application
+   Name=Disable Screensaver
+   Exec=xset s off -dpms
+   X-GNOME-Autostart-enabled=true
+   ```
+
+7. Reporniți Raspberry Pi:
+   ```bash
+   sudo reboot
+   ```
+
+După repornire, browserul va deschide automat `http://localhost:5000` în modul fullscreen (kiosk).
 
 ## Verificarea instalării
 

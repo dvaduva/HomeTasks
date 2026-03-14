@@ -26,9 +26,7 @@ html, body { height: 100%; overflow: hidden; -webkit-user-select: none; user-sel
     --purple-lt:#ede9fe;
 
     --fh: 52px;   /* header */
-    --ff: 72px;   /* forecast */
     --fu: 46px;   /* user bar */
-    --ft: 44px;   /* tasks toolbar */
     --fp: 50px;   /* footer */
     --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 }
@@ -43,9 +41,11 @@ body {
 /* ── App shell ── */
 .app {
     display: grid;
-    grid-template-rows: var(--fh) var(--ff) var(--fu) 1fr var(--fp);
+    grid-template-rows: var(--fh) var(--fu) 1fr var(--fp);
+    height: 100vh;
     height: 100dvh;
     overflow: hidden;
+    overscroll-behavior: none;
 }
 
 /* =====================================================
@@ -101,7 +101,9 @@ body {
 }
 .weather:hover { background: rgba(255,255,255,0.10); }
 
-.weather-emoji { font-size: 22px; line-height: 1; }
+.weather-emoji { font-size: 22px; line-height: 1; font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Symbola', serif; }
+.wh-emoji      { font-size: 24px; line-height: 1; font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Symbola', serif; }
+.forecast-emoji{ font-size: 24px; line-height: 1; font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Symbola', serif; }
 .weather-temp  { font-size: 16px; font-weight: 700; color: white; }
 .weather-info  { display: flex; flex-direction: column; line-height: 1.2; }
 .weather-desc  { font-size: 12px; color: rgba(255,255,255,0.70); text-transform: capitalize; }
@@ -167,6 +169,17 @@ body {
     overflow: visible;
 }
 
+.weather-popup-forecast {
+    display: flex;
+    gap: 6px;
+    padding: 8px 16px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--gray-100);
+    scrollbar-width: none;
+    flex-shrink: 0;
+}
+.weather-popup-forecast::-webkit-scrollbar { display: none; }
+
 .weather-popup-hours {
     position: relative;
     height: 88px;
@@ -188,7 +201,6 @@ body {
 .weather-hour-item.current-hour { background: var(--blue-lt); }
 
 .wh-time   { font-size: 11px; color: var(--gray-500); font-weight: 600; }
-.wh-icon   { width: 36px; height: 36px; object-fit: contain; }
 .wh-temp   { font-size: 12px; font-weight: 700; color: var(--gray-900); }
 .wh-pop    { font-size: 10px; color: #3b82f6; font-weight: 600; }
 
@@ -265,7 +277,6 @@ body {
 
 .forecast-day.today .forecast-day-name { color: var(--blue); }
 
-.forecast-emoji { font-size: 24px; line-height: 1; }
 
 .forecast-temps { display: flex; flex-direction: column; line-height: 1.3; }
 .forecast-temp-high { font-size: 14px; font-weight: 700; color: var(--gray-900); }
@@ -281,7 +292,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 12px;
+    padding: 0 8px 0 12px;
     overflow: hidden;
 }
 
@@ -342,6 +353,46 @@ body {
 }
 .btn-add-user:hover { border-color: var(--blue); color: var(--blue); }
 
+.user-task-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--blue);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.user-item.active .user-task-count {
+    background: white;
+    color: var(--blue);
+}
+
+.btn-add-task {
+    background: var(--blue);
+    border: none;
+    color: white;
+    font-family: var(--font);
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.btn-add-task:hover { background: var(--blue-dk); }
+
 /* =====================================================
    TASKURI
    ===================================================== */
@@ -349,28 +400,8 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
     background: var(--gray-100);
-}
-
-.tasks-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 8px 14px;
-    background: var(--white);
-    border-bottom: 1px solid var(--gray-200);
-    height: var(--ft);
-    flex-shrink: 0;
-}
-
-.tasks-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--gray-900);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .tasks-grid {
@@ -406,6 +437,19 @@ body {
 
 .today-col { color: var(--amber); }
 
+.col-count {
+    margin-left: auto;
+    background: var(--gray-200);
+    color: var(--gray-700);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+}
+.today-col .col-count { background: var(--amber-lt); color: var(--amber); }
+
 .pulse-dot {
     width: 7px;
     height: 7px;
@@ -420,6 +464,9 @@ body {
 .task-list {
     flex: 1;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -465,7 +512,34 @@ body {
 .task-details { display: flex; flex-direction: column; gap: 2px; }
 .task-details h4 { font-size: 14px; font-weight: 600; color: var(--gray-900); }
 .task-user { font-size: 12px; color: var(--gray-500); }
-.task-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.task-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+/* Icon-only task action buttons */
+.task-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.12s, transform 0.1s;
+    flex-shrink: 0;
+}
+.task-btn:hover  { opacity: 0.75; transform: scale(1.1); }
+.task-btn:active { transform: scale(0.93); }
+
+/* Comment button wider to fit badge */
+.task-btn-comment { width: auto; padding: 0 7px; }
+
+.task-btn-complete { background: var(--green-lt);  color: var(--green); }
+.task-btn-refuse   { background: var(--amber-lt);  color: var(--amber); }
+.task-btn-undo     { background: var(--gray-100);  color: var(--gray-500); }
+.task-btn-comment  { background: var(--purple-lt); color: var(--purple); }
+.task-btn-edit     { background: var(--gray-100);  color: var(--gray-700); }
+.task-btn-delete   { background: var(--red-lt);    color: var(--red); }
 
 /* Badges */
 .badge,
@@ -1005,7 +1079,7 @@ body {
    RESPONSIVE
    ===================================================== */
 @media (max-width: 640px) {
-    :root { --fh: 48px; --ff: 62px; --fu: 44px; --ft: 42px; --fp: 48px; }
+    :root { --fh: 48px; --fu: 44px; --fp: 48px; }
     body { font-size: 14px; }
     .date-time { display: none; }
     .weather-info { display: none; }
@@ -1207,13 +1281,13 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255,255,255,0.3);
+    background: var(--purple);
+    color: white;
     border-radius: 10px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    font-size: 11px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 1;
-    vertical-align: middle;
 }
