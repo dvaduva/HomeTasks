@@ -119,18 +119,11 @@ which python  # Trebuie să pointeze către venv/bin/python
 # Asigurați-vă că pip este actualizat
 pip install --upgrade pip
 
-# Instalați dependințele de bază pentru aplicația web
-pip install flask
-pip install requests
-pip install SQLAlchemy
-pip install python-dotenv
-
-# Server de producție (opțional)
-pip install gunicorn
-
-# Dependențe de sistem pentru PyAudio (pe Raspberry Pi OS, doar dacă nevoie pentru STT pe server):
-# sudo apt install portaudio19-dev python3-pyaudio -y
+# Instalați toate dependințele dintr-o singură comandă
+pip install -r requirements.txt
 ```
+
+Dependințele includ: Flask, SQLAlchemy, requests, python-dotenv, tinytuya (pentru integrare IoT Tuya), gunicorn (server producție), pytest.
 
 ## Descărcarea și configurarea aplicației HomeTasks
 
@@ -148,17 +141,34 @@ cp .env.example .env
 ```
 Editați fișierul `.env` și completați:
 ```env
-# Variabile de mediu pentru HomeTasks
-FLASK_APP=src/main.py
-FLASK_ENV=development  # schimbați în production pentru producere
-SECRET_KEY=cheia_secreta_pentru_sesiuni  # generați o valoare aleatoare sigură
-WEATHER_API_KEY=cheia_tua_pentru_serviciul_meteorologic
+# Flask settings
+FLASK_APP=wsgi.py
+FLASK_ENV=production  # schimbați în development pentru dezvoltare locală
+# Generați cu: python3 -c "import secrets; print(secrets.token_hex(32))"
+SECRET_KEY=cheia_secreta_pentru_sesiuni
+
+# Database (implicit: SQLite în folderul data/)
+# Pentru PostgreSQL: DATABASE_URL=postgresql://user:parola@localhost/hometasks
+DATABASE_URL=sqlite:///./data/hometasks.db
+
+# Weather API (cheie gratuită de pe openweathermap.org)
+WEATHER_API_KEY=cheia_ta_pentru_openweathermap
+
+# Setări Ollama AI
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=qwen3:4b
+OLLAMA_MODEL=llama3:8b
+OLLAMA_TIMEOUT=120
+
+# Setări aplicație
 DEFAULT_LANGUAGE=ro  # sau en pentru engleză
-VOICE_ACTIVATION_WORD=Hey HomeTasks
 TEMPERATURE_UNIT=C  # sau F
 UPDATE_INTERVAL_MINUTES=30
+VOICE_ACTIVATION_WORD=Hey HomeTasks
+
+# Tuya Cloud (eu.platform.tuya.com) - pentru temperaturi din senzori IoT
+TUYA_ACCESS_ID=your_access_id
+TUYA_ACCESS_SECRET=your_access_secret
+TUYA_API_REGION=eu
 ```
 
 ### Configurarea serverului Ollama
@@ -213,12 +223,26 @@ UPDATE_INTERVAL_MINUTES=30
    sudo systemctl status ollama
    ```
 
+### Configurarea integrării Tuya (opțional)
+Dacă doriți să afișați temperaturile de la senzori IoT Tuya (termostate, senzori de temperatură):
+
+1. Creați un cont pe [Tuya IoT Platform](https://eu.platform.tuya.com)
+2. Creați un proiect Cloud și obțineți `Access ID` și `Access Secret`
+3. Adăugați dispozitivele dvs. la proiect
+4. Completați în `.env`:
+   ```env
+   TUYA_ACCESS_ID=your_access_id
+   TUYA_ACCESS_SECRET=your_access_secret
+   TUYA_API_REGION=eu  # eu, us, cn, in în funcție de regiune
+   ```
+   Alternativ, aceste credențiale pot fi configurate și din interfața web, la Setări → Tuya Cloud.
+
 ## Rularea aplicației HomeTasks
 
 ### Prima rulare
 ```bash
 # Asigurați-vă că sunteți în directorul aplicației și mediul virtual este activat
-cd /home/pi/hometask/HomeTasks
+cd /home/pi/HomeTasks
 source venv/bin/activate  # Dacă nu este deja activat
 
 # Instalați dependințele specifice aplicației
@@ -352,7 +376,7 @@ După repornire, browserul va deschide automat `http://localhost:5000` în modul
 
 ### Actualizarea sursei
 ```bash
-cd /home/pi/hometask/HomeTasks
+cd /home/pi/HomeTasks
 git pull origin main  # sau ramificația voastră de dezvoltare
 ```
 
@@ -392,6 +416,17 @@ pip install flask
 2. Dacă nu rulează, porniți-l manual: `ollama serve &`
 3. Dacă rulează ca serviciu, verificați starea: `sudo systemctl status ollama`
 4. Asigurați-vă că nu există firewall-uri care să blocheze portul 11434.
+
+### Problema: "Could not find a suitable TLS CA certificate bundle"
+**Cauza**: Pachetul `certifi` nu găsește certificatele SSL (de obicei după ștergerea și recrearea mediului virtual).
+**Soluție**: Recreați mediul virtual și reinstalați dependențele:
+```bash
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate  # Linux/macOS
+# sau: venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+```
 
 ### Problema: "API key invalid" pentru serviciul meteorologic
 **Soluție**:
