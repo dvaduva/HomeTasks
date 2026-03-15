@@ -16,6 +16,7 @@ const TRANSLATIONS = {
         mic_available_status: 'Disponibil',
         mic_denied: 'Microfon: acces refuzat',
         voice_error: 'Eroare la recunoașterea vorbirii: ',
+        voice_error_audio_capture: 'Microfonul nu poate fi folosit (verificați permisiunile și dispozitivul implicit). Vezi docs/INSTALARE.md → „audio-capture”.',
         voice_listening_prompt: 'Ascult... Vorbesc acum',
         voice_error_start: 'Eroare la pornirea recunoașterii vocale',
         voice_heard: 'Am auzit: "',
@@ -202,6 +203,7 @@ const TRANSLATIONS = {
         mic_available_status: 'Available',
         mic_denied: 'Microphone: access denied',
         voice_error: 'Speech recognition error: ',
+        voice_error_audio_capture: 'Microphone cannot be used (check permissions and default device). See docs/INSTALARE.md → "audio-capture".',
         voice_listening_prompt: 'Listening... Speak now',
         voice_error_start: 'Error starting speech recognition',
         voice_heard: 'I heard: "',
@@ -502,7 +504,8 @@ function initVoiceRecognition() {
                     }
                     // Don't show "aborted" to user – it happens when we stop recognition or when another one takes over
                     if (event.error !== 'aborted' && event.error !== 'no-speech') {
-                        showVoiceFeedback(t('voice_error') + event.error, true);
+                        const msg = event.error === 'audio-capture' ? t('voice_error_audio_capture') : (t('voice_error') + event.error);
+                        showVoiceFeedback(msg, true);
                     }
                     startWakeWordListenerIfEnabled();
                 };

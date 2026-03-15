@@ -401,6 +401,67 @@ ollama pull llama3:8b  # înlocuiți cu modelul voastră
 pip install flask
 ```
 
+### Problema: "Eroare la recunoasterea vorbirii: audio-capture" (Raspberry Pi / Linux)
+**Cauză**: Recunoașterea vocală folosește **Web Speech API în browser**. Eroarea „audio-capture” înseamnă că browserul nu poate capta audio de la microfon.
+
+- **Dacă deschideți aplicația de pe alt dispozitiv** (telefon, PC) la `http://<IP-RPi>:5000`, microfonul folosit este al **acelui dispozitiv**, nu al RPi. Verificați permisiunile pentru microfon în browser pe dispozitivul respectiv.
+- **Dacă folosiți browser pe Raspberry Pi** (ex.: Chromium la `http://localhost:5000`, cu ecran conectat la RPi), microfonul USB trebuie să fie **dispozitivul implicit de captură** pentru sistem, iar Chromium trebuie să aibă permisiune pentru microfon.
+
+**Pași pe Raspberry Pi (Chromium pe RPi, aplicația la http://localhost:5000):**
+
+1. **Verificați că microfonul este văzut**
+   ```bash
+   arecord -l
+   ```
+   Notați cardul microfonului USB (ex.: card 1 = UACDemoV1.0).
+
+2. **Adăugați utilizatorul în grupul `audio`**
+   ```bash
+   sudo usermod -a -G audio pi
+   ```
+   Apoi **delogare și relogare** (sau repornire), ca modificarea să aibă efect.
+
+3. **Setați microfonul USB ca dispozitiv implicit de captură**
+   - **Dacă aveți PulseAudio** (verificați cu `pactl info`):
+     ```bash
+     pactl list sources short
+     ```
+     Identificați sursa microfonului USB (ex.: `alsa_input.usb-...`), apoi:
+     ```bash
+     pactl set-default-source <nume_sursa_USB>
+     ```
+   - **Doar ALSA** (fără PulseAudio): creați sau editați `~/.asoundrc`:
+     ```bash
+     nano ~/.asoundrc
+     ```
+     Conținut (pentru microfon pe card 1, device 0 – adaptați `plughw:1,0` dacă microfonul este pe alt card):
+     ```
+     pcm.!default {
+         type asym
+         playback.pcm "null"
+         capture.pcm "plughw:1,0"
+     }
+     ctl.!default {
+         type hw
+         card 1
+     }
+     ```
+     Salvați (Ctrl+O, Enter, Ctrl+X).
+
+4. **Testați captura**
+   ```bash
+   arecord -d 3 -f cd test.wav
+   aplay test.wav
+   ```
+   Dacă auziți ce ați vorbit, ALSA folosește corect microfonul.
+
+5. **În Chromium pe RPi**
+   - La prima folosire a butonului de microfon din aplicație, acceptați cererea de **permisiune pentru microfon**.
+   - Dacă ați refuzat-o: click pe **iconița lacăt/locație** (stânga din bara de adrese) → Setări site → Microfon: **Permite**.
+   - Închideți complet Chromium și redeschideți-l, apoi reîncărcați `http://localhost:5000` și încercați din nou recunoașterea vocală.
+
+6. **Deschideți mereu aplicația** prin `http://localhost:5000` sau `http://127.0.0.1:5000` (Web Speech API necesită context securizat; pe localhost este acceptat).
+
 ### Problema: "PortAudio error: -9996 (Invalid input device)"
 **Soluție** (doar dacă utilizați STT pe server):
 1. Verificați conexiunea microfonului: `arecord -l`
