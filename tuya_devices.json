@@ -1,276 +1,6 @@
 {
-  "generated_at": "2026-03-14T16:49:38.775872+00:00",
+  "generated_at": "2026-03-15T07:08:08.475729+00:00",
   "devices": [
-    {
-      "id": "bfa6b3cbe1619cde3fuum7",
-      "name": "Cameră Ana",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 210
-          },
-          {
-            "code": "temp_current",
-            "value": 207
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 45
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1773506982334,
-        "tid": "cc5ace081fc511f18410e21ddda0be51"
-      }
-    },
-    {
-      "id": "bfecca7b4fe5b60ac0fksr",
-      "name": "Dormitor",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 210
-          },
-          {
-            "code": "temp_current",
-            "value": 206
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 50
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1773506982976,
-        "tid": "ccc1b7271fc511f18410e21ddda0be51"
-      }
-    },
-    {
-      "id": "bff64cfd0cf77efbf2ngph",
-      "name": "Bucătărie",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 210
-          },
-          {
-            "code": "temp_current",
-            "value": 213
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 45
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1773506983631,
-        "tid": "cd232bce1fc511f18410e21ddda0be51"
-      }
-    },
-    {
-      "id": "bf7c77962ec398ffa6sn3f",
-      "name": "Living",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 210
-          },
-          {
-            "code": "temp_current",
-            "value": 210
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 45
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1773506984312,
-        "tid": "cd87aac81fc511f1a0e39aa9e01ed45b"
-      }
-    },
-    {
-      "id": "bf8423321cc1f58beb6fyy",
-      "name": "Birou",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 210
-          },
-          {
-            "code": "temp_current",
-            "value": 210
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 45
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1773506984966,
-        "tid": "cdefe8bf1fc511f1a0e39aa9e01ed45b"
-      }
-    },
     {
       "id": "bf3b11f7ec82aed0967swk",
       "name": "Dormitor Parter",
@@ -289,7 +19,7 @@
           },
           {
             "code": "temp_current",
-            "value": 182
+            "value": 181
           },
           {
             "code": "mode",
@@ -321,8 +51,278 @@
           }
         ],
         "success": true,
-        "t": 1773506985627,
-        "tid": "ce53263c1fc511f18255b6b5e3717ca9"
+        "t": 1773558493384,
+        "tid": "bb567f97203d11f18255b6b5e3717ca9"
+      }
+    },
+    {
+      "id": "bfa6b3cbe1619cde3fuum7",
+      "name": "Cameră Ana",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 203
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773558494355,
+        "tid": "bbebc8d8203d11f1a0e39aa9e01ed45b"
+      }
+    },
+    {
+      "id": "bfecca7b4fe5b60ac0fksr",
+      "name": "Dormitor",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 203
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 50
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773558495292,
+        "tid": "bc7d968d203d11f1a0e39aa9e01ed45b"
+      }
+    },
+    {
+      "id": "bff64cfd0cf77efbf2ngph",
+      "name": "Bucătărie",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 200
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773558496227,
+        "tid": "bd0cd9ad203d11f1a0e39aa9e01ed45b"
+      }
+    },
+    {
+      "id": "bf7c77962ec398ffa6sn3f",
+      "name": "Living",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 199
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773558497152,
+        "tid": "bd9a41eb203d11f1a0e39aa9e01ed45b"
+      }
+    },
+    {
+      "id": "bf8423321cc1f58beb6fyy",
+      "name": "Birou",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 212
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773558498091,
+        "tid": "be285c08203d11f18255b6b5e3717ca9"
       }
     },
     {
@@ -334,8 +334,8 @@
       "status": {
         "result": [],
         "success": true,
-        "t": 1773506986281,
-        "tid": "ceb9cc5d1fc511f1a0e39aa9e01ed45b"
+        "t": 1773558499050,
+        "tid": "beb62eb3203d11f18410e21ddda0be51"
       }
     }
   ]

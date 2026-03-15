@@ -901,6 +901,7 @@ body {
 
 .form-group input[type="text"],
 .form-group input[type="number"],
+.form-group input[type="search"],
 .form-group select {
     width: 100%;
     padding: 9px 11px;
@@ -928,6 +929,10 @@ body {
     padding-right: 30px;
     cursor: pointer;
 }
+
+#tts-voice-search { margin-bottom: 4px; }
+#tts-voice[size] { height: auto; background-image: none; padding-right: 11px; }
+.tuya-dummy-field { display: none; }
 
 .form-group input[type="range"] {
     width: 100%;

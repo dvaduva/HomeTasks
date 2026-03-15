@@ -902,9 +902,9 @@ def get_preferences():
             'voice_language': prefs.voice_language,
             'voice_sensitivity': prefs.voice_sensitivity,
             'voice_auto_start': prefs.voice_auto_start,
-            'tuya_access_id': prefs.tuya_access_id or '',
-            'tuya_access_secret': prefs.tuya_access_secret or '',
-            'tuya_api_region': prefs.tuya_api_region or 'eu',
+            'tuya_access_id': prefs.tuya_access_id or os.getenv('TUYA_ACCESS_ID', ''),
+            'tuya_access_secret': prefs.tuya_access_secret or os.getenv('TUYA_ACCESS_SECRET', ''),
+            'tuya_api_region': prefs.tuya_api_region or os.getenv('TUYA_API_REGION', 'eu'),
         })
     finally:
         db.close()
@@ -954,9 +954,9 @@ def update_preferences():
             'voice_language': prefs.voice_language,
             'voice_sensitivity': prefs.voice_sensitivity,
             'voice_auto_start': prefs.voice_auto_start,
-            'tuya_access_id': prefs.tuya_access_id or '',
-            'tuya_access_secret': prefs.tuya_access_secret or '',
-            'tuya_api_region': prefs.tuya_api_region or 'eu',
+            'tuya_access_id': prefs.tuya_access_id or os.getenv('TUYA_ACCESS_ID', ''),
+            'tuya_access_secret': prefs.tuya_access_secret or os.getenv('TUYA_ACCESS_SECRET', ''),
+            'tuya_api_region': prefs.tuya_api_region or os.getenv('TUYA_API_REGION', 'eu'),
         })
     except Exception as e:
         db.rollback()

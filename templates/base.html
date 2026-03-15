@@ -265,7 +265,8 @@
             </div>
             <div class="form-group">
                 <label for="tts-voice" data-i18n="lbl_tts_voice">Voce răspuns AI</label>
-                <select id="tts-voice">
+                <input type="search" id="tts-voice-search" placeholder="Caută voce..." autocomplete="off">
+                <select id="tts-voice" size="5">
                     <option value="" data-i18n="opt_tts_auto">— automat (limbă curentă) —</option>
                 </select>
                 <small class="form-hint" data-i18n="hint_tts_voices">Vocile disponibile depind de browser și sistemul de operare.</small>
@@ -281,13 +282,16 @@
         </div>
 
         <div class="tab-content" id="tuya-tab">
+            <!-- hidden dummy fields to absorb browser credential autofill -->
+            <input type="text" autocomplete="username" tabindex="-1" aria-hidden="true" class="tuya-dummy-field">
+            <input type="password" autocomplete="current-password" tabindex="-1" aria-hidden="true" class="tuya-dummy-field">
             <div class="form-group">
                 <label for="tuya-access-id" data-i18n="tuya_lbl_access_id">Access ID</label>
                 <input type="text" id="tuya-access-id" placeholder="Tuya Access ID" autocomplete="off">
             </div>
             <div class="form-group">
                 <label for="tuya-access-secret" data-i18n="tuya_lbl_access_secret">Access Secret</label>
-                <input type="password" id="tuya-access-secret" placeholder="••••••••" autocomplete="new-password">
+                <input type="password" id="tuya-access-secret" placeholder="••••••••" autocomplete="off">
             </div>
             <div class="form-group">
                 <label for="tuya-api-region" data-i18n="tuya_lbl_region">Regiune API</label>

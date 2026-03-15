@@ -1733,6 +1733,19 @@ function populateTTSVoices() {
         if (v.name === voicePrefs.ttsVoiceName) opt.selected = true;
         select.appendChild(opt);
     });
+
+    // Apply current search filter after repopulating
+    filterTTSVoices();
+}
+
+function filterTTSVoices() {
+    const search = document.getElementById('tts-voice-search');
+    const select = document.getElementById('tts-voice');
+    if (!search || !select) return;
+    const q = search.value.toLowerCase();
+    Array.from(select.options).forEach(opt => {
+        opt.hidden = q !== '' && !opt.textContent.toLowerCase().includes(q);
+    });
 }
 
 // Speak text using browser TTS
@@ -2329,6 +2342,12 @@ function initSettings() {
             voicePrefs.ttsVoiceName = this.value;
             localStorage.setItem('ttsVoiceName', this.value);
         });
+    }
+
+    // Filter TTS voices on search input
+    const ttsVoiceSearch = document.getElementById('tts-voice-search');
+    if (ttsVoiceSearch) {
+        ttsVoiceSearch.addEventListener('input', filterTTSVoices);
     }
 }
 
