@@ -153,6 +153,7 @@ const TRANSLATIONS = {
         hint_tts_voices: 'Vocile disponibile depind de browser și sistemul de operare.',
         lbl_sensitivity: 'Sensibilitate —',
         lbl_auto_start: 'Autopornire',
+        hint_wake_word: 'Când Autopornire este activată, spune «{phrase}» pentru a porni o comandă vocală.',
         btn_save: 'Salvează',
         new_user_placeholder: 'Nume utilizator nou',
         color_user_title: 'Culoare utilizator',
@@ -337,6 +338,7 @@ const TRANSLATIONS = {
         hint_tts_voices: 'Available voices depend on browser and operating system.',
         lbl_sensitivity: 'Sensitivity —',
         lbl_auto_start: 'Auto-start',
+        hint_wake_word: 'When Auto-start is on, say «{phrase}» to start a voice command.',
         btn_save: 'Save',
         new_user_placeholder: 'New user name',
         color_user_title: 'User color',
@@ -402,8 +404,16 @@ function applyLanguage(lang) {
 const voicePrefs = {
     language: 'ro-RO',  // Default language
     sensitivity: 0.5,   // Default sensitivity
-    ttsVoiceName: localStorage.getItem('ttsVoiceName') || ''  // TTS voice (persisted locally)
+    ttsVoiceName: localStorage.getItem('ttsVoiceName') || '',  // TTS voice (persisted locally)
+    activationWord: '',   // Wake word from server (e.g. "Hey HomeTasks")
+    autoStart: false      // Listen for wake word when app is open (voice_auto_start)
 };
+
+// Wake word listener state (separate from button-triggered recognition)
+let wakeWordRecognition = null;
+let isListeningForWakeWord = false;
+let isInCommandModeAfterWakeWord = false;  // true while waiting for the actual command after wake word
+let isListeningViaButton = false;  // true while button-triggered recognition is active (don't restart wake word in its onend)
 
 // Initialize voice recognition
 function initVoiceRecognition() {
@@ -448,12 +458,22 @@ function initVoiceRecognition() {
     // Voice button click handler
     document.getElementById('voice-btn').addEventListener('click', function() {
         if (!isListening) {
-            // Start listening
+            // Start listening: stop wake word listener so only one recognition runs
+            stopWakeWordListener();
+            isListeningViaButton = true;
             try {
                 currentRecognition = new SpeechRecognition();
                 currentRecognition.continuous = false;
                 currentRecognition.interimResults = false;
                 currentRecognition.lang = voicePrefs.language; // Use the language from prefs
+                
+                function restartWakeWordIfEnabled() {
+                    isListeningViaButton = false;
+                    currentRecognition = null;
+                    isListening = false;
+                    updateVoiceButton(isListening);
+                    startWakeWordListenerIfEnabled();
+                }
                 
                 currentRecognition.onresult = function(event) {
                     const transcript = event.results[0][0].transcript.trim();
@@ -462,34 +482,33 @@ function initVoiceRecognition() {
                     // Process the voice command
                     processVoiceCommand(transcript);
                     
-                    // Stop listening after getting a result
                     if (currentRecognition) {
                         currentRecognition.stop();
                     }
-                    isListening = false;
-                    updateVoiceButton(isListening);
-                    currentRecognition = null;
+                    restartWakeWordIfEnabled();
                 };
                 
                 currentRecognition.onerror = function(event) {
-                    console.error('Speech recognition error:', event.error);
+                    isListeningViaButton = false;
                     isListening = false;
                     updateVoiceButton(isListening);
                     if (currentRecognition) {
                         currentRecognition = null;
                     }
-                    
                     if (event.error === 'not-allowed') {
                         voiceStatus.textContent = t('mic_denied');
                     }
-                    // Show error feedback
-                    showVoiceFeedback(t('voice_error') + event.error, true);
+                    // Don't show "aborted" to user – it happens when we stop recognition or when another one takes over
+                    if (event.error !== 'aborted' && event.error !== 'no-speech') {
+                        showVoiceFeedback(t('voice_error') + event.error, true);
+                    }
+                    startWakeWordListenerIfEnabled();
                 };
                 
                 currentRecognition.onend = function() {
-                    isListening = false;
-                    updateVoiceButton(isListening);
-                    currentRecognition = null;
+                    if (currentRecognition) {
+                        restartWakeWordIfEnabled();
+                    }
                 };
                 
                 // Start listening
@@ -501,23 +520,123 @@ function initVoiceRecognition() {
             } catch (err) {
                 console.error('Error starting speech recognition:', err);
                 showVoiceFeedback(t('voice_error_start'), true);
+                isListeningViaButton = false;
                 if (currentRecognition) {
                     currentRecognition = null;
                 }
                 isListening = false;
                 updateVoiceButton(isListening);
+                startWakeWordListenerIfEnabled();
             }
         } else {
             // Stop listening
             if (currentRecognition) {
                 currentRecognition.stop();
             }
+            isListeningViaButton = false;
             isListening = false;
             updateVoiceButton(isListening);
             currentRecognition = null;
             showVoiceFeedback(t('stop_listening'), false);
+            startWakeWordListenerIfEnabled();
         }
     });
+}
+
+// ---------- Wake word (voice activation phrase) ----------
+function stopWakeWordListener() {
+    if (!wakeWordRecognition) return;
+    try {
+        wakeWordRecognition.abort();
+    } catch (e) { /* ignore */ }
+    wakeWordRecognition = null;
+    isListeningForWakeWord = false;
+}
+
+function startWakeWordListenerIfEnabled() {
+    if (!window.SpeechRecognition || !voicePrefs.activationWord || !voicePrefs.autoStart) {
+        stopWakeWordListener();
+        return;
+    }
+    if (isListeningForWakeWord || isInCommandModeAfterWakeWord) return;
+
+    const phrase = voicePrefs.activationWord.trim().toLowerCase();
+    if (!phrase) {
+        stopWakeWordListener();
+        return;
+    }
+
+    try {
+        wakeWordRecognition = new SpeechRecognition();
+        wakeWordRecognition.continuous = true;
+        wakeWordRecognition.interimResults = true;
+        wakeWordRecognition.lang = voicePrefs.language;
+
+        wakeWordRecognition.onresult = function(event) {
+            if (isInCommandModeAfterWakeWord) return;
+            let transcript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+            const normalized = transcript.trim().toLowerCase();
+            if (!normalized.includes(phrase)) return;
+
+            // Wake word detected: stop wake listener and start one-shot for the command
+            stopWakeWordListener();
+            isInCommandModeAfterWakeWord = true;
+            showVoiceFeedback(t('voice_listening_prompt'), false);
+
+            const cmdRec = new SpeechRecognition();
+            cmdRec.continuous = false;
+            cmdRec.interimResults = false;
+            cmdRec.lang = voicePrefs.language;
+            cmdRec.onresult = function(ev) {
+                const command = (ev.results[0] && ev.results[0][0]) ? ev.results[0][0].transcript.trim() : '';
+                if (command) processVoiceCommand(command);
+                isInCommandModeAfterWakeWord = false;
+                startWakeWordListenerIfEnabled();
+            };
+            cmdRec.onerror = function() {
+                isInCommandModeAfterWakeWord = false;
+                startWakeWordListenerIfEnabled();
+            };
+            cmdRec.onend = function() {
+                isInCommandModeAfterWakeWord = false;
+                startWakeWordListenerIfEnabled();
+            };
+            cmdRec.start();
+        };
+
+        wakeWordRecognition.onerror = function(event) {
+            if (event.error === 'no-speech' || event.error === 'aborted') return;
+            if (event.error === 'not-allowed') {
+                isListeningForWakeWord = false;
+                wakeWordRecognition = null;
+                return;
+            }
+            console.warn('Wake word recognition error:', event.error);
+            isListeningForWakeWord = false;
+            wakeWordRecognition = null;
+            setTimeout(startWakeWordListenerIfEnabled, 2000);  // Retry after 2s
+        };
+
+        wakeWordRecognition.onend = function() {
+            if (isInCommandModeAfterWakeWord) return;
+            if (isListeningViaButton) return;  // user clicked Voice button – don't restart wake word and abort the button's recognition
+            wakeWordRecognition = null;
+            isListeningForWakeWord = false;
+            if (voicePrefs.autoStart && voicePrefs.activationWord) {
+                setTimeout(startWakeWordListenerIfEnabled, 300);
+            }
+        };
+
+        wakeWordRecognition.start();
+        isListeningForWakeWord = true;
+    } catch (err) {
+        console.warn('Could not start wake word listener:', err);
+        wakeWordRecognition = null;
+        isListeningForWakeWord = false;
+    }
 }
 
 function updateDateTime() {
@@ -2219,6 +2338,8 @@ function loadStartupPreferences() {
         .then(prefs => {
             if (prefs.voice_language) voicePrefs.language = prefs.voice_language;
             if (prefs.voice_sensitivity !== undefined) voicePrefs.sensitivity = prefs.voice_sensitivity;
+            if (prefs.voice_activation_word) voicePrefs.activationWord = String(prefs.voice_activation_word).trim();
+            if (prefs.voice_auto_start !== undefined) voicePrefs.autoStart = !!prefs.voice_auto_start;
             if (prefs.language && prefs.language !== currentLang) {
                 applyLanguage(prefs.language);
                 // Reload tasks with new language
@@ -2227,6 +2348,7 @@ function loadStartupPreferences() {
                 loadTodayTasks();
                 loadUsers(); // also updates "Toți/All" button
             }
+            startWakeWordListenerIfEnabled();
         })
         .catch(() => {});
 }
@@ -2377,6 +2499,12 @@ function loadSettings() {
             if (settings.voice_sensitivity !== undefined) {
                 voicePrefs.sensitivity = settings.voice_sensitivity;
             }
+            if (settings.voice_activation_word !== undefined) {
+                voicePrefs.activationWord = String(settings.voice_activation_word).trim();
+            }
+            if (settings.voice_auto_start !== undefined) {
+                voicePrefs.autoStart = !!settings.voice_auto_start;
+            }
             
             // Populate general settings
             const appLanguageSelect = document.getElementById('app-language');
@@ -2447,6 +2575,10 @@ function loadSettings() {
             const voiceAutoStartCheckbox = document.getElementById('voice-auto-start');
             if (voiceAutoStartCheckbox && settings.voice_auto_start !== undefined) {
                 voiceAutoStartCheckbox.checked = settings.voice_auto_start;
+            }
+            const voiceActivationHint = document.getElementById('voice-activation-hint');
+            if (voiceActivationHint && settings.voice_activation_word) {
+                voiceActivationHint.textContent = t('hint_wake_word').replace('{phrase}', settings.voice_activation_word);
             }
 
             // Populate Tuya settings
@@ -2549,14 +2681,19 @@ function applySettings(settings) {
     
     // Apply voice settings
     if (settings.voice_language !== undefined || settings.voice_sensitivity !== undefined) {
-        // These will be used on next voice recognition initialization
-        // Could update a global config object here
+        if (settings.voice_language) voicePrefs.language = settings.voice_language;
+        if (settings.voice_sensitivity !== undefined) voicePrefs.sensitivity = settings.voice_sensitivity;
     }
-    
-    // Apply auto-start voice setting
+    if (settings.voice_activation_word !== undefined) {
+        voicePrefs.activationWord = String(settings.voice_activation_word).trim();
+    }
     if (settings.voice_auto_start !== undefined) {
-        // Would start voice recognition if enabled
-        // For now, we'll just note the preference
+        voicePrefs.autoStart = !!settings.voice_auto_start;
+        if (voicePrefs.autoStart && voicePrefs.activationWord) {
+            startWakeWordListenerIfEnabled();
+        } else {
+            stopWakeWordListener();
+        }
     }
 }
 
