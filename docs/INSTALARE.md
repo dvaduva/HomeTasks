@@ -130,7 +130,7 @@ Dependințele includ: Flask, SQLAlchemy, requests, python-dotenv, tinytuya (pent
 ### Obținerea sursei aplicației
 ```bash
 # În mediul virtual activat
-git clone https://github.com/utilizator/HomeTasks.git
+git clone https://github.com/dvaduva/HomeTasks.git
 cd HomeTasks
 ```
 
