@@ -118,6 +118,7 @@ const TRANSLATIONS = {
         select_user_msg: 'Selectați un utilizator.',
         voice_btn_label: 'Comandă Vocală',
         voice_status_inactive: 'Inactiv',
+        voice_status_wake_word: 'Spune «{phrase}»',
         weather_popup_title: 'Prognoză vreme',
         chat_assistant_name: 'Asistent',
         chat_online_status: '● online',
@@ -303,6 +304,7 @@ const TRANSLATIONS = {
         select_user_msg: 'Select a user.',
         voice_btn_label: 'Voice Command',
         voice_status_inactive: 'Inactive',
+        voice_status_wake_word: 'Say «{phrase}»',
         weather_popup_title: 'Weather Forecast',
         chat_assistant_name: 'Assistant',
         chat_online_status: '● online',
@@ -544,6 +546,11 @@ function initVoiceRecognition() {
 }
 
 // ---------- Wake word (voice activation phrase) ----------
+// Normalize for matching: "Hey Home Tasks" and "Hey HomeTasks" both match (ignore spaces)
+function normalizeForWakeWord(text) {
+    return (text || '').trim().toLowerCase().replace(/\s+/g, '');
+}
+
 function stopWakeWordListener() {
     if (!wakeWordRecognition) return;
     try {
@@ -551,6 +558,10 @@ function stopWakeWordListener() {
     } catch (e) { /* ignore */ }
     wakeWordRecognition = null;
     isListeningForWakeWord = false;
+    if (!isListeningViaButton) {
+        const st = document.getElementById('voice-status');
+        if (st) st.textContent = t('mic_available_status');
+    }
 }
 
 function startWakeWordListenerIfEnabled() {
@@ -560,8 +571,9 @@ function startWakeWordListenerIfEnabled() {
     }
     if (isListeningForWakeWord || isInCommandModeAfterWakeWord) return;
 
-    const phrase = voicePrefs.activationWord.trim().toLowerCase();
-    if (!phrase) {
+    const phraseRaw = voicePrefs.activationWord.trim();
+    const phraseNorm = normalizeForWakeWord(phraseRaw);
+    if (!phraseNorm) {
         stopWakeWordListener();
         return;
     }
@@ -578,8 +590,7 @@ function startWakeWordListenerIfEnabled() {
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 transcript += event.results[i][0].transcript;
             }
-            const normalized = transcript.trim().toLowerCase();
-            if (!normalized.includes(phrase)) return;
+            if (!normalizeForWakeWord(transcript).includes(phraseNorm)) return;
 
             // Wake word detected: stop wake listener and start one-shot for the command
             stopWakeWordListener();
@@ -632,6 +643,8 @@ function startWakeWordListenerIfEnabled() {
 
         wakeWordRecognition.start();
         isListeningForWakeWord = true;
+        const st = document.getElementById('voice-status');
+        if (st) st.textContent = (t('voice_status_wake_word') || 'Say «{phrase}»').replace('{phrase}', phraseRaw);
     } catch (err) {
         console.warn('Could not start wake word listener:', err);
         wakeWordRecognition = null;
@@ -2338,7 +2351,11 @@ function loadStartupPreferences() {
         .then(prefs => {
             if (prefs.voice_language) voicePrefs.language = prefs.voice_language;
             if (prefs.voice_sensitivity !== undefined) voicePrefs.sensitivity = prefs.voice_sensitivity;
-            if (prefs.voice_activation_word) voicePrefs.activationWord = String(prefs.voice_activation_word).trim();
+            if (prefs.voice_activation_word != null && prefs.voice_activation_word !== '') {
+                voicePrefs.activationWord = String(prefs.voice_activation_word).trim();
+            } else {
+                voicePrefs.activationWord = 'Hey HomeTasks';
+            }
             if (prefs.voice_auto_start !== undefined) voicePrefs.autoStart = !!prefs.voice_auto_start;
             if (prefs.language && prefs.language !== currentLang) {
                 applyLanguage(prefs.language);
