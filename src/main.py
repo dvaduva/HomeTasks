@@ -196,6 +196,46 @@ def _detect_forecast_day(text: str):
     return None  # today / current
 
 
+def handle_tuya_intent():
+    """Read Tuya temperatures and return a formatted context string for Ollama."""
+    try:
+        data = tuya_service.get_temperatures()
+        devices = data.get('devices', [])
+        generated_at = data.get('generated_at', '')
+
+        if not devices:
+            return "Nu există date de temperatură disponibile din dispozitivele Tuya."
+
+        lines = []
+        for d in devices:
+            name = d.get('name', 'Dispozitiv necunoscut')
+            online = d.get('online', False)
+            temp_current = d.get('temp_current')
+            temp_set = d.get('temp_set')
+
+            if temp_current is not None:
+                status = f"{temp_current}°C"
+                if temp_set is not None:
+                    status += f" (setată: {temp_set}°C)"
+                status += ", online" if online else ", offline"
+            else:
+                status = "offline" if not online else "fără senzor de temperatură"
+
+            lines.append(f"- {name}: {status}")
+
+        ts = ''
+        if generated_at:
+            try:
+                dt = datetime.fromisoformat(generated_at)
+                ts = f" (date actualizate la {dt.strftime('%d.%m.%Y %H:%M')})"
+            except Exception:
+                pass
+
+        return "Temperaturi în locuință" + ts + ":\n" + "\n".join(lines)
+    except Exception as e:
+        return f"Nu am putut citi datele Tuya: {str(e)}"
+
+
 def handle_weather_intent(message: str, db):
     """Fetch real weather data (current or forecast) and return context string for Ollama."""
     city_match = re.search(
@@ -389,6 +429,17 @@ def ai_chat():
                     action_result = 'task_created'
                 else:
                     action_result = 'task_error'
+
+            # Detect Tuya/home temperature intent (before weather to take priority)
+            elif any(kw in message_lower for kw in [
+                'termostat', 'termostatul', 'incalzire', 'încălzire', 'incalzit', 'încălzit',
+                'temperatura acas', 'temperatura in casa', 'temperatura din casa',
+                'temperatura camera', 'temperatura camerei', 'temperatura din',
+                'temp acas', 'tuya', 'dispozitive', 'senzori', 'dormitor', 'living',
+                'bucatarie', 'bucătărie', 'birou', 'irigati', 'caldura', 'căldură'
+            ]):
+                action_context = handle_tuya_intent()
+                action_result = 'tuya_data'
 
             # Detect weather intent
             elif any(kw in message_lower for kw in
