@@ -1013,6 +1013,56 @@ def add_comment(task_id):
     finally:
         db.close()
 
+# Voice debug log (for kiosk debugging when console is not visible)
+@app.route('/api/voice-debug-log', methods=['POST'])
+def voice_debug_log():
+    """Append a voice debug message to logs/voice-debug.log. Enabled when VOICE_DEBUG_LOG=1 in .env."""
+    if not os.getenv('VOICE_DEBUG_LOG', '').strip().lower() in ('1', 'true', 'yes'):
+        return jsonify({'ok': False, 'reason': 'disabled'}), 200
+    try:
+        data = request.get_json() or {}
+        msg = data.get('message', '').strip()
+        if not msg:
+            return jsonify({'ok': False}), 400
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs')
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, 'voice-debug.log')
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"{datetime.now().isoformat()} {msg}\n")
+        return jsonify({'ok': True}), 200
+    except Exception as e:
+        logger.warning("Voice debug log write failed: %s", e)
+        return jsonify({'ok': False}), 500
+
+# Server-side microphone: record on this machine and return transcript (for RPi kiosk when browser STT fails)
+@app.route('/api/voice/listen', methods=['POST'])
+def voice_listen():
+    """Record from server microphone and return recognized text. Blocking for a few seconds."""
+    try:
+        if not getattr(voice_service, 'speech_recognition_available', False):
+            return jsonify({'available': False, 'text': None, 'error': 'Server speech recognition not available (install SpeechRecognition and PyAudio)'}), 200
+        data = request.get_json() or {}
+        language = (data.get('language') or '').strip() or None
+        if not language:
+            db = get_db()
+            try:
+                prefs_repo = PreferencesRepository(db)
+                prefs = prefs_repo.get_or_create()
+                language = (prefs.voice_language or 'ro-RO').strip() or 'ro-RO'
+            finally:
+                db.close()
+        text, err = voice_service.record_and_recognize_once(language=language, timeout_seconds=6, phrase_time_limit=8)
+        return jsonify({'available': True, 'text': text, 'error': err})
+    except Exception as e:
+        logger.exception("voice/listen failed")
+        return jsonify({'available': True, 'text': None, 'error': str(e)}), 200
+
+@app.route('/api/voice/server-available', methods=['GET'])
+def voice_server_available():
+    """Check if server-side microphone recognition is available."""
+    avail = getattr(voice_service, 'speech_recognition_available', False)
+    return jsonify({'available': avail})
+
 # Voice command endpoint
 @app.route('/api/voice-command', methods=['POST'])
 def voice_command():

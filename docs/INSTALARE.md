@@ -462,6 +462,73 @@ pip install flask
 
 6. **Deschideți mereu aplicația** prin `http://localhost:5000` sau `http://127.0.0.1:5000` (Web Speech API necesită context securizat; pe localhost este acceptat).
 
+### Problema: "Eroare la recunoasterea vorbirii: network" (Raspberry Pi / Chromium)
+**Cauză**: În Chromium, Web Speech API folosește de obicei serviciul Google pentru recunoaștere. Eroarea „network” înseamnă că browserul nu a putut contacta acest serviciu (lipsă internet pe RPi, firewall sau timeout).
+
+**Ce puteți face:**
+1. **Verificați internetul pe RPi**: `ping -c 3 8.8.8.8` sau deschideți în Chromium o pagină (ex.: google.com). Fără internet, recunoașterea nu va funcționa în Chromium.
+2. **Asigurați-vă că nu blocați domenii Google** (ex.: în Pi-hole sau firewall). Serviciul de speech folosește conexiuni către Google.
+3. Pentru **debug**, urmați pașii din secțiunea *Debug recunoaștere vocală pe RPi* mai jos.
+
+### Debug recunoaștere vocală pe RPi
+Când „nu se întâmplă nimic” când vorbiți sau apare eroarea „network”, verificați în consola browserului ce se întâmplă:
+
+1. **Deschideți instrumentele pentru dezvoltatori în Chromium**
+   - Tasta **F12** sau **Ctrl+Shift+I** (pe unele RPi: **Ctrl+Shift+I**).
+   - Alternativ: click dreapta pe pagină → **Inspect** / **Inspectare**.
+
+2. **Mergi la tab-ul Console**
+   - Când apăsați butonul de microfon și vorbiți, ar trebui să apară mesaje de forma:
+     - `[Voice] Starting recognition, lang: ro-RO` (sau limba aleasă)
+     - `[Voice] Result: <text>` dacă recunoașterea a reușit
+     - `[Voice] Error: network` (sau `audio-capture`, `no-speech`, etc.) dacă a eșuat
+     - `[Voice] Recognition ended` când se oprește ascultarea
+
+3. **Cum interpretați mesajele**
+   - **Doar „Ascult... Vorbesc acum”**, fără `[Voice] Result:` și fără eroare: serviciul nu a returnat niciun rezultat (poate timeout, sunet prea scurt sau „network” care nu apare imediat).
+   - **`[Voice] Error: network`**: RPi-ul nu poate atinge serviciul de recunoaștere (verificați internetul și firewall-ul).
+   - **`[Voice] Error: no-speech`**: browserul nu a detectat vorbire (vorbiți mai aproape de microfon, verificați că microfonul este dispozitivul implicit).
+   - **`[Voice] Result: ...`**: recunoașterea a funcționat; dacă aplicația nu reacționează, problema este în altă parte (ex.: procesarea comenzii vocale sau AI).
+
+4. **Verificare rețea pe RPi**
+   ```bash
+   ping -c 3 8.8.8.8
+   curl -sI https://www.google.com | head -1
+   ```
+   Dacă ping sau curl eșuează, rezolvați mai întâi conectivitatea (Wi‑Fi/Ethernet, DNS).
+
+5. **Test rapid în Chromium**
+   - Deschideți https://www.google.com/intl/ro/chrome/demos/speech.html și testați acolo recunoașterea. Dacă nici acolo nu merge, problema este de rețea sau de permisiuni microfon pe RPi.
+
+5b. **În jurnal apare „Error: aborted”**
+   - **aborted** = browserul (Chromium) a întrerupt recunoașterea. Cauze frecvente: lipsă internet, serviciul Google pentru speech indisponibil sau timeout.
+   - **Verificați internetul pe RPi**: `ping -c 3 8.8.8.8` și `curl -sI https://www.google.com`. Dacă acestea merg (HTTP 200), rețeaua generală e OK, dar Web Speech API folosește alte endpoint-uri Google; „aborted” poate apărea tot din cauza timeout-ului sau a unor restricții pe RPi/Chromium.
+   - **Test în Chromium pe RPi**: deschideți **https://www.google.com/intl/ro/chrome/demos/speech.html** în același Chromium, permiteți microfonul și vorbiți. Dacă și acolo recunoașterea eșuează sau se oprește imediat, problema e la Chromium / microfon / serviciul Google de speech, nu la aplicația HomeTasks.
+   - **Încercați**: apăsați butonul de microfon, **vorbiți imediat** (în primele 1–2 secunde); pe unele configurații recunoașterea se închide repede dacă nu primește audio la timp.
+
+6. **Mod kiosk (fără consolă)**
+   Nu aveți acces la F12/Consolă. Pentru a vedea mesajele de debug pe ecran:
+   - **Varianta simplă**: deschideți aplicația cu **`?voice_debug=1`** în URL, ex.: `http://localhost:5000?voice_debug=1`. Un panou **în partea de sus** a ecranului va afișa liniile (Starting recognition, Result, Error: network etc.). Setarea se salvează în browser (la următoarea deschidere panoul rămâne activ).
+   - **Din Setări**: **Setări → Vocal** → bifați **«Afișează jurnal debug voce pe ecran»**.
+   **Opțional – salvare în fișier**: adăugați în `.env` variabila `VOICE_DEBUG_LOG=1`, reporniți aplicația; mesajele se vor scrie și în `logs/voice-debug.log` (pe RPi: `tail -f logs/voice-debug.log`).
+
+7. **Soluție: microfon pe server (RPi când browserul dă „aborted” / „network”)**
+   Dacă Web Speech API în Chromium nu funcționează (aborted, network, fără permisiune), puteți folosi **microfonul conectat la RPi** și recunoașterea pe server:
+   - Pe RPi instalați dependențele: `pip install SpeechRecognition PyAudio` (sau din `requirements.txt`: `pip install -r requirements.txt`).
+   - Asigurați-vă că microfonul este detectat: `arecord -l` și că utilizatorul este în grupul `audio`: `sudo usermod -a -G audio pi` (apoi delogare/relogare).
+   - În aplicație: **Setări → Vocal** → bifați **«Folosește microfonul serverului (RPi / când browserul eșuează)»**. Salvați setările.
+   - La următoarea apăsare a butonului de microfon, serverul va înregistra ~6 secunde de la microfonul RPi, va trimite audio către Google Speech (internet necesar pe RPi) și va returna textul; comanda vocală se procesează ca până acum.
+   - Dacă opțiunea este dezactivată (gri), serverul nu are SpeechRecognition/PyAudio instalate sau microfonul nu e disponibil.
+   - Când «Folosește microfonul serverului» este bifat, **ascultarea continuă pentru cuvântul de activare** (ex. „Hey HomeTasks”) este dezactivată, deoarece aceasta folosește recunoașterea din browser; comanda vocală se dă doar prin apăsarea butonului de microfon.
+
+7b. **Microfon server: opțiunea e gri sau tot nu recunoaște**
+   - **Opțiunea e gri**: serverul nu vede SpeechRecognition + microfon. Pe RPi instalați: `sudo apt install portaudio19-dev python3-pyaudio` (sau doar `portaudio19-dev`), apoi în venv: `pip install SpeechRecognition PyAudio`. Reporniți aplicația. Verificați microfonul: `arecord -l` și grupul `audio`: `sudo usermod -a -G audio pi` + delogare/relogare.
+   - **Opțiunea e activă dar la apăsarea butonului nu se întâmplă nimic / eroare**: același microfon folosit de browser trebuie să fie **dispozitivul implicit de captură** și pentru procesul Python (ALSA). Configurați `~/.asoundrc` ca la punctul 3 din secțiunea „audio-capture” (capture pe `plughw:1,0` pentru cardul USB). Apoi testați din shell: `arecord -d 3 -f cd test.wav && aplay test.wav`. Dacă auziți vocea, ALSA e OK.
+   - **Mesaj „No speech heard (timeout)”**: serverul a înregistrat dar nu a detectat vorbire (vorbiți în cele ~6 secunde sau microfonul e prea departe / închis).
+   - **Mesaj „Recognition service error”**: serverul nu poate contacta Google (verificați internet pe RPi: `ping -c 2 8.8.8.8`).
+   - **Mesaj „Microfon indisponibil”**: PyAudio nu deschide dispozitivul (verificați `arecord -l`, `~/.asoundrc`, grupul `audio`).
+   - Verificați logurile aplicației (terminal sau `logs/`) la momentul apăsării butonului de microfon pentru erori detaliate.
+
 ### Problema: "PortAudio error: -9996 (Invalid input device)"
 **Soluție** (doar dacă utilizați STT pe server):
 1. Verificați conexiunea microfonului: `arecord -l`

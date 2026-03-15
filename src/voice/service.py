@@ -174,5 +174,39 @@ class VoiceService:
             'sensitivity': self.sensitivity
         }
 
+    def record_and_recognize_once(self, language: Optional[str] = None, timeout_seconds: int = 5, phrase_time_limit: int = 7):
+        """
+        Record from the default microphone for up to timeout_seconds and return recognized text.
+        Uses Google Speech Recognition (requires internet on the server).
+        
+        Returns:
+            tuple: (text: str or None, error: str or None)
+        """
+        if not self.speech_recognition_available:
+            return None, "Speech recognition not available"
+        lang = language or self.language
+        try:
+            import speech_recognition as sr
+            with self.microphone as source:
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                audio = self.recognizer.listen(source, timeout=timeout_seconds, phrase_time_limit=phrase_time_limit)
+            text = self.recognizer.recognize_google(audio, language=lang)
+            return (text or "").strip() or None, None
+        except sr.WaitTimeoutError:
+            return None, "No speech heard (timeout)"
+        except sr.UnknownValueError:
+            return None, "Speech not understood"
+        except sr.RequestError as e:
+            return None, f"Recognition service error: {e}"
+        except OSError as e:
+            msg = str(e).lower()
+            if "portaudio" in msg or "invalid input device" in msg or "9996" in msg:
+                return None, "Microfon indisponibil (verifică arecord -l și ~/.asoundrc)"
+            logger.exception("record_and_recognize_once failed")
+            return None, str(e)
+        except Exception as e:
+            logger.exception("record_and_recognize_once failed")
+            return None, str(e)
+
 # Global voice service instance
 voice_service = VoiceService()

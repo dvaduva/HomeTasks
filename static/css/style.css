@@ -1510,3 +1510,41 @@ body {
 
 .tuya-refreshing { opacity: 0.5; pointer-events: none; }
 
+/* Voice debug overlay (kiosk mode – when console is not visible) */
+.voice-debug-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.92);
+    color: #e0e0e0;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.45;
+    padding: 10px 14px;
+    z-index: 99999;
+    pointer-events: none;
+    border-bottom: 2px solid rgba(255, 180, 0, 0.7);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.voice-debug-overlay[aria-hidden="true"],
+.voice-debug-overlay[hidden] {
+    display: none !important;
+}
+.voice-debug-overlay .voice-debug-title {
+    color: #ffb400;
+    font-weight: bold;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,180,0,0.3);
+}
+.voice-debug-line {
+    margin: 2px 0;
+    word-break: break-word;
+}
+.voice-debug-line.voice-debug-error {
+    color: #f88;
+}
+

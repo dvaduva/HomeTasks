@@ -63,22 +63,18 @@
         <div class="footer-left">
             <button type="button" class="footer-btn btn-voice" id="voice-btn" data-i18n-title="voice_btn_label" title="Comandă Vocală">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                <span id="voice-btn-label" data-i18n="voice_btn_label">Comandă Vocală</span>
             </button>
             <span class="status-text" id="voice-status" data-i18n="voice_status_inactive">Inactiv</span>
         </div>
         <div class="footer-right">
             <button type="button" class="footer-btn btn-tuya" id="tuya-btn" data-i18n-title="tuya_btn_label" title="Temperaturi">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
-                Temperaturi
             </button>
             <button type="button" class="footer-btn btn-history" id="history-btn" data-i18n-title="history_btn_label" title="Istoric">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                Istoric
             </button>
             <button type="button" class="footer-btn btn-ai" id="ai-btn" title="AI Chat">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                AI Chat
             </button>
         </div>
     </footer>
@@ -279,6 +275,15 @@
                 <label for="voice-auto-start" data-i18n="lbl_auto_start">Autopornire</label>
                 <input type="checkbox" id="voice-auto-start">
             </div>
+            <div class="form-group form-inline">
+                <label for="voice-use-server-mic" data-i18n="lbl_voice_use_server_mic">Folosește microfonul serverului (RPi / când browserul eșuează)</label>
+                <input type="checkbox" id="voice-use-server-mic">
+            </div>
+            <p class="form-hint" id="voice-server-mic-hint" style="margin-top: 0.25rem; display: none;"></p>
+            <div class="form-group form-inline">
+                <label for="voice-debug-log" data-i18n="lbl_voice_debug_log">Afișează jurnal debug voce pe ecran</label>
+                <input type="checkbox" id="voice-debug-log">
+            </div>
             <p class="form-hint" id="voice-activation-hint" style="margin-top: 0.25rem;"></p>
         </div>
 
@@ -331,7 +336,10 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<!-- Voice debug log overlay (for kiosk mode when console is not visible) -->
+<div id="voice-debug-overlay" class="voice-debug-overlay" aria-hidden="true" hidden></div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}?v=3"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const f = document.getElementById('cancel-settings-footer');

@@ -17,7 +17,11 @@ const TRANSLATIONS = {
         mic_denied: 'Microfon: acces refuzat',
         voice_error: 'Eroare la recunoașterea vorbirii: ',
         voice_error_audio_capture: 'Microfonul nu poate fi folosit (verificați permisiunile și dispozitivul implicit). Vezi docs/INSTALARE.md → „audio-capture”.',
-        voice_listening_prompt: 'Ascult... Vorbesc acum',
+        voice_listening_prompt: 'Ascult... Vorbește acum',
+        voice_error_network: 'Serviciul de recunoaștere nu e accesibil (verificați internetul pe RPi). Vezi docs/INSTALARE.md → „network" și „Debug recunoaștere vocală".',
+        voice_aborted_hint: '→ aborted = browserul a întrerupt recunoașterea (adesea: fără internet sau serviciul Google indisponibil)',
+        lbl_voice_use_server_mic: 'Folosește microfonul serverului (RPi / când browserul eșuează)',
+        voice_server_mic_unavailable: 'Necesită SpeechRecognition + PyAudio pe server (pip install SpeechRecognition PyAudio).',
         voice_error_start: 'Eroare la pornirea recunoașterii vocale',
         voice_heard: 'Am auzit: "',
         // Users
@@ -155,6 +159,7 @@ const TRANSLATIONS = {
         hint_tts_voices: 'Vocile disponibile depind de browser și sistemul de operare.',
         lbl_sensitivity: 'Sensibilitate —',
         lbl_auto_start: 'Autopornire',
+        lbl_voice_debug_log: 'Afișează jurnal debug voce pe ecran',
         hint_wake_word: 'Când Autopornire este activată, spune «{phrase}» pentru a porni o comandă vocală.',
         btn_save: 'Salvează',
         new_user_placeholder: 'Nume utilizator nou',
@@ -204,6 +209,8 @@ const TRANSLATIONS = {
         mic_denied: 'Microphone: access denied',
         voice_error: 'Speech recognition error: ',
         voice_error_audio_capture: 'Microphone cannot be used (check permissions and default device). See docs/INSTALARE.md → "audio-capture".',
+        voice_error_network: 'Recognition service unreachable (check internet on RPi). See docs/INSTALARE.md → "network" and "Debug voice recognition".',
+        voice_aborted_hint: '→ aborted = browser ended recognition (often: no internet or Google service unavailable)',
         voice_listening_prompt: 'Listening... Speak now',
         voice_error_start: 'Error starting speech recognition',
         voice_heard: 'I heard: "',
@@ -342,6 +349,9 @@ const TRANSLATIONS = {
         hint_tts_voices: 'Available voices depend on browser and operating system.',
         lbl_sensitivity: 'Sensitivity —',
         lbl_auto_start: 'Auto-start',
+        lbl_voice_use_server_mic: 'Use server microphone (RPi / when browser fails)',
+        voice_server_mic_unavailable: 'Requires SpeechRecognition + PyAudio on server (pip install SpeechRecognition PyAudio).',
+        lbl_voice_debug_log: 'Show voice debug log on screen',
         hint_wake_word: 'When Auto-start is on, say «{phrase}» to start a voice command.',
         btn_save: 'Save',
         new_user_placeholder: 'New user name',
@@ -413,6 +423,58 @@ const voicePrefs = {
     autoStart: false      // Listen for wake word when app is open (voice_auto_start)
 };
 
+// Voice debug log (for kiosk mode when console is not visible)
+const VOICE_DEBUG_STORAGE_KEY = 'hometasks_voice_debug';
+const VOICE_DEBUG_MAX_LINES = 12;
+let voiceDebugLines = [];
+
+// Set by /api/voice/server-available: when true, we use server mic and do not start wake word (no dependency on checkbox/cache)
+var serverMicAvailable = false;
+
+function isVoiceDebugEnabled() {
+    if (typeof localStorage === 'undefined') return false;
+    if (new URLSearchParams(window.location.search).get('voice_debug') === '1') return true;
+    return localStorage.getItem(VOICE_DEBUG_STORAGE_KEY) === 'true';
+}
+
+function renderVoiceDebugOverlay() {
+    const overlay = document.getElementById('voice-debug-overlay');
+    if (!overlay || !isVoiceDebugEnabled()) return;
+    const title = '<div class="voice-debug-title">Voice debug</div>';
+    const lines = voiceDebugLines.map(({ text, isError }) =>
+        `<div class="voice-debug-line ${isError ? 'voice-debug-error' : ''}">${escapeHtml(text)}</div>`
+    ).join('');
+    overlay.innerHTML = title + (lines || '<div class="voice-debug-line">(apasă microfonul și vorbește)</div>');
+    overlay.scrollTop = overlay.scrollHeight;
+}
+
+function voiceDebugLog(message, isError = false) {
+    const line = `[${new Date().toLocaleTimeString()}] ${message}`;
+    voiceDebugLines.push({ text: line, isError });
+    if (voiceDebugLines.length > VOICE_DEBUG_MAX_LINES) voiceDebugLines.shift();
+    console.log('[Voice]', message);
+    const overlay = document.getElementById('voice-debug-overlay');
+    if (overlay && isVoiceDebugEnabled()) {
+        overlay.hidden = false;
+        overlay.removeAttribute('hidden');
+        overlay.setAttribute('aria-hidden', 'false');
+        renderVoiceDebugOverlay();
+    }
+    if (isVoiceDebugEnabled()) {
+        fetch('/api/voice-debug-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: line })
+        }).catch(() => {});
+    }
+}
+
+function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
+
 // Wake word listener state (separate from button-triggered recognition)
 let wakeWordRecognition = null;
 let isListeningForWakeWord = false;
@@ -421,21 +483,73 @@ let isListeningViaButton = false;  // true while button-triggered recognition is
 
 // Initialize voice recognition
 function initVoiceRecognition() {
-    // Check if SpeechRecognition is available
-    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    const voiceStatus = document.getElementById('voice-status');
-
-    if (!window.SpeechRecognition) {
-        console.warn('SpeechRecognition not supported in this browser');
-        document.getElementById('voice-btn').title = t('voice_unavailable');
-        document.getElementById('voice-btn').style.opacity = '0.5';
-        document.getElementById('voice-btn').style.cursor = 'not-allowed';
-        voiceStatus.textContent = t('mic_unavailable');
-        return;
+    if (new URLSearchParams(window.location.search).get('voice_debug') === '1' && typeof localStorage !== 'undefined') {
+        localStorage.setItem(VOICE_DEBUG_STORAGE_KEY, 'true');
+    }
+    const voiceDebugOverlay = document.getElementById('voice-debug-overlay');
+    if (voiceDebugOverlay) {
+        const enabled = isVoiceDebugEnabled();
+        voiceDebugOverlay.hidden = !enabled;
+        if (enabled) {
+            voiceDebugOverlay.removeAttribute('hidden');
+            voiceDebugOverlay.setAttribute('aria-hidden', 'false');
+            renderVoiceDebugOverlay();
+        } else {
+            voiceDebugOverlay.setAttribute('aria-hidden', 'true');
+        }
+    }
+    const voiceDebugCheckbox = document.getElementById('voice-debug-log');
+    if (voiceDebugCheckbox) {
+        voiceDebugCheckbox.checked = isVoiceDebugEnabled();
+        voiceDebugCheckbox.addEventListener('change', function() {
+            localStorage.setItem(VOICE_DEBUG_STORAGE_KEY, this.checked ? 'true' : 'false');
+            const overlay = document.getElementById('voice-debug-overlay');
+            if (overlay) {
+                overlay.hidden = !this.checked;
+                if (this.checked) {
+                    overlay.removeAttribute('hidden');
+                    overlay.setAttribute('aria-hidden', 'false');
+                    renderVoiceDebugOverlay();
+                } else {
+                    overlay.setAttribute('hidden', '');
+                    overlay.setAttribute('aria-hidden', 'true');
+                    overlay.innerHTML = '';
+                }
+            }
+        });
     }
 
-    voiceStatus.textContent = t('mic_available');
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const voiceStatus = document.getElementById('voice-status');
+    const voiceBtn = document.getElementById('voice-btn');
+
+    fetch('/api/voice/server-available').then(function(r) { return r.json(); }).catch(function() { return { available: false }; }).then(function(serverVoiceData) {
+        serverMicAvailable = serverVoiceData.available === true;
+        if (serverMicAvailable) stopWakeWordListener();
+        const useServerMicCheckbox = document.getElementById('voice-use-server-mic');
+        const serverMicHint = document.getElementById('voice-server-mic-hint');
+        if (useServerMicCheckbox) {
+            useServerMicCheckbox.checked = typeof localStorage !== 'undefined' && localStorage.getItem('hometasks_voice_use_server_mic') === 'true';
+            useServerMicCheckbox.disabled = !serverMicAvailable;
+            if (serverMicHint) {
+                serverMicHint.style.display = serverMicAvailable ? 'none' : 'block';
+                if (!serverMicAvailable) serverMicHint.textContent = t('voice_server_mic_unavailable');
+            }
+            useServerMicCheckbox.addEventListener('change', function() {
+                if (typeof localStorage !== 'undefined') localStorage.setItem('hometasks_voice_use_server_mic', this.checked ? 'true' : 'false');
+            });
+        }
+        if (!window.SpeechRecognition && !serverMicAvailable) {
+            if (voiceBtn) {
+                voiceBtn.title = t('voice_unavailable');
+                voiceBtn.style.opacity = '0.5';
+                voiceBtn.style.cursor = 'not-allowed';
+            }
+            if (voiceStatus) voiceStatus.textContent = t('mic_unavailable');
+            return;
+        }
+        if (voiceStatus) voiceStatus.textContent = t('mic_available');
+    });
 
     let isListening = false;
     let currentRecognition = null;
@@ -462,7 +576,43 @@ function initVoiceRecognition() {
     // Voice button click handler
     document.getElementById('voice-btn').addEventListener('click', function() {
         if (!isListening) {
-            // Start listening: stop wake word listener so only one recognition runs
+            if (serverMicAvailable) {
+                stopWakeWordListener();
+                isListeningViaButton = true;
+                isListening = true;
+                updateVoiceButton(true);
+                showVoiceFeedback(t('voice_listening_prompt'), false);
+                voiceDebugLog('Server mic: listening...', false);
+                fetch('/api/voice/listen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ language: voicePrefs.language })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    isListeningViaButton = false;
+                    isListening = false;
+                    updateVoiceButton(false);
+                    startWakeWordListenerIfEnabled();
+                    if (data.text) {
+                        voiceDebugLog('Server mic result: ' + data.text, false);
+                        processVoiceCommand(data.text);
+                    } else {
+                        voiceDebugLog('Server mic: ' + (data.error || 'no input'), true);
+                        showVoiceFeedback(data.error || t('voice_error_start'), true);
+                    }
+                }).catch(function(err) {
+                    isListeningViaButton = false;
+                    isListening = false;
+                    updateVoiceButton(false);
+                    startWakeWordListenerIfEnabled();
+                    voiceDebugLog('Server mic error: ' + (err && err.message ? err.message : String(err)), true);
+                    showVoiceFeedback(t('ai_connection_error'), true);
+                });
+                return;
+            }
+            if (!serverMicAvailable && !window.SpeechRecognition) {
+                showVoiceFeedback(t('voice_unavailable'), true);
+                return;
+            }
             stopWakeWordListener();
             isListeningViaButton = true;
             try {
@@ -481,7 +631,7 @@ function initVoiceRecognition() {
                 
                 currentRecognition.onresult = function(event) {
                     const transcript = event.results[0][0].transcript.trim();
-                    console.log('Voice command received:', transcript);
+                    voiceDebugLog('Result: ' + transcript);
                     
                     // Process the voice command
                     processVoiceCommand(transcript);
@@ -493,6 +643,8 @@ function initVoiceRecognition() {
                 };
                 
                 currentRecognition.onerror = function(event) {
+                    voiceDebugLog('Error: ' + event.error + (event.message ? ' ' + event.message : ''), true);
+                    if (event.error === 'aborted') voiceDebugLog(t('voice_aborted_hint'), true);
                     isListeningViaButton = false;
                     isListening = false;
                     updateVoiceButton(isListening);
@@ -504,26 +656,28 @@ function initVoiceRecognition() {
                     }
                     // Don't show "aborted" to user – it happens when we stop recognition or when another one takes over
                     if (event.error !== 'aborted' && event.error !== 'no-speech') {
-                        const msg = event.error === 'audio-capture' ? t('voice_error_audio_capture') : (t('voice_error') + event.error);
+                        const msg = event.error === 'audio-capture' ? t('voice_error_audio_capture') : (event.error === 'network' ? t('voice_error_network') : (t('voice_error') + event.error));
                         showVoiceFeedback(msg, true);
                     }
                     startWakeWordListenerIfEnabled();
                 };
                 
                 currentRecognition.onend = function() {
+                    voiceDebugLog('Recognition ended');
                     if (currentRecognition) {
                         restartWakeWordIfEnabled();
                     }
                 };
                 
                 // Start listening
+                voiceDebugLog('Starting recognition, lang: ' + voicePrefs.language);
                 currentRecognition.start();
                 isListening = true;
                 updateVoiceButton(isListening);
                 
                 showVoiceFeedback(t('voice_listening_prompt'), false);
             } catch (err) {
-                console.error('Error starting speech recognition:', err);
+                voiceDebugLog('Error starting: ' + (err && err.message ? err.message : String(err)), true);
                 showVoiceFeedback(t('voice_error_start'), true);
                 isListeningViaButton = false;
                 if (currentRecognition) {
@@ -569,6 +723,14 @@ function stopWakeWordListener() {
 
 function startWakeWordListenerIfEnabled() {
     if (!window.SpeechRecognition || !voicePrefs.activationWord || !voicePrefs.autoStart) {
+        stopWakeWordListener();
+        return;
+    }
+    if (serverMicAvailable) {
+        stopWakeWordListener();
+        return;
+    }
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('hometasks_voice_use_server_mic') === 'true') {
         stopWakeWordListener();
         return;
     }
@@ -628,7 +790,7 @@ function startWakeWordListenerIfEnabled() {
                 wakeWordRecognition = null;
                 return;
             }
-            console.warn('Wake word recognition error:', event.error);
+            voiceDebugLog('Wake word error: ' + event.error, true);
             isListeningForWakeWord = false;
             wakeWordRecognition = null;
             setTimeout(startWakeWordListenerIfEnabled, 2000);  // Retry after 2s
@@ -2600,6 +2762,11 @@ function loadSettings() {
             if (voiceActivationHint && settings.voice_activation_word) {
                 voiceActivationHint.textContent = t('hint_wake_word').replace('{phrase}', settings.voice_activation_word);
             }
+
+            const voiceDebugCheckbox = document.getElementById('voice-debug-log');
+            if (voiceDebugCheckbox) voiceDebugCheckbox.checked = isVoiceDebugEnabled();
+            const useServerMicCb = document.getElementById('voice-use-server-mic');
+            if (useServerMicCb && typeof localStorage !== 'undefined') useServerMicCb.checked = localStorage.getItem('hometasks_voice_use_server_mic') === 'true';
 
             // Populate Tuya settings
             const tuyaAccessId = document.getElementById('tuya-access-id');

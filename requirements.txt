@@ -7,6 +7,10 @@ tinytuya>=1.13.0
 # Production server
 gunicorn>=20.1.0
 
+# Optional: server-side voice (microfon pe RPi când Web Speech API în browser eșuează)
+SpeechRecognition>=3.8.0
+PyAudio>=0.2.11
+
 # Testing
 pytest>=7.0.0
 pytest-cov>=4.0.0
