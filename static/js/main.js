@@ -877,10 +877,17 @@ function updateTasksDisplay(tasks) {
         return;
     }
 
-    tasksList.innerHTML = tasks.map(task => createTaskElement(task)).join('');
+    // Show pending first, completed/refused below
+    const sorted = [...tasks].sort((a, b) => {
+        const aDone = a.status === 'completed' || a.status === 'refused';
+        const bDone = b.status === 'completed' || b.status === 'refused';
+        if (aDone !== bDone) return aDone ? 1 : -1;
+        return new Date(a.scheduled_date) - new Date(b.scheduled_date);
+    });
+    tasksList.innerHTML = sorted.map(task => createTaskElement(task)).join('');
 
     // Add event listeners to task elements
-    tasks.forEach((task, index) => {
+    sorted.forEach((task, index) => {
         const taskElement = tasksList.children[index];
         if (taskElement) {
             setupTaskEventListeners(taskElement, task);
@@ -950,11 +957,13 @@ function createTaskElement(task) {
     const recurrenceBadge = task.recurrence_pattern !== 'none'
         ? `<span class="badge recurrence-badge">${getRecurrenceLabel(task.recurrence_pattern)}</span>` : '';
 
+    const userLabel = task.user_name || (task.user_id != null ? `User ID: ${task.user_id}` : '');
     return `
         <div class="task-item ${statusClass}" data-task-id="${task.id}">
             <div class="task-content">
                 <h3 class="task-title">${task.description}</h3>
                 <div class="task-meta">
+                    ${userLabel ? `<span class="task-user">${userLabel},&nbsp;</span>` : ''}
                     <span class="task-date">${formatDate(task.scheduled_date)}</span>
                     ${recurrenceBadge}
                 </div>

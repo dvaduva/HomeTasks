@@ -657,6 +657,7 @@ def get_tasks():
             'id': t.id,
             'description': t.description,
             'user_id': t.user_id,
+            'user_name': t.user.name if t.user else None,
             'status': t.status.value if t.status else None,
             'scheduled_date': t.scheduled_date.isoformat() if t.scheduled_date else None,
             'created_at': t.created_at.isoformat() if t.created_at else None,
