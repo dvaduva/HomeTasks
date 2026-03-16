@@ -486,40 +486,56 @@ let isListeningViaButton = false;  // true while button-triggered recognition is
 
 // Initialize voice recognition
 function initVoiceRecognition() {
-    if (new URLSearchParams(window.location.search).get('voice_debug') === '1' && typeof localStorage !== 'undefined') {
+    var urlHasVoiceDebug = new URLSearchParams(window.location.search).get('voice_debug') === '1';
+    if (urlHasVoiceDebug && typeof localStorage !== 'undefined') {
         localStorage.setItem(VOICE_DEBUG_STORAGE_KEY, 'true');
     }
-    const voiceDebugOverlay = document.getElementById('voice-debug-overlay');
-    if (voiceDebugOverlay) {
-        const enabled = isVoiceDebugEnabled();
-        voiceDebugOverlay.hidden = !enabled;
-        if (enabled) {
-            voiceDebugOverlay.removeAttribute('hidden');
-            voiceDebugOverlay.setAttribute('aria-hidden', 'false');
-            renderVoiceDebugOverlay();
-        } else {
-            voiceDebugOverlay.setAttribute('aria-hidden', 'true');
+
+    function initVoiceUIAndHandlers() {
+        var voiceDebugOverlay = document.getElementById('voice-debug-overlay');
+        if (voiceDebugOverlay) {
+            var enabled = isVoiceDebugEnabled();
+            voiceDebugOverlay.hidden = !enabled;
+            if (enabled) {
+                voiceDebugOverlay.removeAttribute('hidden');
+                voiceDebugOverlay.setAttribute('aria-hidden', 'false');
+                renderVoiceDebugOverlay();
+            } else {
+                voiceDebugOverlay.setAttribute('aria-hidden', 'true');
+            }
+        }
+        var voiceDebugCheckbox = document.getElementById('voice-debug-log');
+        if (voiceDebugCheckbox) {
+            voiceDebugCheckbox.checked = isVoiceDebugEnabled();
+            voiceDebugCheckbox.addEventListener('change', function() {
+                localStorage.setItem(VOICE_DEBUG_STORAGE_KEY, this.checked ? 'true' : 'false');
+                var overlay = document.getElementById('voice-debug-overlay');
+                if (overlay) {
+                    overlay.hidden = !this.checked;
+                    if (this.checked) {
+                        overlay.removeAttribute('hidden');
+                        overlay.setAttribute('aria-hidden', 'false');
+                        renderVoiceDebugOverlay();
+                    } else {
+                        overlay.setAttribute('hidden', '');
+                        overlay.setAttribute('aria-hidden', 'true');
+                        overlay.innerHTML = '';
+                    }
+                }
+            });
         }
     }
-    const voiceDebugCheckbox = document.getElementById('voice-debug-log');
-    if (voiceDebugCheckbox) {
-        voiceDebugCheckbox.checked = isVoiceDebugEnabled();
-        voiceDebugCheckbox.addEventListener('change', function() {
-            localStorage.setItem(VOICE_DEBUG_STORAGE_KEY, this.checked ? 'true' : 'false');
-            const overlay = document.getElementById('voice-debug-overlay');
-            if (overlay) {
-                overlay.hidden = !this.checked;
-                if (this.checked) {
-                    overlay.removeAttribute('hidden');
-                    overlay.setAttribute('aria-hidden', 'false');
-                    renderVoiceDebugOverlay();
-                } else {
-                    overlay.setAttribute('hidden', '');
-                    overlay.setAttribute('aria-hidden', 'true');
-                    overlay.innerHTML = '';
-                }
+
+    // When VOICE_DEBUG_LOG=0/false in .env, hide overlay (override localStorage) then init UI
+    if (!urlHasVoiceDebug && typeof localStorage !== 'undefined') {
+        fetch('/api/preferences').then(function(r) { return r.json(); }).catch(function() { return {}; }).then(function(data) {
+            if (data && data.voice_debug_log === false) {
+                localStorage.setItem(VOICE_DEBUG_STORAGE_KEY, 'false');
             }
+            initVoiceUIAndHandlers();
         });
+    } else {
+        initVoiceUIAndHandlers();
     }
 
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;

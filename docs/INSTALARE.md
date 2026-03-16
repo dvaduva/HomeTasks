@@ -420,7 +420,7 @@ pip install flask
 
 **Ce faceți:** Verificați internetul (`ping -c 3 8.8.8.8`, `curl -sI https://www.google.com`). Nu blocați domenii Google (Pi-hole/firewall). Dacă în Chromium merge https://www.google.com/intl/ro/chrome/demos/speech.html dar nu în aplicație, problema e la aplicație/rețea; dacă nici acolo nu merge, e la Chromium/rețea/Google.
 
-**Debug (fără consolă / kiosk):** Deschideți `http://localhost:5000?voice_debug=1` sau **Setări → Vocal → Afișează jurnal debug voce pe ecran**. Opțional: în `.env` setați `VOICE_DEBUG_LOG=1` și citiți `logs/voice-debug.log`.
+**Debug (fără consolă / kiosk):** Deschideți `http://localhost:5000?voice_debug=1` sau **Setări → Vocal → Afișează jurnal debug voce pe ecran**. În `.env`: `VOICE_DEBUG_LOG=1` activează și scrierea în `logs/voice-debug.log`; `VOICE_DEBUG_LOG=0` sau `false` dezactivează și panoul „Voice debug” pe ecran (serverul îl ascunde în frontend).
 
 ### Soluție: microfon pe server (când browserul dă „aborted” / „network”)
 Dependențe: `pip install -r requirements.txt`. Microfon detectat: `arecord -l`; utilizator în grupul `audio`. În aplicație: **Setări → Vocal → Folosește microfonul serverului**. Comanda vocală se dă apăsând butonul de microfon; ascultarea pentru cuvântul de activare este dezactivată când această opțiune e bifată.
