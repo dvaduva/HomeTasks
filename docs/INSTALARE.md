@@ -14,7 +14,7 @@
   - Rezoluție minimă: 800x480 px (WVGA)
   - Rezoluție recomandată: 1024x600 px sau 1280x720 px
 - Microfon USB cu reducere de zgomot (pentru recunoaștere vocală bună pe dispozitivul local, doar dacă se implementează STT pe server)
-- Cază de protejare pentru Raspberry Pi (opțional dar recomandat)
+- Carcasă de protejare pentru Raspberry Pi (opțional dar recomandat)
 
 ### Alte echipamente (opționale)
 - Tastatură și mouse USB (pentru configurare inițială)
@@ -123,7 +123,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Dependințele includ: Flask, SQLAlchemy, requests, python-dotenv, tinytuya (pentru integrare IoT Tuya), gunicorn (server producție), pytest.
+Dependințele includ: Flask, SQLAlchemy, requests, python-dotenv, tinytuya (pentru integrare IoT Tuya), gunicorn (server producție), pytest, gTTS (TTS pe server pentru RPi kiosk).
 
 ## Descărcarea și configurarea aplicației HomeTasks
 
@@ -164,6 +164,7 @@ DEFAULT_LANGUAGE=ro  # sau en pentru engleză
 TEMPERATURE_UNIT=C  # sau F
 UPDATE_INTERVAL_MINUTES=30
 VOICE_ACTIVATION_WORD=Hey HomeTasks
+VOICE_DEBUG_LOG=false
 
 # Tuya Cloud (eu.platform.tuya.com) - pentru temperaturi din senzori IoT
 TUYA_ACCESS_ID=your_access_id
@@ -180,7 +181,7 @@ TUYA_API_REGION=eu
    ```bash
    ollama serve &
    ```
-   Pentru a rulea în фонду permanent, considerați configurarea ca un serviciu systemd (vezi mai jos).
+   Pentru a rulea în fundal permanent, considerați configurarea ca un serviciu systemd (vezi mai jos).
 3. Descărcați un model potrivit (exemplu: llama3:8b):
    ```bash
    ollama pull llama3:8b
@@ -269,7 +270,7 @@ Aplicația va porni pe http://localhost:5000
    Type=simple
    User=pi
    WorkingDirectory=/home/pi/HomeTasks
-   Environment=PATH=/home/pi/HomeTasks/venv/bin
+   Environment="PATH=/home/pi/HomeTasks/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
    ExecStart=/home/pi/HomeTasks/venv/bin/python /home/pi/HomeTasks/src/main.py
    Restart=always
    RestartSec=10
@@ -321,7 +322,7 @@ Dacă aveți un ecran conectat la Raspberry Pi și doriți ca aplicația să se 
    [Desktop Entry]
    Type=Application
    Name=HomeTasks Kiosk
-   Exec=bash -c "sleep 5 && chromium-browser --kiosk --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --use-fake-ui-for-media-stream http://localhost:5000"
+   Exec=bash -c "sleep 5 && chromium-browser --kiosk --alsa-output-device=plughw:CARD=Headphones,DEV=0 --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble http://localhost:5000/"
    X-GNOME-Autostart-enabled=true
    ```
    > `sleep 5` asigură că serviciul `hometasks` pornește înainte de a deschide browserul.
@@ -402,139 +403,48 @@ pip install flask
 ```
 
 ### Problema: "Eroare la recunoasterea vorbirii: audio-capture" (Raspberry Pi / Linux)
-**Cauză**: Recunoașterea vocală folosește **Web Speech API în browser**. Eroarea „audio-capture” înseamnă că browserul nu poate capta audio de la microfon.
+**Cauză**: Browserul nu poate capta microfonul. La `http://<IP-RPi>:5000` de pe alt dispozitiv, microfonul folosit este al acelui dispozitiv. Pe RPi (Chromium la `http://localhost:5000`), microfonul USB trebuie să fie dispozitivul implicit de captură și Chromium trebuie să aibă permisiune pentru microfon.
 
-- **Dacă deschideți aplicația de pe alt dispozitiv** (telefon, PC) la `http://<IP-RPi>:5000`, microfonul folosit este al **acelui dispozitiv**, nu al RPi. Verificați permisiunile pentru microfon în browser pe dispozitivul respectiv.
-- **Dacă folosiți browser pe Raspberry Pi** (ex.: Chromium la `http://localhost:5000`, cu ecran conectat la RPi), microfonul USB trebuie să fie **dispozitivul implicit de captură** pentru sistem, iar Chromium trebuie să aibă permisiune pentru microfon.
+**Pași pe RPi:**
 
-**Pași pe Raspberry Pi (Chromium pe RPi, aplicația la http://localhost:5000):**
+1. Verificați microfonul: `arecord -l` (notați cardul, ex. card 1).
+2. Utilizator în grupul `audio`: `sudo usermod -a -G audio pi` → delogare/relogare.
+3. Dispozitiv implicit de captură:
+   - **PulseAudio** (`pactl info` merge): `pactl list sources short`, apoi `pactl set-default-source <sursa_USB>`.
+   - **Doar ALSA**: în `~/.asoundrc` setați `capture.pcm "plughw:1,0"` (adaptând cardul la `arecord -l`).
+4. Test: `arecord -d 3 -f cd test.wav && aplay test.wav`.
+5. În Chromium: permisiune microfon (lacăt → Setări site → Microfon: Permite). Deschideți aplicația prin `http://localhost:5000` sau `http://127.0.0.1:5000`.
 
-1. **Verificați că microfonul este văzut**
-   ```bash
-   arecord -l
-   ```
-   Notați cardul microfonului USB (ex.: card 1 = UACDemoV1.0).
+### Problema: "Eroare la recunoasterea vorbirii: network" / "aborted" (RPi / Chromium)
+**Cauză**: Web Speech API folosește serviciul Google; lipsă internet sau firewall → „network” sau „aborted”.
 
-2. **Adăugați utilizatorul în grupul `audio`**
-   ```bash
-   sudo usermod -a -G audio pi
-   ```
-   Apoi **delogare și relogare** (sau repornire), ca modificarea să aibă efect.
+**Ce faceți:** Verificați internetul (`ping -c 3 8.8.8.8`, `curl -sI https://www.google.com`). Nu blocați domenii Google (Pi-hole/firewall). Dacă în Chromium merge https://www.google.com/intl/ro/chrome/demos/speech.html dar nu în aplicație, problema e la aplicație/rețea; dacă nici acolo nu merge, e la Chromium/rețea/Google.
 
-3. **Setați microfonul USB ca dispozitiv implicit de captură**
-   - **Dacă aveți PulseAudio** (verificați cu `pactl info`):
-     ```bash
-     pactl list sources short
-     ```
-     Identificați sursa microfonului USB (ex.: `alsa_input.usb-...`), apoi:
-     ```bash
-     pactl set-default-source <nume_sursa_USB>
-     ```
-   - **Doar ALSA** (fără PulseAudio): creați sau editați `~/.asoundrc`:
-     ```bash
-     nano ~/.asoundrc
-     ```
-     Conținut (pentru microfon pe card 1, device 0 – adaptați `plughw:1,0` dacă microfonul este pe alt card):
-     ```
-     pcm.!default {
-         type asym
-         playback.pcm "null"
-         capture.pcm "plughw:1,0"
-     }
-     ctl.!default {
-         type hw
-         card 1
-     }
-     ```
-     Salvați (Ctrl+O, Enter, Ctrl+X).
+**Debug (fără consolă / kiosk):** Deschideți `http://localhost:5000?voice_debug=1` sau **Setări → Vocal → Afișează jurnal debug voce pe ecran**. Opțional: în `.env` setați `VOICE_DEBUG_LOG=1` și citiți `logs/voice-debug.log`.
 
-4. **Testați captura**
-   ```bash
-   arecord -d 3 -f cd test.wav
-   aplay test.wav
-   ```
-   Dacă auziți ce ați vorbit, ALSA folosește corect microfonul.
+### Soluție: microfon pe server (când browserul dă „aborted” / „network”)
+Dependențe: `pip install -r requirements.txt`. Microfon detectat: `arecord -l`; utilizator în grupul `audio`. În aplicație: **Setări → Vocal → Folosește microfonul serverului**. Comanda vocală se dă apăsând butonul de microfon; ascultarea pentru cuvântul de activare este dezactivată când această opțiune e bifată.
 
-5. **În Chromium pe RPi**
-   - La prima folosire a butonului de microfon din aplicație, acceptați cererea de **permisiune pentru microfon**.
-   - Dacă ați refuzat-o: click pe **iconița lacăt/locație** (stânga din bara de adrese) → Setări site → Microfon: **Permite**.
-   - Închideți complet Chromium și redeschideți-l, apoi reîncărcați `http://localhost:5000` și încercați din nou recunoașterea vocală.
+Dacă opțiunea e gri: pe RPi instalați `sudo apt install portaudio19-dev` (sau `python3-pyaudio`), apoi `pip install -r requirements.txt`. Verificați `arecord -l` și grupul `audio`. Dacă tot nu merge: setați captura ALSA în `~/.asoundrc` (ca la punctul 3 de mai sus) și testați `arecord -d 3 -f cd test.wav && aplay test.wav`. Mesaje frecvente: „No speech heard” → vorbiți în cele ~6 s; „Recognition service error” → internet; „Microfon indisponibil” → ALSA/PyAudio.
 
-6. **Deschideți mereu aplicația** prin `http://localhost:5000` sau `http://127.0.0.1:5000` (Web Speech API necesită context securizat; pe localhost este acceptat).
+### TTS (voce răspuns AI) pe RPi în mod kiosk
+Dacă **YouTube se aude** în Chromium dar **mesajele AI (🔊) nu**, sunetul pentru TTS în aplicație trebuie redat prin același flux ca YouTube (HTML5 Audio). Pașii care funcționează:
 
-### Problema: "Eroare la recunoasterea vorbirii: network" (Raspberry Pi / Chromium)
-**Cauză**: În Chromium, Web Speech API folosește de obicei serviciul Google pentru recunoaștere. Eroarea „network” înseamnă că browserul nu a putut contacta acest serviciu (lipsă internet pe RPi, firewall sau timeout).
+1. **PulseAudio în sesiune**  
+   În `~/.config/lxsession/LXDE-pi/autostart` adăugați linia **`@pulseaudio --start`** (înainte de linia care pornește Chromium), ca PulseAudio să ruleze în sesiunea de desktop.
 
-**Ce puteți face:**
-1. **Verificați internetul pe RPi**: `ping -c 3 8.8.8.8` sau deschideți în Chromium o pagină (ex.: google.com). Fără internet, recunoașterea nu va funcționa în Chromium.
-2. **Asigurați-vă că nu blocați domenii Google** (ex.: în Pi-hole sau firewall). Serviciul de speech folosește conexiuni către Google.
-3. Pentru **debug**, urmați pașii din secțiunea *Debug recunoaștere vocală pe RPi* mai jos.
+2. **Dependențe proiect**  
+   `pip install -r requirements.txt` (include gTTS pentru TTS pe server).
 
-### Debug recunoaștere vocală pe RPi
-Când „nu se întâmplă nimic” când vorbiți sau apare eroarea „network”, verificați în consola browserului ce se întâmplă:
+3. **Chromium cu ieșirea ALSA corectă**  
+   Porniți Chromium cu parametrul pentru boxe/căști, de ex.:  
+   `--alsa-output-device=plughw:CARD=Headphones,DEV=0`  
+   (dispozitivul îl vedeți cu `aplay -L`; pentru Headphones e tipic `plughw:CARD=Headphones,DEV=0`).
 
-1. **Deschideți instrumentele pentru dezvoltatori în Chromium**
-   - Tasta **F12** sau **Ctrl+Shift+I** (pe unele RPi: **Ctrl+Shift+I**).
-   - Alternativ: click dreapta pe pagină → **Inspect** / **Inspectare**.
+4. **raspi-config**  
+   **System Options → Audio → Headphones** (sau HDMI, dacă folosiți monitorul cu boxe integrate).
 
-2. **Mergi la tab-ul Console**
-   - Când apăsați butonul de microfon și vorbiți, ar trebui să apară mesaje de forma:
-     - `[Voice] Starting recognition, lang: ro-RO` (sau limba aleasă)
-     - `[Voice] Result: <text>` dacă recunoașterea a reușit
-     - `[Voice] Error: network` (sau `audio-capture`, `no-speech`, etc.) dacă a eșuat
-     - `[Voice] Recognition ended` când se oprește ascultarea
-
-3. **Cum interpretați mesajele**
-   - **Doar „Ascult... Vorbesc acum”**, fără `[Voice] Result:` și fără eroare: serviciul nu a returnat niciun rezultat (poate timeout, sunet prea scurt sau „network” care nu apare imediat).
-   - **`[Voice] Error: network`**: RPi-ul nu poate atinge serviciul de recunoaștere (verificați internetul și firewall-ul).
-   - **`[Voice] Error: no-speech`**: browserul nu a detectat vorbire (vorbiți mai aproape de microfon, verificați că microfonul este dispozitivul implicit).
-   - **`[Voice] Result: ...`**: recunoașterea a funcționat; dacă aplicația nu reacționează, problema este în altă parte (ex.: procesarea comenzii vocale sau AI).
-
-4. **Verificare rețea pe RPi**
-   ```bash
-   ping -c 3 8.8.8.8
-   curl -sI https://www.google.com | head -1
-   ```
-   Dacă ping sau curl eșuează, rezolvați mai întâi conectivitatea (Wi‑Fi/Ethernet, DNS).
-
-5. **Test rapid în Chromium**
-   - Deschideți https://www.google.com/intl/ro/chrome/demos/speech.html și testați acolo recunoașterea. Dacă nici acolo nu merge, problema este de rețea sau de permisiuni microfon pe RPi.
-
-5b. **În jurnal apare „Error: aborted”**
-   - **aborted** = browserul (Chromium) a întrerupt recunoașterea. Cauze frecvente: lipsă internet, serviciul Google pentru speech indisponibil sau timeout.
-   - **Verificați internetul pe RPi**: `ping -c 3 8.8.8.8` și `curl -sI https://www.google.com`. Dacă acestea merg (HTTP 200), rețeaua generală e OK, dar Web Speech API folosește alte endpoint-uri Google; „aborted” poate apărea tot din cauza timeout-ului sau a unor restricții pe RPi/Chromium.
-   - **Test în Chromium pe RPi**: deschideți **https://www.google.com/intl/ro/chrome/demos/speech.html** în același Chromium, permiteți microfonul și vorbiți. Dacă și acolo recunoașterea eșuează sau se oprește imediat, problema e la Chromium / microfon / serviciul Google de speech, nu la aplicația HomeTasks.
-   - **Încercați**: apăsați butonul de microfon, **vorbiți imediat** (în primele 1–2 secunde); pe unele configurații recunoașterea se închide repede dacă nu primește audio la timp.
-
-6. **Mod kiosk (fără consolă)**
-   Nu aveți acces la F12/Consolă. Pentru a vedea mesajele de debug pe ecran:
-   - **Varianta simplă**: deschideți aplicația cu **`?voice_debug=1`** în URL, ex.: `http://localhost:5000?voice_debug=1`. Un panou **în partea de sus** a ecranului va afișa liniile (Starting recognition, Result, Error: network etc.). Setarea se salvează în browser (la următoarea deschidere panoul rămâne activ).
-   - **Din Setări**: **Setări → Vocal** → bifați **«Afișează jurnal debug voce pe ecran»**.
-   **Opțional – salvare în fișier**: adăugați în `.env` variabila `VOICE_DEBUG_LOG=1`, reporniți aplicația; mesajele se vor scrie și în `logs/voice-debug.log` (pe RPi: `tail -f logs/voice-debug.log`).
-
-7. **Soluție: microfon pe server (RPi când browserul dă „aborted” / „network”)**
-   Dacă Web Speech API în Chromium nu funcționează (aborted, network, fără permisiune), puteți folosi **microfonul conectat la RPi** și recunoașterea pe server:
-   - Pe RPi instalați dependențele: `pip install SpeechRecognition PyAudio` (sau din `requirements.txt`: `pip install -r requirements.txt`).
-   - Asigurați-vă că microfonul este detectat: `arecord -l` și că utilizatorul este în grupul `audio`: `sudo usermod -a -G audio pi` (apoi delogare/relogare).
-   - În aplicație: **Setări → Vocal** → bifați **«Folosește microfonul serverului (RPi / când browserul eșuează)»**. Salvați setările.
-   - La următoarea apăsare a butonului de microfon, serverul va înregistra ~6 secunde de la microfonul RPi, va trimite audio către Google Speech (internet necesar pe RPi) și va returna textul; comanda vocală se procesează ca până acum.
-   - Dacă opțiunea este dezactivată (gri), serverul nu are SpeechRecognition/PyAudio instalate sau microfonul nu e disponibil.
-   - Când «Folosește microfonul serverului» este bifat, **ascultarea continuă pentru cuvântul de activare** (ex. „Hey HomeTasks”) este dezactivată, deoarece aceasta folosește recunoașterea din browser; comanda vocală se dă doar prin apăsarea butonului de microfon.
-
-7a. **Sunet la mesajele AI (TTS) pe RPi în mod kiosk**
-   În Chromium pe Linux, **Web Speech API (speechSynthesis)** folosește un pipeline audio diferit de YouTube; de aceea YouTube se aude cu `--alsa-output-device=...`, dar mesajele AI nu. Aplicația rezolvă asta folosind **TTS pe server**: serverul generează audio (MP3) și browserul îl redă cu `<audio>`, același flux ca la YouTube.
-   - Pe RPi instalați pachetul opțional: `pip install gTTS` (sau `pip install -r requirements.txt`).
-   - Asigurați-vă că Chromium pornește cu device-ul ALSA corect, ex. în `hometasks-kiosk.desktop`:  
-     `Exec=chromium-browser --alsa-output-device=plughw:CARD=Headphones,DEV=0 --kiosk ... http://localhost:5000/`
-   - La pornire, aplicația detectează dacă serverul are gTTS; dacă da, răspunsurile vocale AI se redau prin server (se aud în boxe). Dacă gTTS nu e instalat, se folosește TTS-ul din browser (pe kiosk poate să nu se audă).
-
-7b. **Microfon server: opțiunea e gri sau tot nu recunoaște**
-   - **Opțiunea e gri**: serverul nu vede SpeechRecognition + microfon. Pe RPi instalați: `sudo apt install portaudio19-dev python3-pyaudio` (sau doar `portaudio19-dev`), apoi în venv: `pip install SpeechRecognition PyAudio`. Reporniți aplicația. Verificați microfonul: `arecord -l` și grupul `audio`: `sudo usermod -a -G audio pi` + delogare/relogare.
-   - **Opțiunea e activă dar la apăsarea butonului nu se întâmplă nimic / eroare**: același microfon folosit de browser trebuie să fie **dispozitivul implicit de captură** și pentru procesul Python (ALSA). Configurați `~/.asoundrc` ca la punctul 3 din secțiunea „audio-capture” (capture pe `plughw:1,0` pentru cardul USB). Apoi testați din shell: `arecord -d 3 -f cd test.wav && aplay test.wav`. Dacă auziți vocea, ALSA e OK.
-   - **Mesaj „No speech heard (timeout)”**: serverul a înregistrat dar nu a detectat vorbire (vorbiți în cele ~6 secunde sau microfonul e prea departe / închis).
-   - **Mesaj „Recognition service error”**: serverul nu poate contacta Google (verificați internet pe RPi: `ping -c 2 8.8.8.8`).
-   - **Mesaj „Microfon indisponibil”**: PyAudio nu deschide dispozitivul (verificați `arecord -l`, `~/.asoundrc`, grupul `audio`).
-   - Verificați logurile aplicației (terminal sau `logs/`) la momentul apăsării butonului de microfon pentru erori detaliate.
+Cu acești pași, răspunsurile vocale AI (și YouTube) ar trebui să se audă în boxe. Fără gTTS instalat, aplicația revine la TTS din browser, care în kiosk poate să nu se audă.
 
 ### Problema: "PortAudio error: -9996 (Invalid input device)"
 **Soluție** (doar dacă utilizați STT pe server):
