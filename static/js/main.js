@@ -430,6 +430,9 @@ let voiceDebugLines = [];
 
 // Set by /api/voice/server-available: when true, we use server mic and do not start wake word (no dependency on checkbox/cache)
 var serverMicAvailable = false;
+// When true, TTS is played via server (HTML5 Audio) so it uses the same ALSA device as YouTube on RPi kiosk
+var serverTtsAvailable = false;
+var currentServerTtsAudio = null;
 
 function isVoiceDebugEnabled() {
     if (typeof localStorage === 'undefined') return false;
@@ -523,8 +526,9 @@ function initVoiceRecognition() {
     const voiceStatus = document.getElementById('voice-status');
     const voiceBtn = document.getElementById('voice-btn');
 
-    fetch('/api/voice/server-available').then(function(r) { return r.json(); }).catch(function() { return { available: false }; }).then(function(serverVoiceData) {
+    fetch('/api/voice/server-available').then(function(r) { return r.json(); }).catch(function() { return { available: false, tts_available: false }; }).then(function(serverVoiceData) {
         serverMicAvailable = serverVoiceData.available === true;
+        serverTtsAvailable = serverVoiceData.tts_available === true;
         if (serverMicAvailable) stopWakeWordListener();
         const useServerMicCheckbox = document.getElementById('voice-use-server-mic');
         const serverMicHint = document.getElementById('voice-server-mic-hint');
@@ -2054,26 +2058,60 @@ function filterTTSVoices() {
     });
 }
 
-// Speak text using browser TTS
+// Speak text: use server TTS (HTML5 Audio) when available so kiosk uses same ALSA device as YouTube; else browser speechSynthesis
 function speakText(text) {
-    if (!window.speechSynthesis) return;
+    if (serverTtsAvailable) {
+        // Server TTS: playback via <audio> uses same pipeline as YouTube, so --alsa-output-device works on RPi
+        if (currentServerTtsAudio) {
+            currentServerTtsAudio.pause();
+            currentServerTtsAudio = null;
+        }
+        var fakeUtterance = { onend: null, onerror: null };
+        fetch('/api/voice/speak', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text, lang: voicePrefs.language })
+        }).then(function(r) {
+            if (!r.ok) throw new Error('TTS failed');
+            return r.blob();
+        }).then(function(blob) {
+            var url = URL.createObjectURL(blob);
+            var audio = new Audio(url);
+            currentServerTtsAudio = audio;
+            audio.addEventListener('ended', function() {
+                currentServerTtsAudio = null;
+                URL.revokeObjectURL(url);
+                if (fakeUtterance.onend) fakeUtterance.onend();
+            });
+            audio.addEventListener('error', function() {
+                currentServerTtsAudio = null;
+                URL.revokeObjectURL(url);
+                if (fakeUtterance.onerror) fakeUtterance.onerror();
+            });
+            audio.play();
+        }).catch(function(err) {
+            console.warn('Server TTS failed, fallback to browser TTS:', err);
+            if (fakeUtterance.onerror) fakeUtterance.onerror();
+        });
+        return fakeUtterance;
+    }
 
-    // Cancel any ongoing speech
+    if (!window.speechSynthesis) return null;
+
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    var utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = voicePrefs.language;
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
-    const voices = window.speechSynthesis.getVoices();
+    var voices = window.speechSynthesis.getVoices();
     if (voicePrefs.ttsVoiceName) {
-        const saved = voices.find(v => v.name === voicePrefs.ttsVoiceName);
+        var saved = voices.find(function(v) { return v.name === voicePrefs.ttsVoiceName; });
         if (saved) utterance.voice = saved;
     } else {
-        // Auto: prefer a voice matching the recognition language
-        const match = voices.find(v => v.lang === voicePrefs.language)
-                    || voices.find(v => v.lang.startsWith(voicePrefs.language.split('-')[0]));
+        var match = voices.find(function(v) { return v.lang === voicePrefs.language; })
+                || voices.find(function(v) { return v.lang && v.lang.indexOf(voicePrefs.language.split('-')[0]) === 0; });
         if (match) utterance.voice = match;
     }
 
@@ -2308,11 +2346,19 @@ function addAIMessage(message, save = true) {
         // Stop if clicking the same speaking message
         if (this.classList.contains('speaking')) {
             window.speechSynthesis?.cancel();
+            if (currentServerTtsAudio) {
+                currentServerTtsAudio.pause();
+                currentServerTtsAudio = null;
+            }
             this.classList.remove('speaking');
             return;
         }
         // Stop any other speaking message
         document.querySelectorAll('.ai-message.speaking').forEach(el => el.classList.remove('speaking'));
+        if (currentServerTtsAudio) {
+            currentServerTtsAudio.pause();
+            currentServerTtsAudio = null;
+        }
 
         this.classList.add('speaking');
         const el = this;

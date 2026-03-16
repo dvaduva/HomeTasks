@@ -521,6 +521,13 @@ Când „nu se întâmplă nimic” când vorbiți sau apare eroarea „network�
    - Dacă opțiunea este dezactivată (gri), serverul nu are SpeechRecognition/PyAudio instalate sau microfonul nu e disponibil.
    - Când «Folosește microfonul serverului» este bifat, **ascultarea continuă pentru cuvântul de activare** (ex. „Hey HomeTasks”) este dezactivată, deoarece aceasta folosește recunoașterea din browser; comanda vocală se dă doar prin apăsarea butonului de microfon.
 
+7a. **Sunet la mesajele AI (TTS) pe RPi în mod kiosk**
+   În Chromium pe Linux, **Web Speech API (speechSynthesis)** folosește un pipeline audio diferit de YouTube; de aceea YouTube se aude cu `--alsa-output-device=...`, dar mesajele AI nu. Aplicația rezolvă asta folosind **TTS pe server**: serverul generează audio (MP3) și browserul îl redă cu `<audio>`, același flux ca la YouTube.
+   - Pe RPi instalați pachetul opțional: `pip install gTTS` (sau `pip install -r requirements.txt`).
+   - Asigurați-vă că Chromium pornește cu device-ul ALSA corect, ex. în `hometasks-kiosk.desktop`:  
+     `Exec=chromium-browser --alsa-output-device=plughw:CARD=Headphones,DEV=0 --kiosk ... http://localhost:5000/`
+   - La pornire, aplicația detectează dacă serverul are gTTS; dacă da, răspunsurile vocale AI se redau prin server (se aud în boxe). Dacă gTTS nu e instalat, se folosește TTS-ul din browser (pe kiosk poate să nu se audă).
+
 7b. **Microfon server: opțiunea e gri sau tot nu recunoaște**
    - **Opțiunea e gri**: serverul nu vede SpeechRecognition + microfon. Pe RPi instalați: `sudo apt install portaudio19-dev python3-pyaudio` (sau doar `portaudio19-dev`), apoi în venv: `pip install SpeechRecognition PyAudio`. Reporniți aplicația. Verificați microfonul: `arecord -l` și grupul `audio`: `sudo usermod -a -G audio pi` + delogare/relogare.
    - **Opțiunea e activă dar la apăsarea butonului nu se întâmplă nimic / eroare**: același microfon folosit de browser trebuie să fie **dispozitivul implicit de captură** și pentru procesul Python (ALSA). Configurați `~/.asoundrc` ca la punctul 3 din secțiunea „audio-capture” (capture pe `plughw:1,0` pentru cardul USB). Apoi testați din shell: `arecord -d 3 -f cd test.wav && aplay test.wav`. Dacă auziți vocea, ALSA e OK.

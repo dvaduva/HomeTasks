@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, send_file
 import logging
 import os
 import re
@@ -1057,11 +1057,51 @@ def voice_listen():
         logger.exception("voice/listen failed")
         return jsonify({'available': True, 'text': None, 'error': str(e)}), 200
 
+def _server_tts_available():
+    """Check if server can generate TTS audio (for kiosk playback via HTML5 Audio)."""
+    try:
+        import gtts  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 @app.route('/api/voice/server-available', methods=['GET'])
 def voice_server_available():
-    """Check if server-side microphone recognition is available."""
-    avail = getattr(voice_service, 'speech_recognition_available', False)
-    return jsonify({'available': avail})
+    """Check if server-side microphone recognition and TTS are available."""
+    mic_avail = getattr(voice_service, 'speech_recognition_available', False)
+    tts_avail = _server_tts_available()
+    return jsonify({'available': mic_avail, 'tts_available': tts_avail})
+
+
+@app.route('/api/voice/speak', methods=['POST'])
+def voice_speak():
+    """Generate TTS audio and return as MP3. Used in kiosk so playback goes through ALSA (same as YouTube)."""
+    if not _server_tts_available():
+        return jsonify({'error': 'Server TTS not available (install gtts)'}), 503
+    try:
+        data = request.get_json() or {}
+        text = (data.get('text') or '').strip()
+        if not text:
+            return jsonify({'error': 'text is required'}), 400
+        lang = (data.get('lang') or 'ro-RO').strip()
+        # gTTS: ro-RO -> ro, en-US -> en, en-GB -> en
+        if lang.startswith('ro'):
+            gtts_lang = 'ro'
+        elif lang.startswith('en'):
+            gtts_lang = 'en'
+        else:
+            gtts_lang = lang.split('-')[0] if '-' in lang else lang
+        from gtts import gTTS
+        import io
+        buf = io.BytesIO()
+        tts = gTTS(text=text, lang=gtts_lang)
+        tts.write_to_fp(buf)
+        buf.seek(0)
+        return send_file(buf, mimetype='audio/mpeg', as_attachment=False, download_name='tts.mp3')
+    except Exception as e:
+        logger.exception("voice/speak failed")
+        return jsonify({'error': str(e)}), 500
 
 # Voice command endpoint
 @app.route('/api/voice-command', methods=['POST'])

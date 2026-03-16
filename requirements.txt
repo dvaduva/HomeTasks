@@ -11,6 +11,9 @@ gunicorn>=20.1.0
 SpeechRecognition>=3.8.0
 PyAudio>=0.2.11
 
+# Optional: server-side TTS (pentru kiosk pe RPi – redare prin HTML5 Audio, același pipeline ca YouTube)
+gTTS>=2.3.0
+
 # Testing
 pytest>=7.0.0
 pytest-cov>=4.0.0
