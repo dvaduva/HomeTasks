@@ -157,6 +157,7 @@ const TRANSLATIONS = {
         lbl_tts_voice: 'Voce răspuns AI',
         opt_tts_auto: '— automat (limbă curentă) —',
         hint_tts_voices: 'Vocile disponibile depind de browser și sistemul de operare.',
+        tts_no_voices_browser: 'Nicio voce în browser (pe acest dispozitiv se folosește TTS server).',
         lbl_sensitivity: 'Sensibilitate —',
         lbl_auto_start: 'Autopornire',
         lbl_voice_debug_log: 'Afișează jurnal debug voce pe ecran',
@@ -347,6 +348,7 @@ const TRANSLATIONS = {
         lbl_tts_voice: 'AI response voice',
         opt_tts_auto: '— automatic (current language) —',
         hint_tts_voices: 'Available voices depend on browser and operating system.',
+        tts_no_voices_browser: 'No browser voices (this device uses server TTS).',
         lbl_sensitivity: 'Sensitivity —',
         lbl_auto_start: 'Auto-start',
         lbl_voice_use_server_mic: 'Use server microphone (RPi / when browser fails)',
@@ -2041,26 +2043,41 @@ modalStyle.textContent = `
 document.head.appendChild(modalStyle);
 
 
-// Populate TTS voice selector with all available voices
+// Populate TTS voice selector with all available voices (on RPi/Chromium getVoices() can be async or empty)
 function populateTTSVoices() {
     const select = document.getElementById('tts-voice');
     if (!select || !window.speechSynthesis) return;
 
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) return;
+    var voices = window.speechSynthesis.getVoices();
 
-    // Keep the default "auto" option, then rebuild the rest
-    select.innerHTML = '<option value="">— automat (limbă curentă) —</option>';
+    // Always keep the default "auto" option
+    select.innerHTML = '<option value="">' + t('opt_tts_auto') + '</option>';
 
-    voices.forEach(v => {
-        const opt = document.createElement('option');
+    if (voices.length === 0) {
+        var hint = document.createElement('option');
+        hint.disabled = true;
+        hint.textContent = t('tts_no_voices_browser');
+        select.appendChild(hint);
+        filterTTSVoices();
+        // On Chromium/Linux (e.g. RPi) voices often load async; retry once after a delay
+        if (!populateTTSVoices._retryScheduled) {
+            populateTTSVoices._retryScheduled = true;
+            var self = populateTTSVoices;
+            setTimeout(function() { self(); }, 400);
+            setTimeout(function() { self(); }, 1200);
+        }
+        return;
+    }
+    populateTTSVoices._retryScheduled = false;
+
+    voices.forEach(function(v) {
+        var opt = document.createElement('option');
         opt.value = v.name;
-        opt.textContent = `${v.name} (${v.lang})${v.localService ? '' : ' ☁'}`;
+        opt.textContent = v.name + ' (' + v.lang + ')' + (v.localService ? '' : ' ☁');
         if (v.name === voicePrefs.ttsVoiceName) opt.selected = true;
         select.appendChild(opt);
     });
 
-    // Apply current search filter after repopulating
     filterTTSVoices();
 }
 
