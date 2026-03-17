@@ -173,7 +173,9 @@ TUYA_API_REGION=eu
 ```
 
 ### Configurarea serverului Ollama
-1. Instalați Ollama pe dispozitivul dvs. (Raspberry Pi sau orice alt Linux):
+**Important pentru Raspberry Pi:** Ollama suportă doar **sistem 64-bit (arm64)**. Dacă aveți Raspberry Pi OS 32-bit (armv7l), scriptul oficial va afișa `ERROR: Unsupported architecture: armv7l`. Trebuie să folosiți **Raspberry Pi OS 64-bit** (vezi secțiunea „Alegerea sistemului de operare”) sau să rulați Ollama pe un alt calculator din rețea și să setați în `.env`: `OLLAMA_HOST=http://<ip-acel-pc>:11434`.
+
+1. Instalați Ollama pe dispozitivul dvs. (Raspberry Pi 64-bit sau orice alt Linux x86_64/arm64):
    ```bash
    curl -fsSL https://ollama.com/install.sh | sh
    ```
@@ -454,6 +456,13 @@ Cu acești pași, răspunsurile vocale AI (și YouTube) ar trebui să se audă �
    sudo usermod -a -G audio pi
    ```
 3. Reporniți sistemul sau deconectați-vă și reconectați-vă.
+
+### Problema: "ERROR: Unsupported architecture: armv7l" la instalarea Ollama
+**Cauză**: Ollama nu oferă build-uri pentru procesor 32-bit ARM (armv7l). Scriptul oficial suportă doar x86_64 și arm64 (64-bit).
+
+**Soluții**:
+1. **Recomandat**: Folosiți **Raspberry Pi OS 64-bit** (nu Lite 32-bit). Reinstalați sistemul cu imaginea 64-bit de pe [raspberrypi.com/software](https://www.raspberrypi.com/software/), apoi rulați din nou `curl -fsSL https://ollama.com/install.sh | sh`.
+2. **Alternativă**: Rulați Ollama pe un alt calculator din rețea (PC, Mac sau Raspberry Pi cu OS 64-bit), porniți acolo `ollama serve` (sau serviciul Ollama), și în `.env` pe Raspberry Pi setați: `OLLAMA_HOST=http://<IP-calculatorul-cu-ollama>:11434`. Aplicația HomeTasks va folosi Ollama de pe acel host.
 
 ### Problema: "Cannot connect to Ollama server at http://localhost:11434:111 Connection refused"
 **Soluție**:
