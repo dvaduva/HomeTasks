@@ -1,6 +1,19 @@
 {
-  "generated_at": "2026-03-15T07:08:08.475729+00:00",
+  "generated_at": "2026-03-18T20:54:10.150805+00:00",
   "devices": [
+    {
+      "id": "bfcfd3dac3f3760173hipk",
+      "name": "Irigație grădină",
+      "product_name": "6路智能水阀控制器",
+      "model": "",
+      "online": false,
+      "status": {
+        "result": [],
+        "success": true,
+        "t": 1773867251436,
+        "tid": "9d7dd760230c11f18255b6b5e3717ca9"
+      }
+    },
     {
       "id": "bf3b11f7ec82aed0967swk",
       "name": "Dormitor Parter",
@@ -19,7 +32,7 @@
           },
           {
             "code": "temp_current",
-            "value": 181
+            "value": 183
           },
           {
             "code": "mode",
@@ -51,62 +64,8 @@
           }
         ],
         "success": true,
-        "t": 1773558493384,
-        "tid": "bb567f97203d11f18255b6b5e3717ca9"
-      }
-    },
-    {
-      "id": "bfa6b3cbe1619cde3fuum7",
-      "name": "Cameră Ana",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 210
-          },
-          {
-            "code": "temp_current",
-            "value": 203
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 45
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1773558494355,
-        "tid": "bbebc8d8203d11f1a0e39aa9e01ed45b"
+        "t": 1773867252395,
+        "tid": "9e100659230c11f1a0e39aa9e01ed45b"
       }
     },
     {
@@ -123,11 +82,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 200
           },
           {
             "code": "temp_current",
-            "value": 203
+            "value": 208
           },
           {
             "code": "mode",
@@ -159,8 +118,62 @@
           }
         ],
         "success": true,
-        "t": 1773558495292,
-        "tid": "bc7d968d203d11f1a0e39aa9e01ed45b"
+        "t": 1773867253340,
+        "tid": "9e9c6801230c11f1a0e39aa9e01ed45b"
+      }
+    },
+    {
+      "id": "bfa6b3cbe1619cde3fuum7",
+      "name": "Cameră Ana",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 200
+          },
+          {
+            "code": "temp_current",
+            "value": 208
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1773867254281,
+        "tid": "9f31205f230c11f18255b6b5e3717ca9"
       }
     },
     {
@@ -177,11 +190,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 205
           },
           {
             "code": "temp_current",
-            "value": 200
+            "value": 213
           },
           {
             "code": "mode",
@@ -213,62 +226,8 @@
           }
         ],
         "success": true,
-        "t": 1773558496227,
-        "tid": "bd0cd9ad203d11f1a0e39aa9e01ed45b"
-      }
-    },
-    {
-      "id": "bf7c77962ec398ffa6sn3f",
-      "name": "Living",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 210
-          },
-          {
-            "code": "temp_current",
-            "value": 199
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 45
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1773558497152,
-        "tid": "bd9a41eb203d11f1a0e39aa9e01ed45b"
+        "t": 1773867255204,
+        "tid": "9fbd17b2230c11f18410e21ddda0be51"
       }
     },
     {
@@ -285,11 +244,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 200
           },
           {
             "code": "temp_current",
-            "value": 212
+            "value": 215
           },
           {
             "code": "mode",
@@ -321,21 +280,62 @@
           }
         ],
         "success": true,
-        "t": 1773558498091,
-        "tid": "be285c08203d11f18255b6b5e3717ca9"
+        "t": 1773867256203,
+        "tid": "a0547412230c11f18255b6b5e3717ca9"
       }
     },
     {
-      "id": "bfcfd3dac3f3760173hipk",
-      "name": "Irigație grădină",
-      "product_name": "6路智能水阀控制器",
+      "id": "bf7c77962ec398ffa6sn3f",
+      "name": "Living",
+      "product_name": "Temp-1",
       "model": "",
-      "online": false,
+      "online": true,
       "status": {
-        "result": [],
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 200
+          },
+          {
+            "code": "temp_current",
+            "value": 208
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
         "success": true,
-        "t": 1773558499050,
-        "tid": "beb62eb3203d11f18410e21ddda0be51"
+        "t": 1773867257196,
+        "tid": "a0eb08c4230c11f18410e21ddda0be51"
       }
     }
   ]

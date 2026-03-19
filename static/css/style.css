@@ -644,6 +644,14 @@ body {
 }
 .footer-btn:hover { background: rgba(255,255,255,0.12); color: white; }
 
+.btn-transport {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.80);
+}
+.btn-transport:hover { color: white; }
+
 .btn-voice.listening {
     background: rgba(220,38,38,0.30);
     color: #fca5a5;

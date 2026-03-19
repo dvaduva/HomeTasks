@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transport Public — HomeTasks</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/transport.css') }}">
+</head>
+<body>
+<div class="tp-app">
+
+    <!-- HEADER -->
+    <header class="tp-header">
+        <a href="/" class="tp-back" title="Acasă">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        <div class="tp-header-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            <span>Transport Public</span>
+        </div>
+        <div class="tp-header-right">
+            <div class="tp-day-badge" id="day-badge">Lucru</div>
+            <div class="tp-clock" id="tp-clock">--:--</div>
+            <button type="button" class="tp-voice-btn" id="tp-voice-btn" title="Comandă vocală" aria-label="Comandă vocală">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
+            <span class="tp-voice-status" id="tp-voice-status" aria-live="polite">Inactiv</span>
+            <button class="tp-ai-toggle" id="ai-toggle-btn" title="Asistent AI">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                AI
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN LAYOUT -->
+    <div class="tp-body">
+
+        <!-- SIDEBAR -->
+        <aside class="tp-sidebar">
+            <!-- Route tabs -->
+            <div class="tp-route-tabs" id="route-tabs"></div>
+
+            <!-- Day type selector -->
+            <div class="tp-day-selector">
+                <button class="tp-day-btn active" data-day="Lucru">L–V</button>
+                <button class="tp-day-btn" data-day="Sambata">Sâm</button>
+                <button class="tp-day-btn" data-day="Duminica">Dum</button>
+            </div>
+
+            <!-- Station list -->
+            <div class="tp-station-list" id="station-list">
+                <p class="tp-empty">Selectați o rută.</p>
+            </div>
+        </aside>
+
+        <!-- CONTENT -->
+        <main class="tp-content" id="tp-content">
+            <div class="tp-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                <p>Selectați o rută și o stație<br>pentru a vedea programul.</p>
+            </div>
+        </main>
+
+        <!-- AI PANEL -->
+        <aside class="tp-ai-panel" id="ai-panel">
+            <div class="tp-ai-header">
+                <span>Asistent Transport</span>
+                <button type="button" class="tp-ai-close" id="ai-close-btn" title="Închide">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="tp-ai-messages" id="ai-messages">
+                <div class="tp-ai-msg tp-ai-assistant">
+                    <div class="tp-ai-bubble">Bună! Pot răspunde la întrebări despre programul autobuzelor. Selectați o stație și întrebați-mă orice.</div>
+                </div>
+            </div>
+            <div class="tp-ai-input-row">
+                <input type="text" class="tp-ai-input" id="ai-input"
+                    placeholder="Ex: Când pleacă următorul autobuz?" autocomplete="off">
+                <button class="tp-ai-send" id="ai-send-btn" title="Trimite">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
+            <div class="tp-ai-note">Datele au caracter orientativ.</div>
+        </aside>
+
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/transport.js') }}"></script>
+</body>
+</html>

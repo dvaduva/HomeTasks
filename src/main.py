@@ -1202,5 +1202,93 @@ def refresh_tuya():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/transport')
+def transport_page():
+    return render_template('transport.html')
+
+
+@app.route('/history')
+def history_page():
+    return render_template('history.html')
+
+
+@app.route('/api/transport/routes')
+def get_transport_routes():
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'autobus')
+    routes = []
+    for filename in sorted(os.listdir(data_dir)):
+        if filename.endswith('.json'):
+            filepath = os.path.join(data_dir, filename)
+            with open(filepath, 'r', encoding='utf-8') as f:
+                routes.append(json.load(f))
+    return jsonify(routes)
+
+
+@app.route('/api/transport/chat', methods=['POST'])
+def transport_chat():
+    try:
+        data = request.get_json()
+        message = data.get('message', '')
+        route_dir = data.get('route', '')
+        station = data.get('station', '')
+        day_type = data.get('dayType', 'Lucru')
+        current_time = data.get('currentTime', '')
+
+        context_parts = [
+            "Ești un asistent pentru transportul public din zona Popești-Leordeni - București.",
+            f"Ora curentă: {current_time}, Tip zi: {day_type}.",
+            f"Ruta selectată: {route_dir}, Stația selectată: {station}.",
+            "Răspunde concis, în română. Dacă ești întrebat despre ore, afișează-le clar în format HH:MM.",
+        ]
+
+        data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'autobus')
+        for filename in sorted(os.listdir(data_dir)):
+            if not filename.endswith('.json'):
+                continue
+            with open(os.path.join(data_dir, filename), 'r', encoding='utf-8') as f:
+                rd = json.load(f)
+            context_parts.append(
+                f"Linia {rd['route']} ({rd['direction']}): stații: {', '.join(rd['stations_order'])}."
+            )
+            deps = rd.get('departures', {})
+            if station and station in deps:
+                st_sched = deps[station].get(day_type, {})
+                times_summary = []
+                for key, hours in st_sched.items():
+                    if key in ('first_checkpoint', 'second_checkpoint'):
+                        continue
+                    label = 'SOSIRE' if key == 'arrival_times' else key
+                    if isinstance(hours, dict):
+                        for h, mins in sorted(hours.items(), key=lambda x: int(x[0])):
+                            times_summary.append(f"{h}:{','.join(mins)}")
+                if times_summary:
+                    context_parts.append(
+                        f"Ore din stația {station} pe linia {rd['route']} ({day_type}): {'; '.join(times_summary[:40])}"
+                    )
+
+        transport_context = "\n".join(context_parts)
+
+        if not ollama_client.is_server_running():
+            return jsonify({
+                'response': 'Serviciul AI nu este disponibil momentan. Verificați programul direct în interfață.',
+                'done': True
+            })
+
+        result = ollama_client.chat(
+            message,
+            temperature=0.3,
+            max_tokens=500,
+            system_context=transport_context
+        )
+
+        return jsonify({
+            'response': result.get('message', {}).get('content', ''),
+            'done': result.get('done', False)
+        })
+    except Exception as e:
+        logger.error(f"Transport chat error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
