@@ -69,48 +69,61 @@ def parse_minutes_cell(cell):
 def parse_schedule_table(table):
     """
     Parse a schedule table (Lucru, Sambata, or Duminica).
-    
+
     Table structure:
       Row 0: Day type label (Lucru/Sambata/Duminica) - may have encoded chars
       Row 1: Hours header ['Ore', '4', '5', ...]
-      Row 2: Minutes data ['M\nI\nN\nU\nT\nE', '', '05\n20', '10\n30', ...]
-    
-    Returns dict: { "5": ["05", "20"], "6": ["10", "30"], ... }
+      Row 2..N: Minutes data. Each hour column may span multiple rows, one
+                minute per cell. The first column of these rows usually holds
+                the vertical 'MINUTE' label ('M','I','N','U','T','E').
+                Example:
+                    ['M', '00', '05', ...]
+                    ['I', '10', '20', ...]
+                    ['N', '24', '35', ...]
+                    ...
+                pdfplumber sometimes joins all minutes into a single cell with
+                newlines; we handle both representations.
+
+    Returns dict: { "5": ["00", "10", "24", ...], "6": ["05", "20", ...], ... }
+    All minutes in an hour column are collected across every data row.
     """
     if len(table) < 3:
         return {}
-    
+
     header_row = table[1]
-    data_row = table[2]
-    
-    # Verify this is a schedule table
+
     if not header_row or header_row[0] != 'Ore':
         return {}
-    
+
     hours = parse_hours_row(header_row)
-    
-    # Parse data cells (skip first cell which is MINUTE label)
-    data_cells = data_row[1:]
-    
-    # Build hour->minutes mapping
-    # For Lucru: data_cells align 1:1 with hours (after filtering None)
-    # For Sambata/Duminica: similar but hours were grouped in header
-    
-    schedule = {}
-    
-    # Filter out None cells from data to align with hours
-    non_none_data = []
-    for cell in data_cells:
-        if cell is None:
+
+    # Accumulate minutes per hour, preserving hour order.
+    acc = {hour: [] for hour in hours}
+
+    for data_row in table[2:]:
+        if not data_row:
             continue
-        non_none_data.append(cell)
-    
-    for i, hour in enumerate(hours):
-        if i < len(non_none_data):
-            minutes = parse_minutes_cell(non_none_data[i])
-            if minutes:
-                schedule[hour] = minutes
-    
+        # Skip first column (vertical MINUTE label or padding).
+        data_cells = data_row[1:]
+        # Filter None cells so positions align with the flattened hours list.
+        non_none_data = [c for c in data_cells if c is not None]
+        for i, hour in enumerate(hours):
+            if i < len(non_none_data):
+                acc[hour].extend(parse_minutes_cell(non_none_data[i]))
+
+    # Drop empty hours and dedupe while preserving order.
+    schedule = {}
+    for hour, mins in acc.items():
+        if not mins:
+            continue
+        seen = set()
+        unique = []
+        for m in mins:
+            if m not in seen:
+                seen.add(m)
+                unique.append(m)
+        schedule[hour] = unique
+
     return schedule
 
 
@@ -201,19 +214,28 @@ def parse_pdf(pdf_path):
     Returns a structured dict ready for JSON serialization.
     """
     route_number, direction, start_station = extract_route_info(pdf_path)
-    
+
     all_stations = []
     all_departures = {}
-    
+
+    # All departures from a given station on this route go to the same final
+    # destination (the direction extracted from page 1). Wrap each day's
+    # schedule under that key so the consumer (transport UI) can iterate
+    # destinations uniformly across routes.
+    destination = direction or 'UNKNOWN'
+
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages):
             station_name, schedules = parse_page(page)
-            
+
             if station_name and station_name not in all_stations:
                 all_stations.append(station_name)
-            
+
             if schedules:
-                all_departures[station_name] = schedules
+                all_departures[station_name] = {
+                    day_type: {destination: sched}
+                    for day_type, sched in schedules.items()
+                }
     
     # Build direction string
     if direction and start_station:
@@ -259,12 +281,13 @@ def main():
     print(f"Direction: {result['direction']}")
     print(f"Stations found: {len(result['stations_order'])}")
     
-    # Count total departure entries
+    # Count total departure entries across stations / days / destinations.
     total_entries = 0
-    for station, schedules in result['departures'].items():
-        for day_type, hours in schedules.items():
-            for hour, minutes in hours.items():
-                total_entries += len(minutes)
+    for schedules in result['departures'].values():
+        for dests in schedules.values():
+            for hours in dests.values():
+                for minutes in hours.values():
+                    total_entries += len(minutes)
     print(f"Total departure entries: {total_entries}")
     
     with open(output_path, 'w', encoding='utf-8') as f:
