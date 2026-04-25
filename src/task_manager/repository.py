@@ -1,9 +1,89 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+import calendar as _calendar
 from .models import User, Task, Comment, Preferences, TaskStatus, RecurrencePattern
 from .database import SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
+
+
+def _add_months(dt: datetime, months: int) -> datetime:
+    total = (dt.year * 12 + (dt.month - 1)) + months
+    year, month = total // 12, total % 12 + 1
+    last_day = _calendar.monthrange(year, month)[1]
+    return dt.replace(year=year, month=month, day=min(dt.day, last_day))
+
+
+def _advance(dt: datetime, pattern: RecurrencePattern) -> Optional[datetime]:
+    if pattern == RecurrencePattern.DAILY:
+        return dt + timedelta(days=1)
+    if pattern == RecurrencePattern.WEEKLY:
+        return dt + timedelta(days=7)
+    if pattern == RecurrencePattern.MONTHLY:
+        return _add_months(dt, 1)
+    if pattern == RecurrencePattern.YEARLY:
+        return _add_months(dt, 12)
+    return None
+
+
+def expand_recurring_tasks(tasks: List[Task],
+                           start_date: datetime,
+                           end_date: datetime) -> List[Dict[str, Any]]:
+    """Expand recurring tasks into virtual occurrences within [start_date, end_date].
+
+    Returns a list of dicts (not ORM objects) so callers can serialize them
+    directly without confusing recurring instances with the underlying row.
+    Non-recurring tasks produce a single occurrence if their scheduled_date
+    falls in range. Each dict includes `is_recurring_instance=True` for
+    generated occurrences after the original date.
+    """
+    MAX_ITERATIONS = 1000  # hard cap protects against bad data
+    results: List[Dict[str, Any]] = []
+
+    for task in tasks:
+        if not task.scheduled_date:
+            continue
+
+        is_recurring = (
+            task.recurrence_pattern is not None
+            and task.recurrence_pattern != RecurrencePattern.NONE
+        )
+
+        if not is_recurring:
+            if start_date <= task.scheduled_date <= end_date:
+                results.append(_occurrence(task, task.scheduled_date, False))
+            continue
+
+        max_date = end_date
+        if task.recurrence_end_date is not None:
+            max_date = min(max_date, task.recurrence_end_date)
+
+        current = task.scheduled_date
+        is_first = True
+        for _ in range(MAX_ITERATIONS):
+            if current is None or current > max_date:
+                break
+            if current >= start_date:
+                results.append(_occurrence(task, current, not is_first))
+            is_first = False
+            current = _advance(current, task.recurrence_pattern)
+
+    results.sort(key=lambda r: r['scheduled_date'])
+    return results
+
+
+def _occurrence(task: Task, occurrence_date: datetime, is_recurring_instance: bool) -> Dict[str, Any]:
+    return {
+        'task_id': task.id,
+        'description': task.description,
+        'user_id': task.user_id,
+        'user_name': task.user.name if task.user else None,
+        'user_color': task.user.color if task.user else None,
+        'status': task.status.value if task.status else None,
+        'scheduled_date': occurrence_date,
+        'recurrence_pattern': task.recurrence_pattern.value if task.recurrence_pattern else None,
+        'is_recurring_instance': is_recurring_instance,
+    }
 
 class UserRepository:
     def __init__(self, db: Session):

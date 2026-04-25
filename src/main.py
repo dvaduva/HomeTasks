@@ -2,13 +2,13 @@ from flask import Flask, jsonify, request, render_template, send_file
 import logging
 import os
 import re
-from sqlalchemy import func
+from sqlalchemy import func, and_, or_
 
 logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 from task_manager.database import create_tables, engine
 from task_manager.models import Base, User, Task, Comment, Preferences, TaskStatus, RecurrencePattern
-from task_manager.repository import UserRepository, TaskRepository, CommentRepository, PreferencesRepository
+from task_manager.repository import UserRepository, TaskRepository, CommentRepository, PreferencesRepository, expand_recurring_tasks
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import json
@@ -1288,6 +1288,169 @@ def transport_chat():
     except Exception as e:
         logger.error(f"Transport chat error: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+# ── Calendar ─────────────────────────────────────────────────────────────────
+
+def _parse_user_ids(raw: str):
+    if not raw:
+        return None
+    ids = []
+    for piece in raw.split(','):
+        piece = piece.strip()
+        if not piece:
+            continue
+        try:
+            ids.append(int(piece))
+        except ValueError:
+            continue
+    return ids or None
+
+
+def _candidate_tasks_for_range(db, start_date, end_date, user_ids):
+    """Fetch tasks that could have an occurrence inside [start_date, end_date].
+
+    Recurring tasks count if they started before/at end_date and either have
+    no recurrence_end_date or end at/after start_date. Non-recurring tasks
+    count only if scheduled_date is inside the range.
+    """
+    from task_manager.models import RecurrencePattern as RP
+
+    is_recurring = and_(
+        Task.recurrence_pattern.isnot(None),
+        Task.recurrence_pattern != RP.NONE,
+    )
+    is_non_recurring = or_(
+        Task.recurrence_pattern.is_(None),
+        Task.recurrence_pattern == RP.NONE,
+    )
+
+    query = db.query(Task).filter(
+        Task.scheduled_date <= end_date,
+        or_(
+            and_(is_non_recurring, Task.scheduled_date >= start_date),
+            and_(
+                is_recurring,
+                or_(
+                    Task.recurrence_end_date.is_(None),
+                    Task.recurrence_end_date >= start_date,
+                ),
+            ),
+        ),
+    )
+    if user_ids:
+        query = query.filter(Task.user_id.in_(user_ids))
+    return query.all()
+
+
+@app.route('/calendar')
+def calendar_page():
+    return render_template('calendar.html')
+
+
+@app.route('/api/calendar/month', methods=['GET'])
+def calendar_month():
+    try:
+        year = int(request.args.get('year', datetime.now().year))
+        month = int(request.args.get('month', datetime.now().month))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid year/month'}), 400
+
+    if not (1 <= month <= 12):
+        return jsonify({'error': 'Month out of range'}), 400
+
+    user_ids = _parse_user_ids(request.args.get('user_ids', ''))
+
+    import calendar as _cal
+    start_date = datetime(year, month, 1)
+    last_day = _cal.monthrange(year, month)[1]
+    end_date = datetime(year, month, last_day, 23, 59, 59)
+
+    db = get_db()
+    try:
+        tasks = _candidate_tasks_for_range(db, start_date, end_date, user_ids)
+        occurrences = expand_recurring_tasks(tasks, start_date, end_date)
+
+        users = UserRepository(db).get_all()
+        users_payload = [{'id': u.id, 'name': u.name, 'color': u.color} for u in users]
+
+        days = {}
+        for occ in occurrences:
+            key = occ['scheduled_date'].date().isoformat()
+            days.setdefault(key, []).append({
+                'task_id': occ['task_id'],
+                'description': occ['description'],
+                'user_id': occ['user_id'],
+                'user_name': occ['user_name'],
+                'user_color': occ['user_color'],
+                'status': occ['status'],
+                'scheduled_date': occ['scheduled_date'].isoformat(),
+                'recurrence_pattern': occ['recurrence_pattern'],
+                'is_recurring_instance': occ['is_recurring_instance'],
+            })
+
+        return jsonify({
+            'year': year,
+            'month': month,
+            'users': users_payload,
+            'days': days,
+        })
+    finally:
+        db.close()
+
+
+@app.route('/api/calendar/year', methods=['GET'])
+def calendar_year():
+    try:
+        year = int(request.args.get('year', datetime.now().year))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid year'}), 400
+
+    user_ids = _parse_user_ids(request.args.get('user_ids', ''))
+
+    start_date = datetime(year, 1, 1)
+    end_date = datetime(year, 12, 31, 23, 59, 59)
+
+    db = get_db()
+    try:
+        tasks = _candidate_tasks_for_range(db, start_date, end_date, user_ids)
+        occurrences = expand_recurring_tasks(tasks, start_date, end_date)
+
+        users = UserRepository(db).get_all()
+        user_map = {u.id: {'id': u.id, 'name': u.name, 'color': u.color} for u in users}
+
+        # date_key -> {user_id -> count}
+        days_user_counts = {}
+        days_total = {}
+        for occ in occurrences:
+            key = occ['scheduled_date'].date().isoformat()
+            uid = occ['user_id']
+            days_user_counts.setdefault(key, {})
+            days_user_counts[key][uid] = days_user_counts[key].get(uid, 0) + 1
+            days_total[key] = days_total.get(key, 0) + 1
+
+        days_payload = {}
+        for key, user_counts in days_user_counts.items():
+            days_payload[key] = {
+                'total': days_total[key],
+                'users': [
+                    {
+                        'user_id': uid,
+                        'user_color': (user_map.get(uid) or {}).get('color', '#64748b'),
+                        'user_name': (user_map.get(uid) or {}).get('name', ''),
+                        'count': cnt,
+                    }
+                    for uid, cnt in user_counts.items()
+                ],
+            }
+
+        return jsonify({
+            'year': year,
+            'users': list(user_map.values()),
+            'days': days_payload,
+        })
+    finally:
+        db.close()
 
 
 if __name__ == '__main__':
