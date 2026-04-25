@@ -464,7 +464,6 @@ body {
 .task-list {
     flex: 1;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     touch-action: pan-y;
     padding: 8px;
@@ -896,7 +895,6 @@ body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
 }
 
@@ -906,7 +904,6 @@ body {
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
 }
 
@@ -914,6 +911,7 @@ body {
 .form-row { display: flex; gap: 12px; }
 .form-row .form-group { flex: 1; min-width: 0; }
 .form-hint { font-size: 12px; color: var(--gray-500); }
+.form-hint-spaced { margin-top: 0.25rem; }
 
 .form-inline {
     flex-direction: row;

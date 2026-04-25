@@ -554,7 +554,7 @@ function initVoiceRecognition() {
             useServerMicCheckbox.checked = typeof localStorage !== 'undefined' && localStorage.getItem('hometasks_voice_use_server_mic') === 'true';
             useServerMicCheckbox.disabled = !serverMicAvailable;
             if (serverMicHint) {
-                serverMicHint.style.display = serverMicAvailable ? 'none' : 'block';
+                serverMicHint.hidden = serverMicAvailable;
                 if (!serverMicAvailable) serverMicHint.textContent = t('voice_server_mic_unavailable');
             }
             useServerMicCheckbox.addEventListener('change', function() {
