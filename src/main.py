@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, send_file
+from flask import Flask, jsonify, request, render_template, send_file, Response, stream_with_context
 import logging
 import os
 import re
@@ -1205,6 +1205,163 @@ def refresh_tuya():
 @app.route('/transport')
 def transport_page():
     return render_template('transport.html')
+
+
+@app.route('/radio')
+def radio_page():
+    return render_template('radio.html')
+
+
+@app.route('/api/radio/stations')
+def get_radio_stations():
+    stations_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
+    )
+    try:
+        with open(stations_path, 'r', encoding='utf-8') as f:
+            return jsonify(json.load(f))
+    except FileNotFoundError:
+        return jsonify({'stations': []})
+    except Exception as e:
+        logger.error(f"Error loading radio stations: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# In-memory cache for ICY metadata: { url: (timestamp, title_or_None) }
+_icy_cache = {}
+_ICY_CACHE_TTL = 15  # seconds
+
+
+def _fetch_icy_metadata(stream_url: str, timeout: float = 5.0):
+    """Fetch ICY StreamTitle from a Shoutcast/Icecast audio stream.
+
+    Returns the current title string, or None if not available.
+    """
+    import requests as _requests
+    try:
+        resp = _requests.get(
+            stream_url,
+            headers={'Icy-MetaData': '1', 'User-Agent': 'HomeTasks/1.0'},
+            stream=True,
+            timeout=timeout,
+        )
+        metaint = resp.headers.get('icy-metaint') or resp.headers.get('Icy-Metaint')
+        if not metaint:
+            resp.close()
+            return None
+        metaint = int(metaint)
+        # Skip metaint bytes of audio, then read 1-byte length prefix + metadata.
+        raw = resp.raw
+        audio = raw.read(metaint)
+        if len(audio) < metaint:
+            resp.close()
+            return None
+        length_byte = raw.read(1)
+        if not length_byte:
+            resp.close()
+            return None
+        meta_len = length_byte[0] * 16
+        if meta_len <= 0:
+            resp.close()
+            return None
+        meta_bytes = raw.read(meta_len)
+        resp.close()
+        meta = meta_bytes.rstrip(b'\x00').decode('utf-8', errors='replace')
+        m = re.search(r"StreamTitle='([^']*)'", meta)
+        if not m:
+            return None
+        title = m.group(1).strip()
+        return title or None
+    except Exception as e:
+        logger.debug(f"ICY metadata fetch failed for {stream_url}: {e}")
+        return None
+
+
+@app.route('/api/radio/proxy/<station_id>')
+def radio_proxy(station_id):
+    """Server-side proxy for stations that browsers can't reach directly
+    (CORS, non-standard ports, mixed-content, SSL quirks). Pipes the upstream
+    audio bytes to the client."""
+    import requests as _requests
+
+    stations_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
+    )
+    try:
+        with open(stations_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    station = next((s for s in data.get('stations', []) if s.get('id') == station_id), None)
+    if not station or not station.get('url'):
+        return jsonify({'error': 'station not found'}), 404
+
+    upstream_url = station['url']
+    try:
+        upstream = _requests.get(
+            upstream_url,
+            stream=True,
+            timeout=10,
+            headers={'User-Agent': 'HomeTasks/1.0', 'Icy-MetaData': '0'},
+        )
+    except Exception as e:
+        logger.error(f"Radio proxy upstream failed for {station_id}: {e}")
+        return jsonify({'error': 'upstream unreachable'}), 502
+
+    content_type = upstream.headers.get('Content-Type', 'audio/mpeg')
+
+    def generate():
+        try:
+            for chunk in upstream.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+        except GeneratorExit:
+            pass
+        except Exception as e:
+            logger.debug(f"Radio proxy stream interrupted for {station_id}: {e}")
+        finally:
+            upstream.close()
+
+    headers = {
+        'Cache-Control': 'no-cache, no-store',
+        'Access-Control-Allow-Origin': '*',
+    }
+    return Response(stream_with_context(generate()), mimetype=content_type, headers=headers)
+
+
+@app.route('/api/radio/now-playing')
+def get_radio_now_playing():
+    """Return current track title (ICY StreamTitle) for a given station id."""
+    station_id = request.args.get('id', '').strip()
+    if not station_id:
+        return jsonify({'error': 'id is required'}), 400
+
+    stations_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
+    )
+    try:
+        with open(stations_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    station = next((s for s in data.get('stations', []) if s.get('id') == station_id), None)
+    if not station:
+        return jsonify({'error': 'station not found'}), 404
+
+    url = station.get('url')
+    if not url:
+        return jsonify({'title': None})
+
+    now = datetime.now().timestamp()
+    cached = _icy_cache.get(url)
+    if cached and (now - cached[0]) < _ICY_CACHE_TTL:
+        return jsonify({'title': cached[1]})
+
+    title = _fetch_icy_metadata(url)
+    _icy_cache[url] = (now, title)
+    return jsonify({'title': title})
 
 
 @app.route('/history')
