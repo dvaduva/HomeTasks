@@ -257,6 +257,36 @@ python src/main.py
 
 Aplicația va porni pe http://localhost:5000
 
+### Frontend SPA (în curs de portare — Faza 0/1 finalizate)
+
+Aplicația este în tranziție de la MPA (Flask + Jinja) la SPA (Vue 3 + Vite). Vezi
+[docs/PORTARE_SPA.md](PORTARE_SPA.md) pentru planul complet. Codul SPA se află în
+directorul `frontend/`. Backend-ul Flask rămâne neschimbat și continuă să servească
+paginile MPA până la finalizarea migrării.
+
+Prerechizite suplimentare: **Node.js 18+ și npm**.
+
+```bash
+# Instalare dependențe SPA (o singură dată)
+cd frontend
+npm install
+
+# Dezvoltare (Vite dev server pe :5173, proxy /api → Flask :5000)
+# Pornește Flask separat în alt terminal: python src/main.py
+npm run dev
+
+# Build pentru producție (bundle în frontend/dist/)
+npm run build
+
+# Verificare doar de tipuri (TypeScript), fără build
+npm run type-check
+```
+
+În dev, deschideți http://localhost:5173 — Vite face proxy pentru `/api/*` către
+Flask (`http://localhost:5000`). Paginile încă neportate (`/calendar`, `/radio`,
+`/transport`, `/history`) sunt redirecționate către Flask MPA automat (strategie
+incremental — *strangler pattern*).
+
 ### Configurarea aplicației pentru a porni la pornirea sistemului
 1. Creați un fișier de serviciu systemd pentru aplicația HomeTasks:
    ```bash

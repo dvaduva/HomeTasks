@@ -3,4 +3,10 @@
 server.log
 nul
 tuya_devices.json
-tuya_devices.json
+
+# Frontend SPA (Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.log
+
