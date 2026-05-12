@@ -37,17 +37,3 @@ const emptyKey = computed(() => props.emptyKey || 'no_tasks');
     />
   </div>
 </template>
-
-<style scoped>
-.task-list {
-  padding: 0.5rem;
-  overflow-y: auto;
-  height: 100%;
-}
-.empty {
-  text-align: center;
-  color: #777;
-  font-style: italic;
-  padding: 1rem 0;
-}
-</style>

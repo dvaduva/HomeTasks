@@ -23,10 +23,8 @@ const tuyaOpen = ref(false);
 const now = useNow(1000);
 
 const isRo = computed(() => locale.value === 'ro');
-
 const dateFormat = computed(() => (prefs.data?.date_format as 'short' | 'long' | 'full') || 'full');
 const timeFormat = computed(() => (prefs.data?.time_format as '24' | '12') || '24');
-
 const dateTimeLabel = computed(() => `${formatDate(now.value, dateFormat.value)} ${formatTime(now.value, timeFormat.value)}`);
 
 function switchLocale(): void {
@@ -44,39 +42,56 @@ function toggleAi(): void {
 }
 
 onMounted(() => {
-  // Preferences are loaded eagerly so date/time formats reflect user settings.
   if (!prefs.data) prefs.fetch();
 });
 </script>
 
 <template>
-  <div id="app-root">
-    <header class="app-header">
-      <div class="header-brand"><strong>HomeTasks</strong></div>
+  <div class="app">
+    <header class="header">
+      <div class="header-brand">
+        <strong>HomeTasks</strong>
+      </div>
       <div class="date-time">{{ dateTimeLabel }}</div>
       <div class="header-right">
         <WeatherWidget />
-        <button class="icon-btn" @click="$router.go(0)" :title="$t('title_reload')">↻</button>
-        <button class="icon-btn" @click="settingsOpen = true" :title="$t('title_settings')">⚙</button>
-        <button class="lang-toggle" @click="switchLocale">{{ isRo ? 'EN' : 'RO' }}</button>
+        <button type="button" class="icon-btn" :title="$t('title_reload')" @click="$router.go(0)" aria-label="Reload">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
+        <button type="button" class="icon-btn" :title="$t('title_settings')" @click="settingsOpen = true" aria-label="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button type="button" class="icon-btn lang-btn" @click="switchLocale" :title="isRo ? 'English' : 'Română'" aria-label="Language">
+          {{ isRo ? 'EN' : 'RO' }}
+        </button>
       </div>
     </header>
 
-    <main>
-      <RouterView />
-    </main>
+    <RouterView />
 
-    <footer class="app-footer">
+    <footer class="footer">
       <div class="footer-left">
         <VoiceController />
       </div>
       <div class="footer-right">
-        <button class="footer-btn" @click="openTuya" :title="$t('tuya_btn_label')">🌡</button>
-        <a class="footer-btn" href="/history" :title="$t('history_btn_label')">⏱</a>
-        <a class="footer-btn" href="/calendar" title="Calendar">📅</a>
-        <a class="footer-btn" href="/transport" title="Transport">🚌</a>
-        <a class="footer-btn" href="/radio" title="Radio">📻</a>
-        <button class="footer-btn ai-btn" @click="toggleAi" title="AI Chat">🤖</button>
+        <button type="button" class="footer-btn btn-tuya" :title="$t('tuya_btn_label')" @click="openTuya" aria-label="Tuya">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+        </button>
+        <a class="footer-btn btn-history" href="/history" :title="$t('history_btn_label')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </a>
+        <a class="footer-btn btn-calendar" href="/calendar" title="Calendar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </a>
+        <a class="footer-btn btn-transport" href="/transport" title="Transport Public">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </a>
+        <a class="footer-btn btn-radio" href="/radio" title="Radio Online">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9-9"/><path d="M4 15a5 5 0 0 1 5-5"/><circle cx="5" cy="19" r="2"/><path d="M14 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/></svg>
+        </a>
+        <button type="button" class="footer-btn btn-ai" @click="toggleAi" title="AI Chat" aria-label="AI Chat">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
       </div>
     </footer>
 
@@ -88,89 +103,5 @@ onMounted(() => {
 </template>
 
 <style>
-:root {
-  --header-bg: #2c3e50;
-  --header-fg: #fff;
-  --footer-bg: #fff;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  background: #fafafa;
-}
-#app-root {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1rem;
-  background: var(--header-bg);
-  color: var(--header-fg);
-  height: 56px;
-  flex-shrink: 0;
-}
-.app-header strong { font-size: 1.15rem; }
-.date-time {
-  font-size: 0.9rem;
-  opacity: 0.9;
-}
-.header-right {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-.icon-btn {
-  background: transparent;
-  color: inherit;
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  width: 30px;
-  height: 30px;
-  cursor: pointer;
-  font-size: 1rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.lang-toggle {
-  background: transparent;
-  color: var(--header-fg);
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  padding: 0.2rem 0.5rem;
-  cursor: pointer;
-}
-main { flex: 1; overflow: hidden; }
-.app-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  background: var(--footer-bg);
-  border-top: 1px solid #eee;
-  height: 56px;
-  flex-shrink: 0;
-}
-.footer-left, .footer-right { display: flex; gap: 0.4rem; align-items: center; }
-.footer-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid #ccc;
-  background: #fff;
-  cursor: pointer;
-  font-size: 1rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  color: #333;
-}
-.footer-btn:hover { background: #f0f0f0; }
-.footer-btn.ai-btn { background: #e3f2fd; }
+.lang-btn { font-size: 13px !important; font-weight: 700; letter-spacing: 0.5px; }
 </style>

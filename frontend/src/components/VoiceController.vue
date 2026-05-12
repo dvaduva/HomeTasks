@@ -226,48 +226,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="voice-controller">
-    <button
-      type="button"
-      class="footer-btn btn-voice"
-      :class="{ listening: isListening, disabled: status === 'unavailable' }"
-      :disabled="status === 'unavailable'"
-      :title="status === 'unavailable' ? $t('voice_unavailable') : (isListening ? $t('stop_listening') : $t('start_listening'))"
-      @click="toggleListen"
-      aria-label="Voice"
-    >🎙</button>
-    <span class="voice-status">{{ statusLabel }}</span>
-  </div>
+  <button
+    type="button"
+    class="footer-btn btn-voice"
+    :class="{ listening: isListening }"
+    :disabled="status === 'unavailable'"
+    :title="status === 'unavailable' ? $t('voice_unavailable') : (isListening ? $t('stop_listening') : $t('start_listening'))"
+    @click="toggleListen"
+    aria-label="Voice"
+  >
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+  </button>
+  <span class="status-text">{{ statusLabel }}</span>
 </template>
-
-<style scoped>
-.voice-controller {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.footer-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid #ccc;
-  background: #fff;
-  cursor: pointer;
-  font-size: 1rem;
-}
-.footer-btn.listening {
-  background: #c62828;
-  color: #fff;
-  animation: pulse 1.2s infinite;
-}
-.footer-btn.disabled { opacity: 0.5; cursor: not-allowed; }
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.5); }
-  70% { box-shadow: 0 0 0 8px rgba(198, 40, 40, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0); }
-}
-.voice-status {
-  font-size: 0.8rem;
-  color: #555;
-}
-</style>

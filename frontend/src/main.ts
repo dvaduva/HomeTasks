@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import { router } from './router';
 import { i18n, currentLocale } from './i18n';
+import './assets/css/style.css';
 
 const app = createApp(App);
 

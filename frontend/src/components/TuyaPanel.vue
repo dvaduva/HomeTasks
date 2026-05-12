@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useTuyaStore } from '@/stores/tuya';
 import { useNotification } from '@/composables/useNotification';
 import { useI18n } from 'vue-i18n';
@@ -10,6 +11,8 @@ const tuya = useTuyaStore();
 const { error: errorToast } = useNotification();
 const { t } = useI18n();
 
+const updatedLabel = computed(() => (tuya.updatedAt ? new Date(tuya.updatedAt).toLocaleString() : ''));
+
 async function refresh(): Promise<void> {
   try {
     await tuya.refresh();
@@ -18,100 +21,55 @@ async function refresh(): Promise<void> {
     errorToast(t('tuya_load_error') + (e instanceof Error ? e.message : String(e)));
   }
 }
+
+function tempClass(temp: number | null | undefined): string {
+  if (typeof temp !== 'number') return 'neutral';
+  if (temp >= 24) return 'warm';
+  if (temp <= 19) return 'cool';
+  return 'neutral';
+}
 </script>
 
 <template>
-  <div v-if="open" class="modal-overlay" @click.self="emit('close')">
+  <div v-if="open" class="modal-overlay active" @click.self="emit('close')">
     <div class="modal tuya-modal">
       <div class="modal-head">
         <h2>{{ $t('tuya_modal_title') }}</h2>
-        <button class="icon-btn" @click="emit('close')">✕</button>
+        <button type="button" class="icon-btn" :title="$t('btn_close')" @click="emit('close')">✕</button>
       </div>
 
       <div class="tuya-actions">
         <span class="tuya-updated">
-          <template v-if="tuya.updatedAt">{{ $t('tuya_updated_prefix') }}{{ new Date(tuya.updatedAt).toLocaleString() }}</template>
+          <template v-if="updatedLabel">{{ $t('tuya_updated_prefix') }}{{ updatedLabel }}</template>
         </span>
-        <button class="btn btn-secondary btn-sm" @click="refresh" :disabled="tuya.loading">↻</button>
+        <button type="button" class="btn btn-secondary btn-sm" :disabled="tuya.loading" @click="refresh" :title="$t('tuya_refresh_title')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
       </div>
 
-      <div class="tuya-grid">
-        <p v-if="tuya.loading" class="empty">{{ $t('tuya_connecting') }}</p>
+      <div class="tuya-grid" :class="{ 'tuya-refreshing': tuya.loading }">
+        <p v-if="tuya.loading && tuya.devices.length === 0" class="empty">{{ $t('tuya_connecting') }}</p>
         <p v-else-if="tuya.devices.length === 0" class="empty">{{ $t('tuya_no_devices') }}</p>
-        <div v-for="d in tuya.devices" :key="(d.id as string) || d.name" class="tuya-card">
-          <div class="tuya-card-head">
-            <span class="tuya-name">{{ d.name }}</span>
-            <span class="tuya-status" :class="d.online ? 'on' : 'off'">
-              {{ d.online ? $t('tuya_online') : $t('tuya_offline') }}
-            </span>
+        <div
+          v-for="d in tuya.devices"
+          :key="(d.id as string) || d.name"
+          class="tuya-card"
+          :class="{ offline: !d.online }"
+        >
+          <div class="tuya-card-name">{{ d.name }}</div>
+          <div v-if="typeof d.current_temperature === 'number'" class="tuya-card-temp" :class="tempClass(d.current_temperature)">
+            {{ d.current_temperature.toFixed(1) }}°
           </div>
-          <div class="tuya-temp" v-if="typeof d.current_temperature === 'number'">
-            {{ d.current_temperature.toFixed(1) }}°C
+          <div v-if="typeof d.target_temperature === 'number'" class="tuya-card-set">
+            {{ $t('tuya_target_prefix') }}{{ d.target_temperature.toFixed(1) }}°
           </div>
-          <div v-if="typeof d.humidity === 'number'" class="tuya-meta">💧 {{ Math.round(d.humidity) }}%</div>
-          <div v-if="typeof d.target_temperature === 'number'" class="tuya-meta">
-            {{ $t('tuya_target_prefix') }}{{ d.target_temperature.toFixed(1) }}°C
+          <div v-if="typeof d.humidity === 'number'" class="tuya-card-set">💧 {{ Math.round(d.humidity) }}%</div>
+          <div class="tuya-card-status">
+            <span class="tuya-dot" :class="d.online ? 'online' : 'offline'"></span>
+            {{ d.online ? $t('tuya_online') : $t('tuya_offline') }}
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.modal {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
-  width: min(600px, 92vw);
-  max-height: 85vh;
-  overflow: auto;
-}
-.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-.modal-head h2 { margin: 0; font-size: 1.1rem; }
-.icon-btn { background: transparent; border: none; cursor: pointer; font-size: 1.2rem; }
-.tuya-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-}
-.tuya-updated { color: #666; }
-.btn-sm { padding: 0.3rem 0.6rem; font-size: 0.85rem; }
-.btn-secondary { background: #eee; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
-.btn-secondary:disabled { opacity: 0.6; cursor: wait; }
-.tuya-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.5rem;
-}
-.empty { grid-column: 1 / -1; text-align: center; color: #888; padding: 1rem; }
-.tuya-card {
-  border: 1px solid #eee;
-  border-radius: 6px;
-  padding: 0.6rem 0.75rem;
-  background: #fafafa;
-}
-.tuya-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.85rem;
-  margin-bottom: 0.4rem;
-}
-.tuya-name { font-weight: 600; }
-.tuya-status.on { color: #2e7d32; }
-.tuya-status.off { color: #b71c1c; }
-.tuya-temp { font-size: 1.4rem; font-weight: 600; }
-.tuya-meta { font-size: 0.78rem; color: #666; }
-</style>

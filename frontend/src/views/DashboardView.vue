@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { Task } from '@/api/types';
 import { useUsersStore } from '@/stores/users';
 import { usePreferencesStore } from '@/stores/preferences';
@@ -26,11 +26,9 @@ const filteredToday = computed(() =>
 );
 
 const filteredAll = computed(() => {
-  // "Toate taskurile" column shows upcoming (next 7 days) for selected users.
   const list = users.activeIds.length === 0
     ? tasks.upcoming
     : tasks.upcoming.filter((t) => users.activeIds.includes(t.user_id));
-  // Sort by date ascending.
   return [...list].sort((a, b) => {
     const da = a.scheduled_date ? new Date(a.scheduled_date).getTime() : 0;
     const db = b.scheduled_date ? new Date(b.scheduled_date).getTime() : 0;
@@ -60,35 +58,23 @@ function openComments(t: Task): void {
   commentsTask.value = t;
 }
 
-function onTaskSaved(): void {
-  reloadTasks();
-}
-
-watch(
-  () => users.activeIds,
-  () => {
-    // Active user changes don't need refetch — filtering is client-side.
-  },
-);
-
 onMounted(async () => {
   await Promise.allSettled([users.fetchAll(), prefs.fetch()]);
   await reloadTasks();
 });
-
-defineExpose({ openAdd });
 </script>
 
 <template>
-  <div class="dashboard">
-    <UserBar @add-task="openAdd" />
+  <UserBar @add-task="openAdd" />
 
+  <div class="tasks-wrap">
     <div class="tasks-grid">
-      <section class="task-col">
-        <header class="col-label">
+      <div class="task-col">
+        <div class="col-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span>{{ $t('col_all_tasks') }}</span>
-          <span class="col-count" v-if="filteredAll.length">{{ filteredAll.length }}</span>
-        </header>
+          <span v-if="filteredAll.length" class="col-count">{{ filteredAll.length }}</span>
+        </div>
         <TaskList
           :tasks="filteredAll"
           :loading="tasks.loading"
@@ -96,14 +82,14 @@ defineExpose({ openAdd });
           @edit="openEdit"
           @comments="openComments"
         />
-      </section>
+      </div>
 
-      <section class="task-col">
-        <header class="col-label today-col">
+      <div class="task-col">
+        <div class="col-label today-col">
           <span class="pulse-dot"></span>
           <span>{{ $t('col_today') }}</span>
-          <span class="col-count" v-if="filteredToday.length">{{ filteredToday.length }}</span>
-        </header>
+          <span v-if="filteredToday.length" class="col-count">{{ filteredToday.length }}</span>
+        </div>
         <TaskList
           :tasks="filteredToday"
           :loading="tasks.loading"
@@ -111,73 +97,10 @@ defineExpose({ openAdd });
           @edit="openEdit"
           @comments="openComments"
         />
-      </section>
+      </div>
     </div>
-
-    <TaskModal :open="taskModalOpen" :task="editing" @close="taskModalOpen = false" @saved="onTaskSaved" />
-    <CommentsModal :open="!!commentsTask" :task="commentsTask" @close="commentsTask = null" @added="reloadTasks" />
   </div>
-</template>
 
-<style scoped>
-.dashboard {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 56px - 56px); /* header + footer */
-  min-height: 400px;
-}
-.tasks-grid {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  overflow: hidden;
-}
-.task-col {
-  background: #f7f8fa;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.col-label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: #fff;
-  border-bottom: 1px solid #eee;
-  color: #444;
-}
-.col-count {
-  margin-left: auto;
-  background: #1976d2;
-  color: #fff;
-  border-radius: 999px;
-  padding: 0.05rem 0.5rem;
-  font-size: 0.75rem;
-}
-.today-col .pulse-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ef5350;
-  display: inline-block;
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(239, 83, 80, 0.5); }
-  70% { box-shadow: 0 0 0 6px rgba(239, 83, 80, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 83, 80, 0); }
-}
-@media (max-width: 720px) {
-  .tasks-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
+  <TaskModal :open="taskModalOpen" :task="editing" @close="taskModalOpen = false" @saved="reloadTasks" />
+  <CommentsModal :open="!!commentsTask" :task="commentsTask" @close="commentsTask = null" @added="reloadTasks" />
+</template>

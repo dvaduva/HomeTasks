@@ -18,19 +18,24 @@ const { state, dismiss, resolveConfirm } = useNotification();
       </div>
     </transition-group>
 
-    <div v-if="state.confirms.length" class="confirm-overlay">
+    <div v-if="state.confirms.length" class="modal-overlay active confirm-overlay">
       <div
         v-for="c in state.confirms"
         :key="c.id"
-        class="confirm-dialog"
+        class="modal confirm-dialog"
         role="alertdialog"
       >
-        <p class="confirm-message">{{ c.message }}</p>
-        <div class="confirm-actions">
-          <button class="btn btn-secondary" @click="resolveConfirm(c.id, false)">
+        <div class="modal-head">
+          <h2>{{ c.confirmLabel ? '' : $t('btn_confirm') }}</h2>
+        </div>
+        <div class="tab-content active" style="display:flex;">
+          <p class="confirm-message">{{ c.message }}</p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" @click="resolveConfirm(c.id, false)">
             {{ c.cancelLabel || $t('btn_cancel') }}
           </button>
-          <button class="btn btn-primary" @click="resolveConfirm(c.id, true)" autofocus>
+          <button type="button" class="btn btn-primary" autofocus @click="resolveConfirm(c.id, true)">
             {{ c.confirmLabel || $t('btn_confirm') }}
           </button>
         </div>
@@ -48,69 +53,39 @@ const { state, dismiss, resolveConfirm } = useNotification();
 }
 .toast-stack {
   position: fixed;
-  top: 1rem;
-  right: 1rem;
+  top: 14px;
+  right: 14px;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
   pointer-events: auto;
 }
 .toast {
   min-width: 220px;
   max-width: 360px;
-  padding: 0.65rem 0.9rem;
-  border-radius: 6px;
-  background: #333;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #1e3a5f;
   color: #fff;
-  font-size: 0.9rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.20);
   cursor: pointer;
 }
-.toast-success { background: #2e7d32; }
-.toast-error { background: #c62828; }
-.toast-info { background: #1565c0; }
+.toast-success { background: #16a34a; }
+.toast-error   { background: #dc2626; }
+.toast-info    { background: #1d4ed8; }
 
 .toast-enter-from { opacity: 0; transform: translateX(20px); }
 .toast-enter-active, .toast-leave-active { transition: all 0.2s ease; }
 .toast-leave-to { opacity: 0; transform: translateX(20px); }
 
-.confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: auto;
-  z-index: 10000;
-}
-.confirm-dialog {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1.25rem 1.5rem;
-  min-width: 280px;
-  max-width: 460px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
-}
+.confirm-overlay { z-index: 2000; }
+.confirm-dialog { width: min(440px, calc(100% - 24px)); }
 .confirm-message {
-  margin: 0 0 1rem;
-  font-size: 1rem;
+  font-size: 14px;
   white-space: pre-wrap;
+  margin: 0;
+  color: #334155;
 }
-.confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-.btn {
-  padding: 0.45rem 1rem;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.btn-primary { background: #1976d2; color: #fff; }
-.btn-primary:hover { background: #1565c0; }
-.btn-secondary { background: #eee; color: #333; }
-.btn-secondary:hover { background: #ddd; }
 </style>

@@ -169,18 +169,18 @@ Backend rămâne neschimbat structural — singura modificare e:
 
 ### Faza 0 — Pregătire (½ zi)
 
-- [ ] Creează directorul `frontend/` și inițializează proiect Vite + Vue.
-- [ ] Configurează proxy Vite spre Flask (`/api` → `http://localhost:5000`) pentru dev.
-- [ ] Adaugă `frontend/dist/` în `.gitignore`.
-- [ ] Adaugă script `npm run dev` și `npm run build` în README/INSTALARE.
+- [x] Creează directorul `frontend/` și inițializează proiect Vite + Vue.
+- [x] Configurează proxy Vite spre Flask (`/api` → `http://localhost:5000`) pentru dev.
+- [x] Adaugă `frontend/dist/` în `.gitignore`.
+- [x] Adaugă script `npm run dev` și `npm run build` în README/INSTALARE.
 
 ### Faza 1 — Infrastructură (1-2 zile)
 
-- [ ] Bootstrap `main.ts` cu Vue + Pinia + Router + i18n.
-- [ ] Migrează `TRANSLATIONS` din [main.js](static/js/main.js) (rândurile 7-200+) în `i18n/ro.ts` și `i18n/en.ts`.
-- [ ] Creează `api/client.ts` — fetch wrapper cu gestionare uniformă a erorilor (echivalent cu helper-ele actuale).
-- [ ] Creează store-urile `users`, `tasks`, `preferences`.
-- [ ] Setează layoutul principal `App.vue` cu header, user-bar și `<router-view>`.
+- [x] Bootstrap `main.ts` cu Vue + Pinia + Router + i18n.
+- [x] Migrează `TRANSLATIONS` din [main.js](static/js/main.js) (rândurile 7-200+) în `i18n/ro.ts` și `i18n/en.ts`.
+- [x] Creează `api/client.ts` — fetch wrapper cu gestionare uniformă a erorilor (echivalent cu helper-ele actuale).
+- [x] Creează store-urile `users`, `tasks`, `preferences`.
+- [x] Setează layoutul principal `App.vue` cu header, user-bar și `<router-view>`.
 
 ### Faza 2 — Dashboard / View principal (3-4 zile)
 
