@@ -186,17 +186,17 @@ Backend rămâne neschimbat structural — singura modificare e:
 
 Cea mai grea parte: portarea [main.js](static/js/main.js) (~3300 linii) în componente Vue.
 
-- [ ] `WeatherWidget.vue` — widget vreme cu modal forecast.
-- [ ] `UserBar.vue` — listă useri + selecție activi.
-- [ ] `TaskCard.vue` — card task cu acțiuni (complete/refuse/edit/delete/comments).
-- [ ] `TaskList.vue` — listă taskuri „azi” și „următoarele 7 zile”.
-- [ ] `TaskModal.vue` — modal add/edit task cu recurență.
-- [ ] `CommentsModal.vue` — modal comentarii.
-- [ ] `AiChat.vue` — chat panel cu istoric.
-- [ ] `VoiceController.vue` — wake word, Web Speech API, fallback la server STT/TTS.
-- [ ] `TuyaPanel.vue` — temperaturi dispozitive.
-- [ ] `SettingsPanel.vue` — preferințe (limbă, oraș vreme, model AI, Tuya, voice).
-- [ ] `ConfirmDialog.vue` + `useNotification.ts` (toast-uri).
+- [x] `WeatherWidget.vue` — widget vreme cu modal forecast.
+- [x] `UserBar.vue` — listă useri + selecție activi.
+- [x] `TaskCard.vue` — card task cu acțiuni (complete/refuse/edit/delete/comments).
+- [x] `TaskList.vue` — listă taskuri „azi” și „următoarele 7 zile”.
+- [x] `TaskModal.vue` — modal add/edit task cu recurență.
+- [x] `CommentsModal.vue` — modal comentarii.
+- [x] `AiChat.vue` — chat panel cu istoric.
+- [x] `VoiceController.vue` — wake word, Web Speech API, fallback la server STT/TTS.
+- [x] `TuyaPanel.vue` — temperaturi dispozitive.
+- [x] `SettingsPanel.vue` — preferințe (limbă, oraș vreme, model AI, Tuya, voice).
+- [x] `ConfirmDialog.vue` + `useNotification.ts` (toast-uri) — implementat ca `ToastHost.vue` + composable.
 
 ### Faza 3 — View-uri secundare (2-3 zile)
 
