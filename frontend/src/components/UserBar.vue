@@ -2,16 +2,12 @@
 import { computed } from 'vue';
 import { useUsersStore } from '@/stores/users';
 import { useTasksStore } from '@/stores/tasks';
-import { useNotification } from '@/composables/useNotification';
-import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{ singleSelect?: boolean }>();
 const emit = defineEmits<{ (e: 'add-task'): void }>();
 
 const users = useUsersStore();
 const tasks = useTasksStore();
-const { t } = useI18n();
-const { error: errorToast } = useNotification();
 
 const showAll = computed(() => users.activeIds.length === 0);
 
@@ -32,16 +28,6 @@ const countByUser = computed(() => {
   for (const t of tasks.today) map.set(t.user_id, (map.get(t.user_id) || 0) + 1);
   return map;
 });
-
-async function quickAddUser(): Promise<void> {
-  const name = window.prompt(t('prompt_user_name'));
-  if (!name || !name.trim()) return;
-  try {
-    await users.create(name.trim());
-  } catch (e) {
-    errorToast(e instanceof Error ? e.message : String(e));
-  }
-}
 </script>
 
 <template>
@@ -69,8 +55,6 @@ async function quickAddUser(): Promise<void> {
         <span>{{ u.name }}</span>
         <span v-if="countByUser.get(u.id)" class="user-task-count">{{ countByUser.get(u.id) }}</span>
       </button>
-
-      <button type="button" class="btn-add-user" @click="quickAddUser" :title="$t('btn_add_user')">＋</button>
     </div>
 
     <button type="button" class="btn-add-task" @click="emit('add-task')" :title="$t('title_new_task')">＋</button>

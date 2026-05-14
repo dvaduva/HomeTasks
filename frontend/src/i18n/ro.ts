@@ -122,6 +122,7 @@ export default {
   title_weather: 'Click pentru prognoză orară',
   title_reload: 'Reîncarcă pagina',
   title_settings: 'Setări',
+  title_home: 'Acasă',
   title_new_task: 'Task nou',
   title_check_models: 'Verifică modele disponibile',
   col_all_tasks: 'Toate taskurile',

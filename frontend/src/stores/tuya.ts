@@ -10,7 +10,7 @@ export const useTuyaStore = defineStore('tuya', () => {
 
   function applyPayload(payload: TuyaTemperatures): void {
     devices.value = payload.devices || [];
-    updatedAt.value = payload.updated_at || null;
+    updatedAt.value = payload.generated_at || null;
   }
 
   async function fetch(): Promise<void> {
@@ -19,6 +19,7 @@ export const useTuyaStore = defineStore('tuya', () => {
     try {
       const data = await tuyaApi.temperatures();
       applyPayload(data);
+      if (data.error) error.value = data.error;
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
     } finally {
@@ -30,8 +31,13 @@ export const useTuyaStore = defineStore('tuya', () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await tuyaApi.refresh();
+      // /api/tuya/refresh pulls fresh data from the Tuya cloud and returns
+      // {success, device_count} — not the temperatures — so re-read after.
+      const res = await tuyaApi.refresh();
+      if (res.error) error.value = res.error;
+      const data = await tuyaApi.temperatures();
       applyPayload(data);
+      if (data.error) error.value = data.error;
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
     } finally {

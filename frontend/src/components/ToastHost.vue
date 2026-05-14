@@ -80,7 +80,10 @@ const { state, dismiss, resolveConfirm } = useNotification();
 .toast-enter-active, .toast-leave-active { transition: all 0.2s ease; }
 .toast-leave-to { opacity: 0; transform: translateX(20px); }
 
-.confirm-overlay { z-index: 2000; }
+/* .toast-host disables pointer-events so toasts don't block the page; the
+   confirm dialog must re-enable them or its buttons are dead and the backdrop
+   lets clicks fall through to the page behind (i.e. it isn't actually modal). */
+.confirm-overlay { z-index: 2000; pointer-events: auto; }
 .confirm-dialog { width: min(440px, calc(100% - 24px)); }
 .confirm-message {
   font-size: 14px;

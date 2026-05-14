@@ -22,11 +22,10 @@ async function refresh(): Promise<void> {
   }
 }
 
-function tempClass(temp: number | null | undefined): string {
-  if (typeof temp !== 'number') return 'neutral';
-  if (temp >= 24) return 'warm';
-  if (temp <= 19) return 'cool';
-  return 'neutral';
+function tempClass(current: number | null | undefined, target: number | null | undefined): string {
+  if (typeof current !== 'number') return 'neutral';
+  const ref = typeof target === 'number' ? target : current;
+  return current >= ref ? 'warm' : 'cool';
 }
 </script>
 
@@ -57,13 +56,12 @@ function tempClass(temp: number | null | undefined): string {
           :class="{ offline: !d.online }"
         >
           <div class="tuya-card-name">{{ d.name }}</div>
-          <div v-if="typeof d.current_temperature === 'number'" class="tuya-card-temp" :class="tempClass(d.current_temperature)">
-            {{ d.current_temperature.toFixed(1) }}°
+          <div v-if="typeof d.temp_current === 'number'" class="tuya-card-temp" :class="tempClass(d.temp_current, d.temp_set)">
+            {{ d.temp_current.toFixed(1) }}°
           </div>
-          <div v-if="typeof d.target_temperature === 'number'" class="tuya-card-set">
-            {{ $t('tuya_target_prefix') }}{{ d.target_temperature.toFixed(1) }}°
+          <div v-if="typeof d.temp_set === 'number'" class="tuya-card-set">
+            {{ $t('tuya_target_prefix') }}{{ d.temp_set.toFixed(1) }}°
           </div>
-          <div v-if="typeof d.humidity === 'number'" class="tuya-card-set">💧 {{ Math.round(d.humidity) }}%</div>
           <div class="tuya-card-status">
             <span class="tuya-dot" :class="d.online ? 'online' : 'offline'"></span>
             {{ d.online ? $t('tuya_online') : $t('tuya_offline') }}

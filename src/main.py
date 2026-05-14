@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, send_file, Response, stream_with_context
+from flask import Flask, jsonify, request, render_template, send_file, send_from_directory, Response, stream_with_context
 import logging
 import os
 import re
@@ -20,9 +20,17 @@ from tuya.service import tuya_service
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__, 
-            template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'templates'),
-            static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'static'))
+BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+# Built SPA bundle (frontend/dist) — produced by `npm run build` in frontend/.
+FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
+
+# static_folder/template_folder still point at the legacy MPA assets so the old
+# Jinja pages stay reachable at /legacy/* as a side-by-side reference during the
+# SPA migration. The SPA bundle is served separately (see the SPA section below).
+app = Flask(__name__,
+            template_folder=os.path.join(BASE_DIR, 'templates'),
+            static_folder=os.path.join(BASE_DIR, 'static'),
+            static_url_path='/static')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 
 # Initialize services
@@ -288,10 +296,71 @@ def handle_weather_intent(message: str, db):
         return f"Nu am putut obține datele meteo: {str(e)}"
 
 
-# Routes
+# ── SPA ──────────────────────────────────────────────────────────────────────
+# Flask serves the built Vite bundle from frontend/dist. The bundle only needs
+# its hashed assets (/assets/*) plus index.html; every other non-API, non-/static
+# path falls back to index.html so the client-side router (vue-router) can take
+# over — including /calendar, /radio, /transport, /history and direct refreshes.
+
+def _serve_spa_index():
+    """Serve index.html with no-cache so a rebuilt bundle is never masked by a
+    stale shell still pointing at chunk hashes that no longer exist."""
+    resp = send_from_directory(FRONTEND_DIST, 'index.html')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return resp
+
+
 @app.route('/')
 def index():
+    return _serve_spa_index()
+
+
+@app.route('/assets/<path:filename>')
+def spa_assets(filename):
+    # Asset filenames are content-hashed by Vite, so they can cache forever.
+    return send_from_directory(os.path.join(FRONTEND_DIST, 'assets'), filename)
+
+
+@app.errorhandler(404)
+def spa_fallback(err):
+    """Serve index.html for unknown non-API paths so vue-router can handle them.
+
+    Real /api/* paths still get a genuine 404 instead of the SPA shell.
+    """
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Not found'}), 404
+    return _serve_spa_index()
+
+
+# ── Legacy MPA (reference only) ──────────────────────────────────────────────
+# The old Jinja pages remain reachable under /legacy/* so the previous UI can be
+# compared against the SPA during migration. Static assets (CSS/JS) keep loading
+# from /static. To be removed in Faza 6.
+
+@app.route('/legacy')
+@app.route('/legacy/')
+def legacy_index():
     return render_template('base.html')
+
+
+@app.route('/legacy/calendar')
+def legacy_calendar():
+    return render_template('calendar.html')
+
+
+@app.route('/legacy/radio')
+def legacy_radio():
+    return render_template('radio.html')
+
+
+@app.route('/legacy/transport')
+def legacy_transport():
+    return render_template('transport.html')
+
+
+@app.route('/legacy/history')
+def legacy_history():
+    return render_template('history.html')
 
 @app.route('/api/test')
 def test():
@@ -1202,16 +1271,6 @@ def refresh_tuya():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/transport')
-def transport_page():
-    return render_template('transport.html')
-
-
-@app.route('/radio')
-def radio_page():
-    return render_template('radio.html')
-
-
 @app.route('/api/radio/stations')
 def get_radio_stations():
     stations_path = os.path.join(
@@ -1364,11 +1423,6 @@ def get_radio_now_playing():
     return jsonify({'title': title})
 
 
-@app.route('/history')
-def history_page():
-    return render_template('history.html')
-
-
 @app.route('/api/transport/routes')
 def get_transport_routes():
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'autobus')
@@ -1498,11 +1552,6 @@ def _candidate_tasks_for_range(db, start_date, end_date, user_ids):
     if user_ids:
         query = query.filter(Task.user_id.in_(user_ids))
     return query.all()
-
-
-@app.route('/calendar')
-def calendar_page():
-    return render_template('calendar.html')
 
 
 @app.route('/api/calendar/month', methods=['GET'])

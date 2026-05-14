@@ -118,6 +118,7 @@ export default {
   title_weather: 'Click for hourly forecast',
   title_reload: 'Reload page',
   title_settings: 'Settings',
+  title_home: 'Home',
   title_new_task: 'New task',
   title_check_models: 'Check available models',
   col_all_tasks: 'All tasks',

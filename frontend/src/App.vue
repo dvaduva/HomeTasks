@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { setLocale, type Locale } from '@/i18n';
-import { useNow, formatDate, formatTime } from '@/composables/useDateTime';
+import { useNow } from '@/composables/useDateTime';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useAiStore } from '@/stores/ai';
 import { useTuyaStore } from '@/stores/tuya';
@@ -37,9 +37,20 @@ const tuyaOpen = ref(false);
 const now = useNow(1000);
 
 const isRo = computed(() => locale.value === 'ro');
-const dateFormat = computed(() => (prefs.data?.date_format as 'short' | 'long' | 'full') || 'full');
-const timeFormat = computed(() => (prefs.data?.time_format as '24' | '12') || '24');
-const dateTimeLabel = computed(() => `${formatDate(now.value, dateFormat.value)} ${formatTime(now.value, timeFormat.value)}`);
+// Mirrors the legacy updateDateTime(): full weekday date + time-with-seconds,
+// separated by a comma, locale-aware. The date_format preference only affects
+// task dates, not the header clock.
+const dateTimeLabel = computed(() => {
+  const loc = isRo.value ? 'ro-RO' : 'en-US';
+  const dateStr = now.value.toLocaleDateString(loc, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const timeStr = now.value.toLocaleTimeString(loc);
+  return `${dateStr}, ${timeStr}`;
+});
 
 function switchLocale(): void {
   const next: Locale = isRo.value ? 'en' : 'ro';
@@ -65,9 +76,9 @@ onMounted(() => {
 <template>
   <div class="app">
     <header class="header">
-      <div class="header-brand">
+      <RouterLink to="/" class="header-brand" :title="$t('title_home')">
         <strong>HomeTasks</strong>
-      </div>
+      </RouterLink>
       <div class="date-time">{{ dateTimeLabel }}</div>
       <div class="header-right">
         <WeatherWidget />

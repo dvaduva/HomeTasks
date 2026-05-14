@@ -27,8 +27,8 @@ const filteredToday = computed(() =>
 
 const filteredAll = computed(() => {
   const list = users.activeIds.length === 0
-    ? tasks.upcoming
-    : tasks.upcoming.filter((t) => users.activeIds.includes(t.user_id));
+    ? tasks.all
+    : tasks.all.filter((t) => users.activeIds.includes(t.user_id));
   return [...list].sort((a, b) => {
     const da = a.scheduled_date ? new Date(a.scheduled_date).getTime() : 0;
     const db = b.scheduled_date ? new Date(b.scheduled_date).getTime() : 0;
@@ -38,7 +38,9 @@ const filteredAll = computed(() => {
 
 async function reloadTasks(): Promise<void> {
   try {
-    await Promise.all([tasks.fetchToday(), tasks.fetchUpcoming(undefined, 7)]);
+    // "Toate taskurile" lists every task (like the legacy /api/tasks call);
+    // "Azi" is the separate today-only feed.
+    await Promise.all([tasks.fetchToday(), tasks.fetchAll()]);
   } catch (e) {
     errorToast(e instanceof Error ? e.message : String(e));
   }

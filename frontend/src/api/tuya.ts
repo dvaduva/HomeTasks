@@ -1,24 +1,31 @@
 import { api } from './client';
 
+// Field names mirror what the Flask backend actually returns from
+// TuyaService.get_temperatures() — temp_current/temp_set/generated_at.
 export interface TuyaDevice {
   id?: string;
   name: string;
   online?: boolean;
-  current_temperature?: number | null;
-  target_temperature?: number | null;
-  humidity?: number | null;
-  updated_at?: string | null;
+  temp_current?: number | null;
+  temp_set?: number | null;
   [key: string]: unknown;
 }
 
 export interface TuyaTemperatures {
   devices?: TuyaDevice[];
-  updated_at?: string | null;
+  generated_at?: string | null;
   error?: string;
   [key: string]: unknown;
 }
 
+// /api/tuya/refresh returns a status object, not the temperatures payload.
+export interface TuyaRefreshResult {
+  success?: boolean;
+  device_count?: number;
+  error?: string;
+}
+
 export const tuyaApi = {
   temperatures: () => api.get<TuyaTemperatures>('/api/tuya/temperatures'),
-  refresh: () => api.post<TuyaTemperatures>('/api/tuya/refresh'),
+  refresh: () => api.post<TuyaRefreshResult>('/api/tuya/refresh'),
 };

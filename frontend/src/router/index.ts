@@ -45,3 +45,15 @@ export const router = createRouter({
   history: createWebHistory(),
   routes,
 });
+
+// After a rebuild, a browser holding a stale index.html requests chunk hashes
+// that no longer exist. The lazy `import()` then rejects, vue-router aborts the
+// navigation, and the user is left stranded on whatever page they were on
+// (usually the dashboard). Detect that specific failure and do a hard reload so
+// the fresh index.html — with current chunk hashes — is fetched.
+router.onError((err, to) => {
+  const msg = String((err as Error)?.message || err);
+  if (/dynamically imported module|module script failed|Failed to fetch/i.test(msg)) {
+    window.location.assign(to.fullPath);
+  }
+});

@@ -4,6 +4,7 @@
 
 - Raspberry Pi cu Raspberry Pi OS (sau Debian/Ubuntu)
 - Python 3.9+
+- Node.js 18+ și npm (pentru build-ul SPA — `sudo apt install nodejs npm`)
 - Acces internet pentru instalarea pachetelor
 
 ## Pași pentru deploy
@@ -35,7 +36,22 @@ Câmpuri obligatorii:
 - `SECRET_KEY` — cheie secretă unică (generează cu `python3 -c "import secrets; print(secrets.token_hex(32))"`)
 - `WEATHER_API_KEY` — cheia API OpenWeatherMap (gratuit la openweathermap.org)
 
-### 4. Creează directorul pentru date și log-uri
+### 4. Construiește bundle-ul SPA
+
+Flask servește frontend-ul din `frontend/dist/`. Acesta trebuie generat înainte
+de pornire (și la fiecare actualizare a codului din `frontend/`):
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+Rezultatul (`frontend/dist/`) nu este versionat în git — se reconstruiește la
+fiecare deploy.
+
+### 5. Creează directorul pentru date și log-uri
 
 ```bash
 mkdir -p /home/pi/hometasks/data
@@ -43,7 +59,7 @@ sudo mkdir -p /var/log/hometasks
 sudo chown pi:pi /var/log/hometasks
 ```
 
-### 5. Testează că aplicația pornește
+### 6. Testează că aplicația pornește
 
 ```bash
 source venv/bin/activate
@@ -52,7 +68,7 @@ gunicorn --config deploy/gunicorn.conf.py wsgi:app
 # Ctrl+C pentru a opri
 ```
 
-### 6. Instalează ca serviciu systemd
+### 7. Instalează ca serviciu systemd
 
 ```bash
 sudo cp deploy/hometasks.service /etc/systemd/system/
@@ -61,7 +77,7 @@ sudo systemctl enable hometasks
 sudo systemctl start hometasks
 ```
 
-### 7. Verifică statusul serviciului
+### 8. Verifică statusul serviciului
 
 ```bash
 sudo systemctl status hometasks
@@ -88,6 +104,7 @@ cd /home/pi/hometasks
 git pull
 source venv/bin/activate
 pip install -r requirements.txt
+cd frontend && npm install && npm run build && cd ..
 sudo systemctl restart hometasks
 ```
 

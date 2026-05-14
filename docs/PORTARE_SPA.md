@@ -228,14 +228,28 @@ Avantajul cel mai mare al SPA — `RadioMiniPlayer.vue` continuă să cânte la 
 
 Flask trebuie să servească SPA-ul și să facă fallback pe `index.html` pentru rutele client:
 
-- [ ] Modifică [src/main.py](src/main.py): șterge rutele care randează template (`/`, `/calendar`, `/radio`, `/transport`, `/history`) și înlocuiește-le cu o singură rută catch-all care servește `frontend/dist/index.html`.
-- [ ] Adaugă servirea bundle-ului ca static: `app = Flask(..., static_folder='frontend/dist', static_url_path='/')`.
-- [ ] Păstrează rutele `/api/*` neschimbate.
-- [ ] Actualizează [run.bat](run.bat) și [deploy/](deploy/) — script de build SPA înainte de pornirea Flask în producție.
+- [x] Modifică [src/main.py](src/main.py): șterge rutele care randează template (`/`, `/calendar`, `/radio`, `/transport`, `/history`) și înlocuiește-le cu o singură rută catch-all care servește `frontend/dist/index.html`.
+- [x] Adaugă servirea bundle-ului ca static: `app = Flask(..., static_folder='frontend/dist', static_url_path='/')`.
+- [x] Păstrează rutele `/api/*` neschimbate.
+- [x] Actualizează [run.bat](run.bat) și [deploy/](deploy/) — script de build SPA înainte de pornirea Flask în producție.
+
+> **Note Faza 5:** ruta `/` și un `errorhandler(404)` joacă rolul de catch-all —
+> orice path care nu e fișier real în `frontend/dist/` și nu începe cu `/api/`
+> primește `index.html`, deci `vue-router` preia rutele client (`/calendar`,
+> `/radio`, `/transport`, `/history`) inclusiv la refresh / acces direct prin URL.
+> Apelurile `/api/*` inexistente primesc un 404 JSON real, nu shell-ul SPA.
+> `run.bat` și `deploy/DEPLOY.md` rulează acum `npm run build` înainte de Flask.
+>
+> Bundle-ul SPA e servit prin ruta `/` + `/assets/<path>`; `static_folder` al
+> Flask rămâne pe `static/` (la `/static`), iar paginile Jinja vechi sunt încă
+> accesibile la `/legacy`, `/legacy/calendar`, `/legacy/radio`, `/legacy/transport`,
+> `/legacy/history` — utile ca referință pentru comparație vizuală în timpul
+> migrării. Aceste rute `/legacy/*` și directoarele `templates/` + `static/` se
+> elimină în **Faza 6**.
 
 ### Faza 6 — Polish & cleanup (1-2 zile)
 
-- [ ] Înlătură [templates/](templates/) și [static/](static/) — sau le mută într-un `legacy/` ca backup.
+- [ ] Înlătură [templates/](templates/) și [static/](static/) — sau le mută într-un `legacy/` ca backup. Șterge și rutele `/legacy/*` din [src/main.py](src/main.py) (adăugate în Faza 5 pentru referință).
 - [ ] Code splitting per route (Vite o face automat cu `import()` dynamic în router).
 - [ ] Optimizare bundle pentru RPi: verifică dimensiune (`npm run build` + `du -sh dist/`).
 - [ ] Testare în kiosk Chromium pe RPi.
