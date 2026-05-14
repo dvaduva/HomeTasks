@@ -1,22 +1,36 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import { setLocale, type Locale } from '@/i18n';
 import { useNow, formatDate, formatTime } from '@/composables/useDateTime';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useAiStore } from '@/stores/ai';
 import { useTuyaStore } from '@/stores/tuya';
+import { useRadioStore } from '@/stores/radio';
 import WeatherWidget from '@/components/WeatherWidget.vue';
 import AiChat from '@/components/AiChat.vue';
 import VoiceController from '@/components/VoiceController.vue';
 import TuyaPanel from '@/components/TuyaPanel.vue';
 import SettingsPanel from '@/components/SettingsPanel.vue';
+import RadioMiniPlayer from '@/components/RadioMiniPlayer.vue';
 import ToastHost from '@/components/ToastHost.vue';
 
 const { locale } = useI18n();
+const route = useRoute();
 const prefs = usePreferencesStore();
 const ai = useAiStore();
 const tuya = useTuyaStore();
+const radio = useRadioStore();
+
+// The floating radio widget shows everywhere except the /radio page (which has
+// its own player), as long as a station is selected and not user-dismissed.
+const showMiniPlayer = computed(
+  () =>
+    !!radio.currentStation &&
+    route.path !== '/radio' &&
+    (!radio.miniDismissed || radio.isPlaying),
+);
 
 const settingsOpen = ref(false);
 const tuyaOpen = ref(false);
@@ -43,6 +57,8 @@ function toggleAi(): void {
 
 onMounted(() => {
   if (!prefs.data) prefs.fetch();
+  // Restore the last radio station so the mini player can resume across reloads.
+  radio.init();
 });
 </script>
 
@@ -98,6 +114,7 @@ onMounted(() => {
     <AiChat />
     <TuyaPanel :open="tuyaOpen" @close="tuyaOpen = false" />
     <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
+    <RadioMiniPlayer v-if="showMiniPlayer" />
     <ToastHost />
   </div>
 </template>

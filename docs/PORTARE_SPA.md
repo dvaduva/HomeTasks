@@ -214,9 +214,15 @@ Cea mai grea parte: portarea [main.js](static/js/main.js) (~3300 linii) în comp
 
 Avantajul cel mai mare al SPA — `RadioMiniPlayer.vue` continuă să cânte la navigare:
 
-- [ ] `RadioMiniPlayer.vue` montat în `App.vue`, alimentat din store-ul `radio`.
-- [ ] Sincronizare bidirecțională cu `RadioView.vue` (play/pause/stație curentă).
-- [ ] Voice controller persistent (nu se reinițializează la schimbarea view-ului).
+- [x] `RadioMiniPlayer.vue` montat în `App.vue`, alimentat din store-ul `radio`.
+- [x] Sincronizare bidirecțională cu `RadioView.vue` (play/pause/stație curentă).
+- [x] Voice controller persistent (nu se reinițializează la schimbarea view-ului).
+
+> **Note Faza 4:** elementul `<audio>` și toată starea de redare au fost mutate
+> în `stores/radio.ts` (singleton Pinia), deci redarea supraviețuiește navigării.
+> `RadioView.vue` și `RadioMiniPlayer.vue` sunt acum doar UI peste store.
+> `VoiceController.vue` era deja montat în footer-ul din `App.vue` (în afara
+> `<RouterView>`), deci nu se reinițializează la schimbarea view-ului.
 
 ### Faza 5 — Integrare backend (1 zi)
 
