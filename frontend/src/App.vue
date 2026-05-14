@@ -77,18 +77,18 @@ onMounted(() => {
         <button type="button" class="footer-btn btn-tuya" :title="$t('tuya_btn_label')" @click="openTuya" aria-label="Tuya">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
         </button>
-        <a class="footer-btn btn-history" href="/history" :title="$t('history_btn_label')">
+        <RouterLink class="footer-btn btn-history" to="/history" :title="$t('history_btn_label')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </a>
-        <a class="footer-btn btn-calendar" href="/calendar" title="Calendar">
+        </RouterLink>
+        <RouterLink class="footer-btn btn-calendar" to="/calendar" title="Calendar">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        </a>
-        <a class="footer-btn btn-transport" href="/transport" title="Transport Public">
+        </RouterLink>
+        <RouterLink class="footer-btn btn-transport" to="/transport" title="Transport Public">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-        </a>
-        <a class="footer-btn btn-radio" href="/radio" title="Radio Online">
+        </RouterLink>
+        <RouterLink class="footer-btn btn-radio" to="/radio" title="Radio Online">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9-9"/><path d="M4 15a5 5 0 0 1 5-5"/><circle cx="5" cy="19" r="2"/><path d="M14 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/></svg>
-        </a>
+        </RouterLink>
         <button type="button" class="footer-btn btn-ai" @click="toggleAi" title="AI Chat" aria-label="AI Chat">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>

@@ -1,0 +1,157 @@
+/* History view — migrated from static/css/history.css.
+   Page-shell rules dropped; SPA App shell provides header/footer. */
+
+.history-view {
+    grid-row: 2 / 4;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.history-content {
+    width: min(1080px, 100%);
+    height: 100%;
+    margin: 0 auto;
+    padding: 16px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.history-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 10px;
+    flex-shrink: 0;
+}
+
+.history-filters select {
+    flex: 1;
+    min-width: 170px;
+    padding: 9px 10px;
+    font-size: 14px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--gray-900);
+    outline: none;
+}
+
+.history-filters select:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+}
+
+.history-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.history-empty {
+    padding: 24px 12px;
+    text-align: center;
+    color: var(--gray-500);
+}
+
+.history-group-header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    padding: 8px 0 6px;
+    border-bottom: 1px solid var(--gray-200);
+    margin-bottom: 6px;
+    margin-top: 14px;
+    position: sticky;
+    top: 0;
+    background: var(--white);
+}
+
+.history-group-header:first-child {
+    margin-top: 0;
+}
+
+.history-task {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
+    margin-bottom: 6px;
+    background: var(--white);
+}
+
+.history-task.completed {
+    opacity: 0.6;
+}
+
+.history-task.completed .history-task-desc {
+    text-decoration: line-through;
+    color: var(--gray-500);
+}
+
+.history-task.refused {
+    border-left: 3px solid var(--red);
+    opacity: 0.6;
+}
+
+.history-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+.history-status-dot.completed {
+    background: var(--green);
+}
+
+.history-status-dot.refused {
+    background: var(--red);
+}
+
+.history-status-dot.pending {
+    background: var(--amber);
+}
+
+.history-task-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.history-task-desc {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.history-task-meta {
+    display: flex;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-top: 4px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.history-user-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}

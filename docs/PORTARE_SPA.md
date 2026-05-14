@@ -200,10 +200,15 @@ Cea mai grea parte: portarea [main.js](static/js/main.js) (~3300 linii) în comp
 
 ### Faza 3 — View-uri secundare (2-3 zile)
 
-- [ ] `CalendarView.vue` — vedere lună și an (din [calendar.js](static/js/calendar.js)).
-- [ ] `TransportView.vue` — orare autobuz + chat AI transport (din [transport.js](static/js/transport.js)).
-- [ ] `HistoryView.vue` — istoric (din [history.js](static/js/history.js)).
-- [ ] `RadioView.vue` — listă stații + player principal (din [radio.js](static/js/radio.js)).
+- [x] `CalendarView.vue` — vedere lună și an (din [calendar.js](static/js/calendar.js)).
+- [x] `TransportView.vue` — orare autobuz + chat AI transport (din [transport.js](static/js/transport.js)).
+- [x] `HistoryView.vue` — istoric (din [history.js](static/js/history.js)).
+- [x] `RadioView.vue` — listă stații + player principal (din [radio.js](static/js/radio.js)).
+
+> **Note Faza 3:** rutele `/calendar`, `/radio`, `/transport`, `/history` sunt acum
+> servite de SPA; navigarea din footer folosește `<RouterLink>` (fără reload).
+> Accesul direct prin URL / refresh pe aceste rute încă lovește template-urile
+> Jinja din Flask — fallback-ul catch-all spre `index.html` se face în **Faza 5**.
 
 ### Faza 4 — Componente persistente (1 zi)
 

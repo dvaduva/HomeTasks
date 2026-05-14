@@ -1,15 +1,33 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 
-// Incremental migration: only `/` is rendered by the SPA right now.
-// Other routes (calendar, radio, transport, history) still live on Flask MPA;
-// navigating to them forces a full page load so Flask can serve the legacy HTML.
-const legacyRoutes = ['/calendar', '/radio', '/transport', '/history'];
-
+// All five views are now served by the SPA (Faza 3 complete).
+// The catch-all below only matches paths the SPA genuinely doesn't know,
+// falling back to Flask via a full page load.
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'dashboard',
     component: () => import('@/views/DashboardView.vue'),
+  },
+  {
+    path: '/calendar',
+    name: 'calendar',
+    component: () => import('@/views/CalendarView.vue'),
+  },
+  {
+    path: '/radio',
+    name: 'radio',
+    component: () => import('@/views/RadioView.vue'),
+  },
+  {
+    path: '/transport',
+    name: 'transport',
+    component: () => import('@/views/TransportView.vue'),
+  },
+  {
+    path: '/history',
+    name: 'history',
+    component: () => import('@/views/HistoryView.vue'),
   },
   // Catch-all: anything not handled here falls through to Flask via window.location.
   {
@@ -27,5 +45,3 @@ export const router = createRouter({
   history: createWebHistory(),
   routes,
 });
-
-export { legacyRoutes };

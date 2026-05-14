@@ -12,3 +12,16 @@ export { tuyaApi } from './tuya';
 export type { TuyaDevice, TuyaTemperatures } from './tuya';
 export { voiceApi } from './voice';
 export type { VoiceServerAvailable, VoiceListenResult } from './voice';
+export { calendarApi } from './calendar';
+export type {
+  CalendarTask,
+  CalendarUser,
+  CalendarMonth,
+  CalendarYear,
+  CalendarYearDay,
+  CalendarYearDayUser,
+} from './calendar';
+export { transportApi } from './transport';
+export type { TransportRoute, TransportChatRequest, TransportChatResponse } from './transport';
+export { radioApi } from './radio';
+export type { RadioStation, RadioNowPlaying } from './radio';

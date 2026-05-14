@@ -1,22 +1,9 @@
 {
-  "generated_at": "2026-05-12T15:13:03.667369+00:00",
+  "generated_at": "2026-05-14T06:23:01.744349+00:00",
   "devices": [
     {
-      "id": "bfcfd3dac3f3760173hipk",
-      "name": "Irigație grădină",
-      "product_name": "6路智能水阀控制器",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [],
-        "success": true,
-        "t": 1778598784120,
-        "tid": "12b45f604e1511f1bcf56a64b78218be"
-      }
-    },
-    {
-      "id": "bf8423321cc1f58beb6fyy",
-      "name": "Birou",
+      "id": "bfa6b3cbe1619cde3fuum7",
+      "name": "Cameră Ana",
       "product_name": "Temp-1",
       "model": "",
       "online": true,
@@ -28,11 +15,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 233
+            "value": 223
           },
           {
             "code": "mode",
@@ -64,8 +51,21 @@
           }
         ],
         "success": true,
-        "t": 1778598785106,
-        "tid": "1351497d4e1511f1bcf56a64b78218be"
+        "t": 1778739783100,
+        "tid": "5ca95a794f5d11f1bcf56a64b78218be"
+      }
+    },
+    {
+      "id": "bfcfd3dac3f3760173hipk",
+      "name": "Irigație grădină",
+      "product_name": "6路智能水阀控制器",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [],
+        "success": true,
+        "t": 1778739784047,
+        "tid": "5d3f9f304f5d11f1a5282e73ccca7306"
       }
     },
     {
@@ -86,7 +86,7 @@
           },
           {
             "code": "temp_current",
-            "value": 222
+            "value": 203
           },
           {
             "code": "mode",
@@ -118,8 +118,62 @@
           }
         ],
         "success": true,
-        "t": 1778598786123,
-        "tid": "13e9a43d4e1511f1a5282e73ccca7306"
+        "t": 1778739784975,
+        "tid": "5dcdd5dd4f5d11f1a6ac2e774112580c"
+      }
+    },
+    {
+      "id": "bf8423321cc1f58beb6fyy",
+      "name": "Birou",
+      "product_name": "Temp-1",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 215
+          },
+          {
+            "code": "temp_current",
+            "value": 225
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
+        "success": true,
+        "t": 1778739785905,
+        "tid": "5e5b6e144f5d11f1a6ac2e774112580c"
       }
     },
     {
@@ -136,11 +190,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 222
+            "value": 199
           },
           {
             "code": "mode",
@@ -172,8 +226,8 @@
           }
         ],
         "success": true,
-        "t": 1778598787074,
-        "tid": "147da7764e1511f18f256e9984e9d316"
+        "t": 1778739786857,
+        "tid": "5ee81a864f5d11f1bcf56a64b78218be"
       }
     },
     {
@@ -190,11 +244,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 222
+            "value": 203
           },
           {
             "code": "mode",
@@ -226,62 +280,8 @@
           }
         ],
         "success": true,
-        "t": 1778598788065,
-        "tid": "151065a04e1511f19b240eb6daf76308"
-      }
-    },
-    {
-      "id": "bfa6b3cbe1619cde3fuum7",
-      "name": "Cameră Ana",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 210
-          },
-          {
-            "code": "temp_current",
-            "value": 236
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 45
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1778598789048,
-        "tid": "15ab766e4e1511f1bcf56a64b78218be"
+        "t": 1778739787795,
+        "tid": "5f7abc634f5d11f1a5282e73ccca7306"
       }
     },
     {
@@ -298,11 +298,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 234
+            "value": 222
           },
           {
             "code": "mode",
@@ -334,8 +334,8 @@
           }
         ],
         "success": true,
-        "t": 1778598789966,
-        "tid": "1638abc04e1511f19b240eb6daf76308"
+        "t": 1778739788728,
+        "tid": "6009e0964f5d11f1a6ac2e774112580c"
       }
     }
   ]
