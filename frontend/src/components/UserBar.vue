@@ -25,7 +25,7 @@ function toggle(id: number): void {
 
 const countByUser = computed(() => {
   const map = new Map<number, number>();
-  for (const t of tasks.today) map.set(t.user_id, (map.get(t.user_id) || 0) + 1);
+  for (const t of tasks.all) map.set(t.user_id, (map.get(t.user_id) || 0) + 1);
   return map;
 });
 </script>
