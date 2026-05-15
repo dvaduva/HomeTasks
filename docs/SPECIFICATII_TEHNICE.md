@@ -29,15 +29,22 @@
 - Alte distribuții Linux compatibile cu ARM v8
 
 ### Limbaj de programare și mediu de execuție
+
+**Backend:**
 - Python 3.9 sau mai nou
 - Pip 21.0 sau mai nou
 - Mediu virtual recomandat (venv/virtualenv)
+
+**Frontend SPA:**
+- Node.js 18+ și npm (doar la build — `npm run build` produce
+  `frontend/dist/`; Python nu depinde de Node la runtime)
+- TypeScript 5.5+ (gestionat de `frontend/package.json`)
 
 ### Biblioteci Python necesare
 
 #### Framework web
 ```bash
-pip install flask  # sau fastapi
+pip install flask
 ```
 
 #### Gestionare taskuri și date
@@ -172,10 +179,12 @@ ollama serve
 - Timp de pornire țintă: sub 10 de secunde de la pornire la interfață utilizabilă
 
 ### Optimizări specifice
-- Încărcare lângășă a modulelor târziu folosite
+- SPA cu code-splitting per route (Vite `import()` dinamic) — bundle inițial
+  ~88 KB gzip
+- Asset-uri precompresate `.br`/`.gz` servite în funcție de `Accept-Encoding`
 - Cache-ing al predicțiilor meteo pentru a reduce numărul de cereri API
-- Optimizare interfață pentru actualizări fluide prin teknikă de AJAX/polling sau WebSockets
-- Folosire de thread-uri separate pentru operatii blocațitoare (rețeă, I/O)
+- Polling centralizat pentru widget-uri persistente (Tuya, now-playing radio)
+- Folosire de thread-uri separate pentru operații blocante (rețea, I/O)
 
 ## Compatibilitate și portabilitate
 

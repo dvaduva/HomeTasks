@@ -249,11 +249,28 @@ Flask trebuie să servească SPA-ul și să facă fallback pe `index.html` pentr
 
 ### Faza 6 — Polish & cleanup (1-2 zile)
 
-- [ ] Înlătură [templates/](templates/) și [static/](static/) — sau le mută într-un `legacy/` ca backup. Șterge și rutele `/legacy/*` din [src/main.py](src/main.py) (adăugate în Faza 5 pentru referință).
-- [ ] Code splitting per route (Vite o face automat cu `import()` dynamic în router).
-- [ ] Optimizare bundle pentru RPi: verifică dimensiune (`npm run build` + `du -sh dist/`).
-- [ ] Testare în kiosk Chromium pe RPi.
-- [ ] Update [docs/INSTALARE.md](docs/INSTALARE.md), [docs/ARHITECTURA.md](docs/ARHITECTURA.md), [docs/SPECIFICATII_TEHNICE.md](docs/SPECIFICATII_TEHNICE.md).
+- [x] Înlătură [templates/](templates/) și [static/](static/) — mutate în
+      [legacy/](../legacy/) ca backup. Rutele `/legacy/*` și `render_template`-ul
+      au fost eliminate din [src/main.py](src/main.py).
+- [x] Code splitting per route — fiecare view (`DashboardView`, `CalendarView`,
+      `RadioView`, `TransportView`, `HistoryView`) este `import()` dinamic în
+      [frontend/src/router/index.ts](../frontend/src/router/index.ts), deci Vite
+      emite un chunk separat per route.
+- [x] Optimizare bundle pentru RPi: adăugat `vite-plugin-compression` care emite
+      `.br` și `.gz` lângă fiecare asset; Flask alege automat varianta corectă
+      pe baza `Accept-Encoding`. Bundle inițial (index + index.css, gzip):
+      **~88 KB**; total `dist/` ne-compresat: ~353 KB; total `dist/` cu
+      `.br`/`.gz` incluse: ~619 KB pe disc — sub țintă (< 300 KB pe wire).
+- [ ] Testare în kiosk Chromium pe RPi — de făcut pe device (nu putem rula
+      Chromium ARM din acest mediu).
+- [x] Update [docs/INSTALARE.md](docs/INSTALARE.md), [docs/ARHITECTURA.md](docs/ARHITECTURA.md), [docs/SPECIFICATII_TEHNICE.md](docs/SPECIFICATII_TEHNICE.md).
+
+> **Note Faza 6:** Flask nu mai are nici `template_folder`, nici `static_folder`
+> — întregul UI vine din `frontend/dist/`. Asset-urile precompresate sunt servite
+> doar dacă clientul trimite `Accept-Encoding: br` / `gzip`; altfel se livrează
+> fișierul original (același content-hash, deci cache-ul rămâne valid).
+> Directorul [legacy/](../legacy/) păstrează codul MPA pentru referință
+> istorică și poate fi șters complet după ce migrarea e validată în producție.
 
 ---
 
@@ -302,6 +319,9 @@ Branch separat, portare completă, merge când e gata. Mai rapid dacă există d
 | 5 — Integrare backend | 1 |
 | 6 — Polish | 1.5 |
 | **Total** | **~11.5 zile** |
+
+> **Status:** Fazele 0-6 complete (testarea în kiosk Chromium pe RPi rămâne ca
+> verificare on-device). MPA-ul vechi e arhivat în [legacy/](../legacy/).
 
 ---
 

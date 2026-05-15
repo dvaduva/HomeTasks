@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, send_file, send_from_directory, Response, stream_with_context
+from flask import Flask, jsonify, request, send_file, send_from_directory, Response, stream_with_context
 import logging
 import os
 import re
@@ -24,13 +24,9 @@ BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 # Built SPA bundle (frontend/dist) — produced by `npm run build` in frontend/.
 FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
 
-# static_folder/template_folder still point at the legacy MPA assets so the old
-# Jinja pages stay reachable at /legacy/* as a side-by-side reference during the
-# SPA migration. The SPA bundle is served separately (see the SPA section below).
-app = Flask(__name__,
-            template_folder=os.path.join(BASE_DIR, 'templates'),
-            static_folder=os.path.join(BASE_DIR, 'static'),
-            static_url_path='/static')
+# Flask serves only the SPA bundle now (frontend/dist) and the JSON API. The
+# legacy Jinja templates and vanilla-JS assets have been archived under legacy/.
+app = Flask(__name__, static_folder=None)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 
 # Initialize services
@@ -298,9 +294,9 @@ def handle_weather_intent(message: str, db):
 
 # ── SPA ──────────────────────────────────────────────────────────────────────
 # Flask serves the built Vite bundle from frontend/dist. The bundle only needs
-# its hashed assets (/assets/*) plus index.html; every other non-API, non-/static
-# path falls back to index.html so the client-side router (vue-router) can take
-# over — including /calendar, /radio, /transport, /history and direct refreshes.
+# its hashed assets (/assets/*) plus index.html; every other non-API path falls
+# back to index.html so the client-side router (vue-router) can take over —
+# including /calendar, /radio, /transport, /history and direct refreshes.
 
 def _serve_spa_index():
     """Serve index.html with no-cache so a rebuilt bundle is never masked by a
@@ -315,10 +311,30 @@ def index():
     return _serve_spa_index()
 
 
+_ASSETS_DIR = os.path.join(FRONTEND_DIST, 'assets')
+
+
 @app.route('/assets/<path:filename>')
 def spa_assets(filename):
     # Asset filenames are content-hashed by Vite, so they can cache forever.
-    return send_from_directory(os.path.join(FRONTEND_DIST, 'assets'), filename)
+    # When Vite emitted precompressed siblings (.br / .gz via vite-plugin-compression)
+    # and the client advertises support, serve those so RPi kiosk pays less bandwidth.
+    accept = request.headers.get('Accept-Encoding', '')
+    for ext, enc in (('.br', 'br'), ('.gz', 'gzip')):
+        if enc in accept and os.path.isfile(os.path.join(_ASSETS_DIR, filename + ext)):
+            resp = send_from_directory(_ASSETS_DIR, filename + ext)
+            # Preserve the underlying content-type (JS/CSS) — Flask would otherwise
+            # report it as application/gzip / application/octet-stream.
+            if filename.endswith('.js'):
+                resp.headers['Content-Type'] = 'application/javascript'
+            elif filename.endswith('.css'):
+                resp.headers['Content-Type'] = 'text/css'
+            elif filename.endswith('.svg'):
+                resp.headers['Content-Type'] = 'image/svg+xml'
+            resp.headers['Content-Encoding'] = enc
+            resp.headers['Vary'] = 'Accept-Encoding'
+            return resp
+    return send_from_directory(_ASSETS_DIR, filename)
 
 
 @app.errorhandler(404)
@@ -331,36 +347,6 @@ def spa_fallback(err):
         return jsonify({'error': 'Not found'}), 404
     return _serve_spa_index()
 
-
-# ── Legacy MPA (reference only) ──────────────────────────────────────────────
-# The old Jinja pages remain reachable under /legacy/* so the previous UI can be
-# compared against the SPA during migration. Static assets (CSS/JS) keep loading
-# from /static. To be removed in Faza 6.
-
-@app.route('/legacy')
-@app.route('/legacy/')
-def legacy_index():
-    return render_template('base.html')
-
-
-@app.route('/legacy/calendar')
-def legacy_calendar():
-    return render_template('calendar.html')
-
-
-@app.route('/legacy/radio')
-def legacy_radio():
-    return render_template('radio.html')
-
-
-@app.route('/legacy/transport')
-def legacy_transport():
-    return render_template('transport.html')
-
-
-@app.route('/legacy/history')
-def legacy_history():
-    return render_template('history.html')
 
 @app.route('/api/test')
 def test():

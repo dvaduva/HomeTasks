@@ -3,48 +3,63 @@
 ## Diagrama de arhitectură
 
 ```
-+---------------------+     +------------------+     +----------------------+
-|                     |     |                  |     |                      |
-|   Frontend Browser  |<--->|   Backend Server |<--->|   Model Date         |
-|   (HTML/CSS/JS)     |     |   (Flask/FastAPI)|     |   (SQLite)           |
-|                     |     |                  |     |                      |
-+---------------------+     +------------------+     +----------------------+
++----------------------+     +------------------+     +----------------------+
+|                      |     |                  |     |                      |
+|   Frontend SPA       |<--->|   Backend Flask  |<--->|   Model Date         |
+|   (Vue 3 + Vite      |     |   (REST + bundle |     |   (SQLite)           |
+|    + Pinia + Router) |     |    SPA static)   |     |                      |
++----------------------+     +------------------+     +----------------------+
           ^                         ^                         ^
           |                         |                         |
           |                         |                         |
-+---------------------+     +------------------+     +----------------------+
-|                     |     |                  |     |                      |
-|  Modul Vreme        |     |  Modul Ollama    |     |  Modul Vocal         |
-|  (API meteorologic) |     |  (AI local)      |     |  (Speech-to-Text)    |
-|                     |     |                  |     |                      |
-+---------------------+     +------------------+     +----------------------+
++----------------------+     +------------------+     +----------------------+
+|                      |     |                  |     |                      |
+|  Modul Vreme         |     |  Modul Ollama    |     |  Modul Vocal         |
+|  (API meteorologic)  |     |  (AI local)      |     |  (Speech-to-Text)    |
+|                      |     |                  |     |                      |
++----------------------+     +------------------+     +----------------------+
 ```
 
 ## Descriere componentelor
 
-### 1. Frontend Browser
-- **Scop**: Afișarea informațiilor utilizatorului și capturarea interacțiunilor prin browser
-- **Tehnologii**: HTML5, CSS3, JavaScript (Vanilla sau cu HTMX/Alpine.js pentru simplicitate)
+### 1. Frontend SPA (Vue 3)
+- **Scop**: Interfața utilizator livrată ca Single Page Application; navigarea
+  între view-uri nu mai produce reload, deci redarea radio, controllerul vocal
+  și AI chat-ul își păstrează starea peste schimbarea de „pagină”.
+- **Tehnologii**: Vue 3 (`<script setup>` + SFC), Vite, TypeScript, Pinia
+  (state global), Vue Router (rutare client-side cu code-splitting per route),
+  Vue I18n (ro/en). Codul sursă: [`frontend/src/`](../frontend/src/).
+- **View-uri**: `DashboardView`, `CalendarView`, `RadioView`, `TransportView`,
+  `HistoryView` — fiecare e încărcat dinamic (`import()`), deci ajunge la client
+  ca chunk separat.
+- **Componente persistente** (montate în `App.vue`, în afara `<RouterView>`):
+  `RadioMiniPlayer.vue` (alimentat de store-ul `radio`, audio element singleton)
+  și `VoiceController.vue` (wake word + Web Speech API + fallback la STT/TTS pe
+  server).
+- **Build**: `npm run build` produce `frontend/dist/`, cu chunks hashate și
+  variante precompresate `.br`/`.gz` (vite-plugin-compression).
 - **Responsabilități**:
   - Afișarea taskurilor pentru ziua curentă și următoarele 7 zile
   - Afișarea informațiilor meteorologice curente și prognoza
-  - Capturarea input-ului prin formulare și butoane
-  - Afișarea notificărilor și mesajelor de confirmare
-  - Actualizarea dinamică a conținutului prin AJAX/WebSockets
-  - Implementarea recunoașterii vocale client-side prin Web Speech API
+  - Recunoaștere vocală client-side prin Web Speech API
+  - Comunicare cu API-ul REST printr-un client central (`api/client.ts`)
   - Responsivitate pentru acces de pe dispozitive mobile și tablete
 
-### 2. Backend Server (Flask/FastAPI)
-- **Scop**: Coordonația fluxului de date, logica de aplicatie și expunerea API-urilor
-- **Tehnologii**: Python cu framework-ul Flask sau FastAPI
+### 2. Backend Server (Flask)
+- **Scop**: Expune API-ul REST și servește bundle-ul SPA. Nu mai folosește
+  template-uri Jinja — întreaga logică de prezentare e în client.
+- **Tehnologii**: Python 3.9+ cu Flask. Punct de intrare: [`src/main.py`](../src/main.py).
 - **Responsabilități**:
-  - Primirea cererilor HTTP de la frontend și direcționarea lor către modulele corespunzătoare
-  - Gestionarea stării aplicației prin sesiuni sau tokenuri
-  - Coordinarea comunicării dintre modulele de business logic
-  - Implementarea regulilor de business (validare taskuri, verificare permisiuni utilizator etc.)
-  - Gestionarea erorilor și returnarea de răspunsuri HTTP corespunzătoare
-  - Servirea fișierelor statice (HTML, CSS, JS)
-  - Expunerea API-urilor REST pentru comunicarea cu frontend-ul
+  - Servirea `frontend/dist/index.html` ca shell SPA (cu `Cache-Control: no-cache`
+    pentru a evita chunk hashes învechite)
+  - Servirea asset-urilor hashate din `frontend/dist/assets/`, alegând automat
+    varianta `.br`/`.gz` în funcție de `Accept-Encoding`
+  - Fallback 404 → `index.html` pentru orice path non-`/api/`, astfel ca
+    refresh-ul pe rute client-side (`/calendar`, `/radio`, …) să funcționeze
+  - Primirea cererilor HTTP de la frontend și direcționarea lor către modulele
+    corespunzătoare (vreme, Ollama, voice, Tuya, radio, transport, calendar)
+  - Gestionarea erorilor și returnarea de răspunsuri JSON corespunzătoare
+  - Expunerea API-urilor REST `/api/*` pentru comunicarea cu SPA-ul
 
 ### 3. Model Date (SQLite)
 - **Scop**: Stocarea persistentă a datelor aplicației
@@ -132,10 +147,13 @@
 - Comunicarea prin intermediul API-urilor REST standardizate
 - Facilită dezvoltarea独立ă a frontend-ului și backend-ului
 
-### MVC (Model-View-Controller) adaptat pentru web
+### Separare client/server (SPA + REST)
 - **Model**: Baza de date SQLite și clasele de entitate (utilizator, task etc.)
-- **View**: Template-urile HTML și fișierele statice servite de backend
-- **Controller**: Rutele Flask/FastAPI care gestionează cererile HTTP
+  expuse prin SQLAlchemy
+- **View**: Componente Vue (SFC `.vue`) + Pinia store-uri client-side; nu mai
+  există template-uri server-rendered
+- **Controller**: Rutele Flask `/api/*` care gestionează cererile HTTP și
+  orchestrarea serviciilor backend
 
 ### Dependency Injection
 - Modulele primește dependințele prin constructor sau metode de setare
@@ -208,10 +226,13 @@ Utilizator (Browser)     Backend Server      Ollama
 ## Tehnologii și cadre alternativă
 
 ### Variante pentru Frontend
-- **Vanilla JavaScript**: Cea mai simplă, fără dependințe externe, bună pentru aplicații mici
-- **HTMX**: Permite acces la funcționalități AJAX și WebSockets prin atribute HTML, reduce nevoia de JavaScript scris manual
-- **Alpine.js**: Framework mic pentru interactivitate, similar cu Vue dar mai ușor de învățat
-- **Vue.js/React**: Framework-uri mai puternice pentru aplicații complexe, dar cu o curbe de învățare mai încetă
+- **Vue 3 + Vite + Pinia + Vue Router** (alegere actuală): bundle mic (~88 KB
+  gzip), SFC-uri ușor de citit, reactivitate simplă, ideal pentru kiosk RPi
+- **React + Vite + Zustand + React Router**: alternativă viabilă, ecosistem mai
+  mare, bundle puțin mai gros
+- **Svelte/SvelteKit**: bundle cel mai mic, ecosistem mai redus
+- **HTMX / Alpine.js** + Jinja: opțiuni progressive-enhancement; ar fi necesitat
+  întoarcerea la MPA, abandonate la migrarea către SPA
 
 ### Variante pentru Backend
 - **Flask**: Cea mai simplă și flexibilă, bună pentru prototipare și aplicații mici
@@ -240,10 +261,13 @@ Utilizator (Browser)     Backend Server      Ollama
 - Elaborare periodică a taskurilor vechi (de exemplu, taskurile mai vechi de 30 de zile sunt arhivate sau șterse)
 
 ### Optimizare frontend
-- Minimizarea fișierelor CSS și JS prin instrumente precum PurgeCSS și Terser
-- Încărcare lângășă a componentelor rarement folosite (cod splitting)
-- Folosire de tehnici de lazy loading pentru imagini și resurse neessențiale
-- Actualizări parțiale ale interfeței prin manipulare DOM în loc de reîncărcare completă
+- Vite face minificare JS/CSS (esbuild) și tree-shaking out of the box
+- Code-splitting per route prin `import()` dinamic în router (un chunk per view)
+- Precompresie `.br` și `.gz` cu `vite-plugin-compression` — Flask alege varianta
+  potrivită din `Accept-Encoding`
+- Asset-uri hashate cu cache infinit (`/assets/*`); doar `index.html` e servit
+  cu `no-cache` ca să nu rămânem pe chunk hashes învechite după rebuild
+- Update-uri reactive prin Pinia + Vue (DOM diff fin, nu reload de pagină)
 
 ### Optimizare backend
 - Paginare pentru listele lungi de taskuri

@@ -257,12 +257,12 @@ python src/main.py
 
 Aplicația va porni pe http://localhost:5000
 
-### Frontend SPA (în curs de portare — Faza 0/1 finalizate)
+### Frontend SPA (Vue 3 + Vite)
 
-Aplicația este în tranziție de la MPA (Flask + Jinja) la SPA (Vue 3 + Vite). Vezi
-[docs/PORTARE_SPA.md](PORTARE_SPA.md) pentru planul complet. Codul SPA se află în
-directorul `frontend/`. Backend-ul Flask rămâne neschimbat și continuă să servească
-paginile MPA până la finalizarea migrării.
+Aplicația este o **Single Page Application** Vue 3 + Vite + Pinia. Codul SPA se
+află în directorul `frontend/`; Flask servește bundle-ul construit din
+`frontend/dist/` și expune doar API-ul REST `/api/*`. Vezi
+[docs/PORTARE_SPA.md](PORTARE_SPA.md) pentru detalii arhitecturale.
 
 Prerechizite suplimentare: **Node.js 18+ și npm**.
 
@@ -283,9 +283,19 @@ npm run type-check
 ```
 
 În dev, deschideți http://localhost:5173 — Vite face proxy pentru `/api/*` către
-Flask (`http://localhost:5000`). Paginile încă neportate (`/calendar`, `/radio`,
-`/transport`, `/history`) sunt redirecționate către Flask MPA automat (strategie
-incremental — *strangler pattern*).
+Flask (`http://localhost:5000`). Routerul Vue gestionează toate cele cinci
+view-uri (`/`, `/calendar`, `/radio`, `/transport`, `/history`) cu code-splitting
+automat per route; Flask face fallback la `index.html` pentru orice path non-API
+ca să meargă refresh-ul direct pe rute client-side.
+
+Build-ul produce și fișiere `.br` și `.gz` precompresate (prin
+`vite-plugin-compression`). Flask le servește automat clienților care anunță
+`Accept-Encoding: br` / `gzip` — util pentru kiosk-ul Chromium pe Raspberry Pi
+(bundle inițial ~88 KB gzip).
+
+> **Notă:** codul MPA original (template-uri Jinja + JS vanilla) e arhivat în
+> [legacy/](../legacy/) ca referință; nu mai e servit de aplicație. Poate fi
+> șters complet după validarea SPA-ului în producție.
 
 ### Configurarea aplicației pentru a porni la pornirea sistemului
 1. Creați un fișier de serviciu systemd pentru aplicația HomeTasks:
