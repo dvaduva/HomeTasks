@@ -178,9 +178,10 @@ CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
 - `workers = 1` în gunicorn (Problema 1).
 - **Test:** o stație publică sună pe boxă; tab-ul UI închis nu o oprește (necesită rețeaua cu boxa).
 
-### Pasul 3 — Volum + status
-- `POST /api/cast/volume`, `GET /api/cast/status`.
-- **Test:** volum reglabil; status reflectă play/stop real.
+### Pasul 3 — Volum + status ✅ implementat
+- `POST /api/cast/volume` `{device_id, volume: 0.0-1.0}` → `cast.set_volume`.
+- `GET /api/cast/status?device_id=...` → volum/mut din `cast.status` + player_state/title din `media_controller.status`.
+- **Test:** volum reglabil; status reflectă play/stop real (necesită rețeaua cu boxa).
 
 ### Pasul 4 — Frontend
 - `cast.ts`, selector destinație în UI, integrare în `useRadioStore` cu polling status.

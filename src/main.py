@@ -1503,6 +1503,39 @@ def cast_stop():
         return jsonify({'error': str(e)}), 502
 
 
+@app.route('/api/cast/volume', methods=['POST'])
+def cast_volume():
+    """Set a Cast device's volume. Body: {device_id, volume: 0.0-1.0}."""
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get('device_id') or '').strip()
+    volume = data.get('volume')
+    if not device_id or volume is None:
+        return jsonify({'error': 'device_id și volume sunt obligatorii'}), 400
+    try:
+        volume = float(volume)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'volume trebuie să fie un număr între 0.0 și 1.0'}), 400
+    try:
+        applied = cast_service.set_volume(device_id, volume)
+        return jsonify({'ok': True, 'device_id': device_id, 'volume': applied})
+    except Exception as e:
+        logger.warning("Cast volume failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/cast/status')
+def cast_status():
+    """Return current playback/volume state for a device. Query: ?device_id=..."""
+    device_id = (request.args.get('device_id') or '').strip()
+    if not device_id:
+        return jsonify({'error': 'device_id este obligatoriu'}), 400
+    try:
+        return jsonify(cast_service.status(device_id))
+    except Exception as e:
+        logger.warning("Cast status failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
 @app.route('/api/transport/routes')
 def get_transport_routes():
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'autobus')

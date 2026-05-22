@@ -97,6 +97,32 @@ class CastService:
         logger.info("Cast stop on %s", device_id)
         return True
 
+    def set_volume(self, device_id, volume):
+        """Set device volume. ``volume`` is 0.0–1.0 (clamped)."""
+        v = max(0.0, min(1.0, float(volume)))
+        cast = self._get_cast(device_id)
+        cast.set_volume(v)
+        logger.info("Cast volume on %s -> %.2f", device_id, v)
+        return v
+
+    def status(self, device_id):
+        """Return current playback/volume state for a device.
+
+        ``cast.status`` is the receiver state (volume, current app);
+        ``media_controller.status`` is the media state (player_state, title)."""
+        cast = self._get_cast(device_id)
+        cs = cast.status                       # CastStatus | None
+        ms = cast.media_controller.status      # MediaStatus
+        return {
+            'device_id': device_id,
+            'volume': getattr(cs, 'volume_level', None),
+            'muted': getattr(cs, 'volume_muted', None),
+            'app': getattr(cs, 'display_name', None),
+            'player_state': getattr(ms, 'player_state', None),
+            'title': getattr(ms, 'title', None),
+            'content_id': getattr(ms, 'content_id', None),
+        }
+
     # ── connection management ──────────────────────────────────────────────────
     def _get_cast(self, device_id):
         """Return a connected Chromecast for ``device_id``, (re)connecting if the
