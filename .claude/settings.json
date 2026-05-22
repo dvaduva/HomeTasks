@@ -8,7 +8,11 @@
       "Bash(python -c \":*)",
       "Bash(find /d/Surse/Proiecte/HomeTasks -maxdepth 3 -type d -not -path */venv* -not -path */__pycache__* -not -path */.git* -not -path */.pytest*)",
       "Bash(pip --version)",
-      "Bash(python -m venv venv)"
+      "Bash(python -m venv venv)",
+      "Bash(./venv/Scripts/python.exe -m pip install \"pychromecast>=13.0.0\")",
+      "Bash(../venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONPATH=src ./venv/Scripts/python.exe -c ' *)",
+      "Bash(./venv/Scripts/python.exe -m pytest -q)"
     ],
     "additionalDirectories": [
       "d:\\Surse\\Proiecte\\HomeTasks\\src"

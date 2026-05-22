@@ -16,6 +16,7 @@ from weather.service import WeatherService
 from ollama.client import ollama_client
 from voice.service import voice_service
 from tuya.service import tuya_service
+from cast.service import cast_service
 
 # Load environment variables
 load_dotenv()
@@ -1407,6 +1408,21 @@ def get_radio_now_playing():
     title = _fetch_icy_metadata(url)
     _icy_cache[url] = (now, title)
     return jsonify({'title': title})
+
+
+# ── Cast (Google Cast / Mi Smart Speaker) ─────────────────────────────────────
+
+@app.route('/api/cast/devices')
+def get_cast_devices():
+    """Return cached Google Cast devices discovered on the LAN.
+
+    Discovery is started lazily here (idempotent) so the background thread runs
+    inside the gunicorn worker that serves requests — not the preloaded master,
+    where a thread would not survive the fork. The first call may return an
+    empty list while the initial scan window (~5s) completes.
+    """
+    cast_service.start()
+    return jsonify(cast_service.get_devices())
 
 
 @app.route('/api/transport/routes')

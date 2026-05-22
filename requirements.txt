@@ -4,6 +4,9 @@ requests>=2.25.0
 SQLAlchemy>=1.4.0
 tinytuya>=1.13.0
 
+# Google Cast control (cast radio to Chromecast / Google Home / Mi Smart Speaker)
+pychromecast>=13.0.0
+
 # Production server
 gunicorn>=20.1.0
 
