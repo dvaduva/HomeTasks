@@ -15,7 +15,8 @@
       "Bash(./venv/Scripts/python.exe -m pytest -q)",
       "Bash(./venv/Scripts/python.exe -c ' *)",
       "Bash(PYTHONIOENCODING=utf-8 PYTHONPATH=src ./venv/Scripts/python.exe -c ' *)",
-      "Bash(PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -c ' *)"
+      "Bash(PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -c ' *)",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).scripts\\)\")"
     ],
     "additionalDirectories": [
       "d:\\Surse\\Proiecte\\HomeTasks\\src"

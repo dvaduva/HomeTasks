@@ -25,3 +25,5 @@ export { transportApi } from './transport';
 export type { TransportRoute, TransportChatRequest, TransportChatResponse } from './transport';
 export { radioApi } from './radio';
 export type { RadioStation, RadioNowPlaying } from './radio';
+export { castApi } from './cast';
+export type { CastDevice, CastStatusInfo } from './cast';

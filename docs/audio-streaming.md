@@ -183,10 +183,12 @@ CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
 - `GET /api/cast/status?device_id=...` → volum/mut din `cast.status` + player_state/title din `media_controller.status`.
 - **Test:** volum reglabil; status reflectă play/stop real (necesită rețeaua cu boxa).
 
-### Pasul 4 — Frontend
-- `cast.ts`, selector destinație în UI, integrare în `useRadioStore` cu polling status.
-- Oprire audio local când se comută pe cast (Problema 8).
-- **Test:** flux complet din UI pe ambele destinații (Local / boxă).
+### Pasul 4 — Frontend ✅ implementat
+- `frontend/src/api/cast.ts` + export în `api/index.ts`.
+- `useRadioStore`: `castTarget`/`castDevices`/`isCasting`, acțiuni `loadCastDevices`/`setCastTarget`/`stopCast`; `play`/`onStationClick`/`togglePlayPause`/`setVolume` ramificate local↔cast; polling status la 5s.
+- Oprire audio local la comutarea pe cast (Problema 8) — `setCastTarget` + guard pe `onAudioPause`.
+- Selector destinație „Acest dispozitiv / <boxă>" în `RadioView.vue`.
+- **Test:** flux complet din UI pe ambele destinații (necesită rețeaua cu boxa).
 
 ### Pasul 5 — Stații prin proxy + edge-cases
 - Validează care stații necesită proxy pentru cast; setează flag-ul `proxy`.
