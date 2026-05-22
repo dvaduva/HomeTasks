@@ -1,9 +1,11 @@
+import time
 import logging
 import threading
 
 logger = logging.getLogger(__name__)
 
-CONNECT_TIMEOUT = 10  # seconds to wait for a device connection / media to go active
+CONNECT_TIMEOUT = 10       # seconds to wait for a device connection / media session
+PLAY_CONFIRM_TIMEOUT = 6   # seconds to wait for the device to actually start playing
 
 
 class CastService:
@@ -77,14 +79,36 @@ class CastService:
     # ── control ────────────────────────────────────────────────────────────────
     def play_url(self, device_id, url, content_type='audio/mpeg', title=None):
         """Tell a device to start streaming ``url``. The device fetches it itself,
-        so playback survives the UI tab closing."""
+        so playback survives the UI tab closing.
+
+        Raises RuntimeError if the device fails to actually start playing — the
+        caller uses that to fall back to the LAN proxy URL."""
         cast = self._get_cast(device_id)
         mc = cast.media_controller
         # stream_type=LIVE: radio has no seekable timeline / fixed duration.
         mc.play_media(url, content_type, title=title, stream_type='LIVE')
         mc.block_until_active(timeout=CONNECT_TIMEOUT)
+        self._await_playing(mc)
         logger.info("Cast play on %s: %s", device_id, url)
         return True
+
+    @staticmethod
+    def _await_playing(mc):
+        """Block until the media is PLAYING/BUFFERING, or raise if the device
+        reports an error or never starts. A device that can't fetch a URL (bad
+        TLS, refused port, unsupported codec) goes IDLE with idle_reason=ERROR."""
+        deadline = time.time() + PLAY_CONFIRM_TIMEOUT
+        while time.time() < deadline:
+            st = mc.status
+            state = (getattr(st, 'player_state', '') or '').upper()
+            if state in ('PLAYING', 'BUFFERING'):
+                return
+            if state == 'IDLE':
+                reason = (getattr(st, 'idle_reason', '') or '').upper()
+                if reason in ('ERROR', 'CANCELLED', 'INTERRUPTED'):
+                    raise RuntimeError(f'Boxa nu a putut reda stream-ul (idle_reason={reason})')
+            time.sleep(0.4)
+        raise RuntimeError('Boxa nu a confirmat redarea (timeout)')
 
     def stop(self, device_id):
         """Stop playback on a device."""

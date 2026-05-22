@@ -6,12 +6,16 @@ import multiprocessing
 # Server socket
 bind = "0.0.0.0:5000"
 
-# Worker processes — pinned to 1 because the Cast controller (pychromecast)
-# keeps the device connection and discovery state in a single process's memory.
-# With >1 worker a /api/cast/* request can land in a worker that never opened
-# the connection. For home use on a Raspberry Pi a single sync worker is plenty.
+# Single process, multiple threads (gthread):
+#  - workers = 1 keeps the Cast controller (pychromecast) connection + discovery
+#    state in one process's memory — a /api/cast/* request always finds it.
+#  - threads > 1 is essential because the radio proxy streams synchronously for
+#    the whole listening session; a sync worker would be tied up for hours and
+#    the app would serve nothing else (SPA, status polling, even /api/cast/stop).
+#    With gthread, one thread streams while others keep handling requests.
 workers = 1
-worker_class = "sync"
+worker_class = "gthread"
+threads = 8
 timeout = 120
 keepalive = 5
 

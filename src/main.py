@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request, send_file, send_from_directory, Respo
 import logging
 import os
 import re
+import socket
+from urllib.parse import urlparse
 from sqlalchemy import func, and_, or_
 
 logger = logging.getLogger(__name__)
@@ -1445,25 +1447,49 @@ def _guess_audio_content_type(url):
     return 'audio/mpeg'  # mp3 and the safe default
 
 
-def _cast_stream_for_station(station):
-    """Resolve a station to (url, content_type) the Cast device can fetch.
+def _detect_lan_ip():
+    """Best-effort: the LAN IP this machine routes out on (no packets sent)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        return s.getsockname()[0]
+    except Exception:
+        return None
+    finally:
+        s.close()
 
-    Stations flagged ``proxy`` can't be reached directly by the device (CORS,
-    odd ports, TLS quirks), so we hand it our own LAN proxy URL instead. The
-    device must reach HomeTasks at a real LAN address — CAST_PUBLIC_BASE_URL if
-    set, otherwise the host the request came in on (never localhost)."""
-    content_type = _guess_audio_content_type(station.get('url'))
-    if station.get('proxy'):
-        base = os.getenv('CAST_PUBLIC_BASE_URL', '').strip() or request.host_url
-        url = base.rstrip('/') + '/api/radio/proxy/' + station['id']
-    else:
-        url = station['url']
-    return url, content_type
+
+def _cast_base_url():
+    """LAN-reachable base URL for HomeTasks, used to build proxy stream URLs the
+    Cast device fetches. CAST_PUBLIC_BASE_URL if set; otherwise the request host,
+    except a loopback host (localhost/127.0.0.1) is replaced with the machine's
+    real LAN IP — the speaker would never reach a loopback address."""
+    env = os.getenv('CAST_PUBLIC_BASE_URL', '').strip()
+    if env:
+        return env.rstrip('/')
+
+    parsed = urlparse(request.host_url)
+    host = parsed.hostname or ''
+    if host in ('localhost', '127.0.0.1', '0.0.0.0', '::1'):
+        ip = _detect_lan_ip()
+        if ip:
+            scheme = parsed.scheme or 'http'
+            port = parsed.port or 5000
+            return f'{scheme}://{ip}:{port}'
+    return request.host_url.rstrip('/')
+
+
+def _proxy_url_for(station_id):
+    return _cast_base_url() + '/api/radio/proxy/' + station_id
 
 
 @app.route('/api/cast/play', methods=['POST'])
 def cast_play():
-    """Tell a Cast device to play a radio station. Body: {device_id, station_id}."""
+    """Tell a Cast device to play a radio station. Body: {device_id, station_id}.
+
+    Tries the station's direct URL first, then falls back to our LAN proxy if
+    the device can't play it (odd TLS/port/codec). Stations flagged ``proxy``
+    skip straight to the proxy."""
     data = request.get_json(silent=True) or {}
     device_id = (data.get('device_id') or '').strip()
     station_id = (data.get('station_id') or '').strip()
@@ -1479,13 +1505,25 @@ def cast_play():
     if not station or not station.get('url'):
         return jsonify({'error': 'Stația nu a fost găsită'}), 404
 
-    url, content_type = _cast_stream_for_station(station)
-    try:
-        cast_service.play_url(device_id, url, content_type, title=station.get('name'))
-        return jsonify({'ok': True, 'device_id': device_id, 'station_id': station_id, 'url': url})
-    except Exception as e:
-        logger.warning("Cast play failed: %s", e)
-        return jsonify({'error': str(e)}), 502
+    content_type = _guess_audio_content_type(station.get('url'))
+    if station.get('proxy'):
+        attempts = [('proxy', _proxy_url_for(station_id))]
+    else:
+        attempts = [('direct', station['url']), ('proxy', _proxy_url_for(station_id))]
+
+    last_err = None
+    for route, url in attempts:
+        try:
+            cast_service.play_url(device_id, url, content_type, title=station.get('name'))
+            return jsonify({
+                'ok': True, 'device_id': device_id, 'station_id': station_id,
+                'url': url, 'route': route,
+            })
+        except Exception as e:
+            last_err = e
+            logger.warning("Cast play via %s failed for %s: %s", route, station_id, e)
+
+    return jsonify({'error': str(last_err) if last_err else 'cast a eșuat'}), 502
 
 
 @app.route('/api/cast/stop', methods=['POST'])
@@ -1773,4 +1811,6 @@ def calendar_year():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # threaded=True so a long-lived radio proxy stream (e.g. cast fallback) does
+    # not block other requests on the single-process dev server.
+    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)

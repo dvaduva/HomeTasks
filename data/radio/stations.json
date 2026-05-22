@@ -78,7 +78,8 @@
       "description": "Rock alternativ, talk și știri",
       "genre": "Rock / Talk",
       "url": "http://live.guerrillaradio.ro:8010/guerrilla.aac",
-      "logo": "https://www.guerrillaradio.ro/wp-content/themes/guerrilla/library/images/new_logo_header.png"
+      "logo": "https://www.guerrillaradio.ro/wp-content/themes/guerrilla/library/images/new_logo_header.png",
+      "proxy": true
     },
     {
       "id": "itsy-bitsy",

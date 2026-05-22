@@ -127,12 +127,15 @@ CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
 
 ## Probleme de implementare (citește înainte de a începe)
 
-1. **Gunicorn multi-worker sparge starea pychromecast.** ✅ *rezolvat.*
-   `pychromecast` ține conexiunea la boxă și lista de device-uri în memoria
-   *unui singur* proces; cu mai mulți workeri un `/api/cast/stop` poate nimeri
-   un worker care nu are conexiunea. **Aplicat:** `workers = 1` în
-   `deploy/gunicorn.conf.py` + reconectare lazy în `CastService._get_cast`
-   (dacă socket-ul cache-uit e mort, se reconstruiește din discovery cache).
+1. **Gunicorn: stare pychromecast single-process + streaming care nu blochează.**
+   ✅ *rezolvat.* `pychromecast` ține conexiunea la boxă în memoria *unui singur*
+   proces (cu >1 worker un `/api/cast/stop` ar putea nimeri alt worker). DAR
+   proxy-ul radio streamează **sincron** pe toată durata redării (ore), așa că un
+   singur worker `sync` ar bloca întreaga aplicație. **Aplicat:**
+   `worker_class = "gthread"`, `workers = 1`, `threads = 8` în
+   `deploy/gunicorn.conf.py` — un proces (stare cast coerentă) + thread-uri (un
+   stream proxy nu mai blochează API-ul). Plus reconectare lazy în
+   `CastService._get_cast` (socket mort → reconstruit din discovery cache).
 
 2. **Discovery nu trebuie să blocheze handler-ul HTTP.** ✅ *rezolvat.*
    Folosim un `CastBrowser` + `Zeroconf` **persistent** (descoperire continuă,
@@ -141,9 +144,12 @@ CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
    în worker, nu în masterul preîncărcat. `/api/cast/devices` doar citește lista,
    nu scanează la cerere.
 
-3. **`localhost` nu merge pentru proxy.** Dacă trimitem boxei un URL cu
-   `localhost`/`127.0.0.1`, boxa va încerca să se conecteze la *ea însăși*.
-   Trebuie IP-ul LAN real al HomeTasks (`CAST_PUBLIC_BASE_URL`).
+3. **`localhost` nu merge pentru proxy.** ✅ *atenuat.* Dacă boxei i-am da un URL
+   cu `localhost`/`127.0.0.1`, s-ar conecta la *ea însăși*. `_cast_base_url`
+   detectează host-ul loopback și îl înlocuiește automat cu IP-ul LAN real al
+   mașinii (`_detect_lan_ip`); `CAST_PUBLIC_BASE_URL` îl suprascrie explicit.
+   **Atenție:** firewall-ul (ex. Windows) trebuie să permită portul 5000 inbound,
+   altfel boxa tot nu ajunge la proxy.
 
 4. **TLS pe boxă.** Stream-urile pe `:8443` cu certificate neobișnuite pot fi
    respinse de boxă chiar dacă merg în browser. Dacă o stație eșuează la cast
@@ -190,10 +196,16 @@ CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
 - Selector destinație „Acest dispozitiv / <boxă>" în `RadioView.vue`.
 - **Test:** flux complet din UI pe ambele destinații (necesită rețeaua cu boxa).
 
-### Pasul 5 — Stații prin proxy + edge-cases
-- Validează care stații necesită proxy pentru cast; setează flag-ul `proxy`.
-- Configurează `CAST_PUBLIC_BASE_URL`.
-- **Test:** o stație care eșuează direct sună prin proxy.
+### Pasul 5 — Stații prin proxy + edge-cases ✅ implementat
+- **Auto-fallback** direct→proxy în `/api/cast/play`: încearcă URL-ul direct, iar
+  dacă boxa nu confirmă redarea (`CastService._await_playing` detectează
+  `idle_reason=ERROR` sau timeout), reia automat prin proxy-ul LAN. Stațiile cu
+  `proxy:true` merg direct pe proxy. Răspunsul include `route: direct|proxy`.
+- `CAST_PUBLIC_BASE_URL` documentat în `.env.example` (fallback: host-ul cererii).
+- Fix gunicorn `gthread` (vezi Problema 1) — necesar ca stream-ul proxy să nu
+  blocheze aplicația.
+- **Test (pe teren):** o stație care eșuează direct sună prin proxy; verifică
+  `route` în răspuns.
 
 ## În afara scopului (v2+)
 - Redare programată (necesită întâi un scheduler — APScheduler — care **nu există**).
