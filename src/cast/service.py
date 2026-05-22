@@ -1,122 +1,146 @@
-import os
-import time
 import logging
 import threading
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_RESCAN_INTERVAL = 60  # seconds between discovery passes
-SCAN_WINDOW = 5               # seconds to listen for mDNS responses per pass
+CONNECT_TIMEOUT = 10  # seconds to wait for a device connection / media to go active
 
 
 class CastService:
-    """Discovers Google Cast devices (Chromecast / Google Home / Mi Smart
-    Speaker) on the LAN and keeps an in-memory cache.
+    """Discovers and controls Google Cast devices (Chromecast / Google Home /
+    Mi Smart Speaker) on the LAN via ``pychromecast``.
 
-    Discovery runs in a background daemon thread that re-scans every
-    CAST_RESCAN_INTERVAL seconds. HTTP handlers only ever read the cache via
-    ``get_devices()`` — they never trigger a (slow, blocking) network scan.
+    Discovery uses a single, long-lived ``CastBrowser`` + ``Zeroconf`` that
+    updates its device list live as devices appear and disappear — no periodic
+    polling needed. HTTP handlers read that list through ``get_devices()``.
 
-    Threading note: with gunicorn ``preload_app=True`` a thread started at
-    import time lives in the *master* process and does NOT survive the fork into
-    workers. So ``start()`` is idempotent and is meant to be called from the
-    request path (the first ``/api/cast/devices`` hit), guaranteeing discovery
-    runs inside the worker that actually serves requests.
+    Control (play/stop) connects lazily: a ``Chromecast`` object per device is
+    built on first use and cached. If the cached socket is dead it is rebuilt —
+    this is the mitigation for the gunicorn multi-worker caveat (a control
+    request may land in a worker that never opened the connection).
+
+    Threading note: with gunicorn ``preload_app=True`` anything started at import
+    time lives in the *master* and does NOT survive the fork into workers. So
+    ``start()`` is idempotent and is meant to be triggered from the request path,
+    guaranteeing the browser/connections live in the worker that serves traffic.
     """
 
     def __init__(self):
-        try:
-            self.rescan_interval = int(os.getenv('CAST_RESCAN_INTERVAL', DEFAULT_RESCAN_INTERVAL))
-        except (TypeError, ValueError):
-            self.rescan_interval = DEFAULT_RESCAN_INTERVAL
-
         self._lock = threading.Lock()
-        self._devices = {}        # uuid (str) -> device dict
-        self._last_scan = None    # ISO timestamp of last successful scan
-        self._scan_error = None   # last scan error message, or None
-        self._thread = None
+        self._zconf = None
+        self._browser = None
         self._started = False
+        self._discovery_error = None
+        self._connections = {}  # device_id (str) -> Chromecast
 
-    # ── public read API (called by HTTP handlers) ─────────────────────────────
-    def get_devices(self):
-        """Return the cached device list. Never blocks on the network."""
-        with self._lock:
-            return {
-                'devices': list(self._devices.values()),
-                'last_scan': self._last_scan,
-                'error': self._scan_error,
-            }
-
-    # ── background discovery ───────────────────────────────────────────────────
+    # ── discovery ──────────────────────────────────────────────────────────────
     def start(self):
-        """Idempotent: launch the background discovery thread once per process."""
+        """Idempotent: launch the persistent CastBrowser once per process."""
         with self._lock:
             if self._started:
                 return
             self._started = True
-        self._thread = threading.Thread(target=self._run, name='cast-discovery', daemon=True)
-        self._thread.start()
-        logger.info("Cast discovery thread started (rescan every %ds)", self.rescan_interval)
 
-    def _run(self):
-        while True:
-            self._scan_once()
-            time.sleep(self.rescan_interval)
-
-    def _scan_once(self):
         try:
             import zeroconf
             from pychromecast import discovery
         except ImportError:
-            self._set_error('pychromecast nu este instalat. Rulează: pip install pychromecast')
+            self._discovery_error = 'pychromecast nu este instalat. Rulează: pip install pychromecast'
+            logger.warning(self._discovery_error)
             return
 
-        zconf = None
-        browser = None
         try:
-            zconf = zeroconf.Zeroconf()
-            browser = discovery.CastBrowser(discovery.SimpleCastListener(), zconf)
-            browser.start_discovery()
-            # Give mDNS responders a window to answer before reading the cache.
-            time.sleep(SCAN_WINDOW)
+            self._zconf = zeroconf.Zeroconf()
+            self._browser = discovery.CastBrowser(discovery.SimpleCastListener(), self._zconf)
+            self._browser.start_discovery()
+            self._discovery_error = None
+            logger.info("Cast discovery started (CastBrowser)")
+        except Exception as e:
+            self._discovery_error = str(e)
+            logger.warning("Cast discovery failed to start: %s", e)
 
-            found = {}
-            for info in list(browser.devices.values()):
-                uuid = str(getattr(info, 'uuid', '') or '')
-                if not uuid:
-                    continue
-                found[uuid] = {
-                    'id': uuid,
+    def get_devices(self):
+        """Return the live device list. Never blocks on the network."""
+        self.start()
+        devices = []
+        if self._browser is not None:
+            for uuid, info in list(self._browser.devices.items()):
+                devices.append({
+                    'id': str(uuid),
                     'name': getattr(info, 'friendly_name', None) or 'Cast device',
                     'model': getattr(info, 'model_name', None),
                     'cast_type': getattr(info, 'cast_type', None),
                     'manufacturer': getattr(info, 'manufacturer', None),
-                }
+                })
+        return {'devices': devices, 'error': self._discovery_error}
 
-            with self._lock:
-                self._devices = found
-                self._last_scan = datetime.now().isoformat()
-                self._scan_error = None
-            logger.info("Cast discovery: %d device(s) found", len(found))
+    # ── control ────────────────────────────────────────────────────────────────
+    def play_url(self, device_id, url, content_type='audio/mpeg', title=None):
+        """Tell a device to start streaming ``url``. The device fetches it itself,
+        so playback survives the UI tab closing."""
+        cast = self._get_cast(device_id)
+        mc = cast.media_controller
+        # stream_type=LIVE: radio has no seekable timeline / fixed duration.
+        mc.play_media(url, content_type, title=title, stream_type='LIVE')
+        mc.block_until_active(timeout=CONNECT_TIMEOUT)
+        logger.info("Cast play on %s: %s", device_id, url)
+        return True
+
+    def stop(self, device_id):
+        """Stop playback on a device."""
+        cast = self._get_cast(device_id)
+        try:
+            cast.media_controller.stop()
         except Exception as e:
-            logger.warning("Cast discovery scan failed: %s", e)
-            self._set_error(str(e))
-        finally:
-            try:
-                if browser is not None:
-                    browser.stop_discovery()
-            except Exception:
-                pass
-            try:
-                if zconf is not None:
-                    zconf.close()
-            except Exception:
-                pass
+            logger.debug("media_controller.stop failed (%s); quitting app", e)
+            cast.quit_app()
+        logger.info("Cast stop on %s", device_id)
+        return True
 
-    def _set_error(self, message):
+    # ── connection management ──────────────────────────────────────────────────
+    def _get_cast(self, device_id):
+        """Return a connected Chromecast for ``device_id``, (re)connecting if the
+        cached one is stale. Raises RuntimeError with a user-facing message."""
+        self.start()
         with self._lock:
-            self._scan_error = message
+            cast = self._connections.get(device_id)
+            if cast is not None:
+                if self._is_alive(cast):
+                    return cast
+                self._drop(device_id, cast)
+
+            info = self._find_cast_info(device_id)
+            if info is None:
+                raise RuntimeError('Dispozitivul Cast nu a fost găsit (încă nedescoperit?).')
+
+            from pychromecast import get_chromecast_from_cast_info
+            cast = get_chromecast_from_cast_info(info, self._zconf)
+            cast.wait(timeout=CONNECT_TIMEOUT)
+            self._connections[device_id] = cast
+            return cast
+
+    def _find_cast_info(self, device_id):
+        if self._browser is None:
+            return None
+        for uuid, info in list(self._browser.devices.items()):
+            if str(uuid) == device_id:
+                return info
+        return None
+
+    @staticmethod
+    def _is_alive(cast):
+        try:
+            sock = getattr(cast, 'socket_client', None)
+            return bool(sock and getattr(sock, 'is_connected', False))
+        except Exception:
+            return False
+
+    @staticmethod
+    def _drop(device_id, cast):
+        try:
+            cast.disconnect(blocking=False)
+        except Exception:
+            pass
 
 
 cast_service = CastService()

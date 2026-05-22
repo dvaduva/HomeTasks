@@ -106,10 +106,9 @@ Aplicația nu folosește `config.yaml` — citește din `.env` + tabela
 `Preferences`. Adăugăm:
 
 ```env
-# IP/URL-ul HomeTasks accesibil de boxa Cast în LAN (pentru stream proxy)
+# IP/URL-ul HomeTasks accesibil de boxa Cast în LAN (pentru stream proxy).
+# Dacă lipsește, se folosește host-ul din care a venit request-ul (nu localhost).
 CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
-# Interval re-scan dispozitive Cast (secunde)
-CAST_RESCAN_INTERVAL=60
 ```
 
 (Opțional, mai târziu, mutabil în `Preferences` ca celelalte setări dinamice.)
@@ -128,23 +127,19 @@ CAST_RESCAN_INTERVAL=60
 
 ## Probleme de implementare (citește înainte de a începe)
 
-1. **Gunicorn multi-worker sparge starea pychromecast.** Producția rulează cu
-   `workers = 2` (`deploy/gunicorn.conf.py`), procese `sync` separate.
+1. **Gunicorn multi-worker sparge starea pychromecast.** ✅ *rezolvat.*
    `pychromecast` ține conexiunea la boxă și lista de device-uri în memoria
-   *unui singur* proces; un request `/api/cast/stop` poate nimeri celălalt
-   worker, care nu are conexiunea. **Mitigări:**
-   - cel mai simplu: `workers = 1` (suficient pe RPi pentru uz casnic), sau
-   - un proces/thread dedicat de cast partajat (mai complex), sau
-   - reconectare lazy: la fiecare request, dacă procesul nu are conexiune la
-     `device_id`, reconectează prin discovery cache. (Cast permite mai mulți
-     controllere; reconectarea e ok.)
-   Decizie recomandată v1: **`workers = 1`** + reconectare lazy ca plasă de siguranță.
+   *unui singur* proces; cu mai mulți workeri un `/api/cast/stop` poate nimeri
+   un worker care nu are conexiunea. **Aplicat:** `workers = 1` în
+   `deploy/gunicorn.conf.py` + reconectare lazy în `CastService._get_cast`
+   (dacă socket-ul cache-uit e mort, se reconstruiește din discovery cache).
 
-2. **Discovery e lent și asincron.** `pychromecast.get_chromecasts()` /
-   `CastBrowser` blochează câteva secunde și rulează un thread `zeroconf`.
-   Nu-l rula sincron în handler-ul HTTP. **Mitigare:** un scan în background la
-   startup + re-scan periodic (`CAST_RESCAN_INTERVAL`), cu listă cache-uită în
-   memorie; `/api/cast/devices` returnează cache-ul, nu scanează la cerere.
+2. **Discovery nu trebuie să blocheze handler-ul HTTP.** ✅ *rezolvat.*
+   Folosim un `CastBrowser` + `Zeroconf` **persistent** (descoperire continuă,
+   event-driven — actualizează lista live când apar/dispar device-uri), pornit
+   **lazy** la primul request (`cast_service.start()`, idempotent) ca să trăiască
+   în worker, nu în masterul preîncărcat. `/api/cast/devices` doar citește lista,
+   nu scanează la cerere.
 
 3. **`localhost` nu merge pentru proxy.** Dacă trimitem boxei un URL cu
    `localhost`/`127.0.0.1`, boxa va încerca să se conecteze la *ea însăși*.
@@ -172,16 +167,16 @@ CAST_RESCAN_INTERVAL=60
 
 ## Pași de implementare (în ordine)
 
-### Pasul 1 — Discovery
-- `cast/service.py`: scan background la startup + re-scan periodic, cache în memorie.
-- `GET /api/cast/devices` returnează cache-ul.
-- **Test:** Mi Smart Speaker apare în listă.
+### Pasul 1 — Discovery ✅ implementat
+- `cast/service.py`: `CastBrowser` persistent (descoperire continuă), pornit lazy.
+- `GET /api/cast/devices` returnează lista live.
+- **Test:** Mi Smart Speaker apare în listă (necesită rețeaua cu boxa).
 
-### Pasul 2 — Cast play/stop
-- `POST /api/cast/play` `{device_id, station_id}`: rezolvă stația → URL (direct sau proxy) → `cast.media_controller.play_media(url, content_type)`.
+### Pasul 2 — Cast play/stop ✅ implementat
+- `POST /api/cast/play` `{device_id, station_id}`: rezolvă stația → URL (direct sau proxy) → `media_controller.play_media(url, content_type, stream_type='LIVE')`.
 - `POST /api/cast/stop`.
-- Setează `workers = 1` în gunicorn (vezi Problema 1).
-- **Test:** o stație publică sună pe boxă; tab-ul UI închis nu o oprește.
+- `workers = 1` în gunicorn (Problema 1).
+- **Test:** o stație publică sună pe boxă; tab-ul UI închis nu o oprește (necesită rețeaua cu boxa).
 
 ### Pasul 3 — Volum + status
 - `POST /api/cast/volume`, `GET /api/cast/status`.

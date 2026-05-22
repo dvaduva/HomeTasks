@@ -12,7 +12,9 @@
       "Bash(./venv/Scripts/python.exe -m pip install \"pychromecast>=13.0.0\")",
       "Bash(../venv/Scripts/python.exe -c ' *)",
       "Bash(PYTHONPATH=src ./venv/Scripts/python.exe -c ' *)",
-      "Bash(./venv/Scripts/python.exe -m pytest -q)"
+      "Bash(./venv/Scripts/python.exe -m pytest -q)",
+      "Bash(./venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONPATH=src ./venv/Scripts/python.exe -c ' *)"
     ],
     "additionalDirectories": [
       "d:\\Surse\\Proiecte\\HomeTasks\\src"

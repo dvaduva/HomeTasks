@@ -1425,6 +1425,84 @@ def get_cast_devices():
     return jsonify(cast_service.get_devices())
 
 
+def _load_radio_stations():
+    stations_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
+    )
+    with open(stations_path, 'r', encoding='utf-8') as f:
+        return json.load(f).get('stations', [])
+
+
+def _guess_audio_content_type(url):
+    """Best-effort MIME for a radio stream URL. Cast wants a concrete type."""
+    u = (url or '').lower()
+    if u.endswith('.m3u8'):
+        return 'application/vnd.apple.mpegurl'
+    if u.endswith('.ogg') or u.endswith('.oga'):
+        return 'audio/ogg'
+    if 'aac' in u:  # .aac / .aacp / ...aacp?…
+        return 'audio/aac'
+    return 'audio/mpeg'  # mp3 and the safe default
+
+
+def _cast_stream_for_station(station):
+    """Resolve a station to (url, content_type) the Cast device can fetch.
+
+    Stations flagged ``proxy`` can't be reached directly by the device (CORS,
+    odd ports, TLS quirks), so we hand it our own LAN proxy URL instead. The
+    device must reach HomeTasks at a real LAN address — CAST_PUBLIC_BASE_URL if
+    set, otherwise the host the request came in on (never localhost)."""
+    content_type = _guess_audio_content_type(station.get('url'))
+    if station.get('proxy'):
+        base = os.getenv('CAST_PUBLIC_BASE_URL', '').strip() or request.host_url
+        url = base.rstrip('/') + '/api/radio/proxy/' + station['id']
+    else:
+        url = station['url']
+    return url, content_type
+
+
+@app.route('/api/cast/play', methods=['POST'])
+def cast_play():
+    """Tell a Cast device to play a radio station. Body: {device_id, station_id}."""
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get('device_id') or '').strip()
+    station_id = (data.get('station_id') or '').strip()
+    if not device_id or not station_id:
+        return jsonify({'error': 'device_id și station_id sunt obligatorii'}), 400
+
+    try:
+        stations = _load_radio_stations()
+    except Exception as e:
+        return jsonify({'error': f'Nu pot citi stațiile: {e}'}), 500
+
+    station = next((s for s in stations if s.get('id') == station_id), None)
+    if not station or not station.get('url'):
+        return jsonify({'error': 'Stația nu a fost găsită'}), 404
+
+    url, content_type = _cast_stream_for_station(station)
+    try:
+        cast_service.play_url(device_id, url, content_type, title=station.get('name'))
+        return jsonify({'ok': True, 'device_id': device_id, 'station_id': station_id, 'url': url})
+    except Exception as e:
+        logger.warning("Cast play failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/cast/stop', methods=['POST'])
+def cast_stop():
+    """Stop playback on a Cast device. Body: {device_id}."""
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get('device_id') or '').strip()
+    if not device_id:
+        return jsonify({'error': 'device_id este obligatoriu'}), 400
+    try:
+        cast_service.stop(device_id)
+        return jsonify({'ok': True, 'device_id': device_id})
+    except Exception as e:
+        logger.warning("Cast stop failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
 @app.route('/api/transport/routes')
 def get_transport_routes():
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'autobus')
