@@ -207,6 +207,127 @@ CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
 - **Test (pe teren):** o stație care eșuează direct sună prin proxy; verifică
   `route` în răspuns.
 
+## Bluetooth A2DP — streaming local către boxe (v2, planificat)
+
+> A doua destinație de redare: o boxă **Bluetooth** legată direct de RPi.
+> **Atenție — e arhitectura inversă față de Cast**, nu o extindere a ei.
+
+### De ce e fundamental diferit de Cast
+
+La Cast, boxa **trage URL-ul singură** prin rețea; HomeTasks doar comandă și
+serverul rămâne headless. La Bluetooth nu există rețea între RPi și boxă: linkul
+A2DP e punct-la-punct, deci **RPi-ul devine playerul** — face fetch → decodează
+(mp3/aac → PCM) → encodează SBC/AAC → împinge în sink-ul Bluetooth prin stack-ul
+audio Linux. Boxa primește doar audio deja redat.
+
+| | Google Cast (v1) | Bluetooth A2DP (v2) |
+|---|---|---|
+| Cine ia stream-ul | boxa, singură | **RPi** (fetch + decode + redă) |
+| Rolul HomeTasks | controller remote | **player local** + sursă A2DP |
+| Server headless | da | **nu** (produce audio pe RPi) |
+| Transport | rețea HTTP(S) | radio BT punct-la-punct (~10 m) |
+| Volum / stop | comenzi remote pe boxă | sink local (`pactl`) / kill subproces |
+| Discovery | mDNS, zero-config | **pairing manual** o dată (stateful) |
+
+> Asta **relaxează** o premisă din v1 (linia: *„serverul e headless, nu redă
+> local"*): pentru BT, redarea locală pe RPi devine obligatorie. `python-mpv` /
+> `ffmpeg` / GStreamer — excluse explicit la v1 — devin necesare aici.
+> Nu schimbă nimic la Cast: rămâne controller pur.
+
+### Model unificat de destinație (UI + API)
+
+Extindem abstracția existentă de destinație într-un singur selector:
+
+```
+target = 'local' | 'cast:<device_id>' | 'bt:<device_id>'
+```
+
+`useRadioStore` păstrează un singur `target`; butonul Play ramifică pe prefix:
+`local:` → `HTMLAudioElement`, `cast:` → `/api/cast/*` (azi), `bt:` →
+`/api/output/bt/*` (nou). Selectorul din `RadioView.vue` listează toate
+destinațiile la un loc (Acest dispozitiv / boxe Cast / boxe Bluetooth).
+Backend-ul rutează după prefix; mecanismele din spate rămân separate.
+
+### Biblioteci
+
+**Sistem (RPi/Linux — NU `pip`):**
+- `bluez` — stack Bluetooth + `bluetoothctl` (pairing/connect/trust) și D-Bus.
+- `pipewire` (sau `pulseaudio`) — rutarea unui sink audio către boxa BT.
+
+**Python:**
+- redare: shell-out la `mpv`/`ffmpeg` ca subproces, SAU `python-mpv`.
+- control BT/sink: `dbus-python`/`pydbus` (BlueZ) ori shell-out la
+  `bluetoothctl` + `pactl`. Pragmatic la v2: shell-out, fără binding D-Bus.
+
+### API REST (nou, sub abstracția de output)
+
+| Metodă | Endpoint                  | Descriere                                                       |
+|--------|---------------------------|----------------------------------------------------------------|
+| GET    | `/api/output/bt/devices`  | Boxe BT pereche/conectate (`{devices:[{id,name,connected}]}`)   |
+| POST   | `/api/output/bt/play`     | `{device_id, station_id}` → conectează + pornește playerul local pe sink |
+| POST   | `/api/output/bt/stop`     | `{device_id}` → oprește subprocesul player                     |
+| POST   | `/api/output/bt/volume`   | `{device_id, volume:0.0-1.0}` → `pactl set-sink-volume`         |
+| GET    | `/api/output/bt/status`   | stare subproces (playing/idle) + titlu ICY ca azi              |
+
+`station_id → URL` se rezolvă exact ca la Cast (reciclând logica din
+`/api/cast/play`), dar URL-ul e consumat **local de RPi**, nu trimis boxei — deci
+problemele de `CAST_PUBLIC_BASE_URL` / proxy LAN / firewall **nu se aplică**.
+Cod nou paralel cu `cast/service.py`: un `bt/service.py` (`BluetoothService`).
+
+### Probleme de implementare specifice BT
+
+1. **Pairing e stare manuală, nu discovery.** Boxa trebuie *paired + trusted* o
+   dată cu `bluetoothctl` înainte ca API-ul s-o poată folosi; după, reconectare
+   automată. Nu există echivalent zero-config al mDNS. `/devices` listează ce e
+   deja pereche, nu scanează la cerere (scan-ul BT e lent și deranjează linkul).
+
+2. **Un singur sink A2DP odată.** A2DP e 1 sursă → 1 sink. Fără multi-room (rămâne
+   la Snapcast, v2+). Comutarea între boxe BT = deconectare + reconectare.
+
+3. **Subprocesul player trebuie gestionat de un singur proces.** Se aliniază cu
+   `workers=1`/`gthread` existent (Problema 1): pornim/oprim un `mpv` detașat care
+   scrie în sink-ul BT; HomeTasks ține PID-ul. Procesul nu blochează thread-urile
+   (rulează out-of-process), spre deosebire de proxy-ul sincron.
+
+4. **Permisiuni D-Bus/BlueZ.** User-ul sub care rulează gunicorn trebuie să aibă
+   acces la BlueZ și la sesiunea audio (grup `bluetooth`, sesiune PipeWire/Pulse
+   pentru user-ul de serviciu). Pe RPi headless asta înseamnă PipeWire pe system
+   bus sau un user-service dedicat — punct sensibil de configurare.
+
+5. **Imposibil de testat pe Windows.** BlueZ e doar Linux; tot dezvoltarea/testul
+   se fac pe RPi cu boxa reală (mai strict decât la Cast, unde măcar discovery-ul
+   se putea inspecta).
+
+6. **Volum/stop/status au alt sens decât la Cast.** „stop" = kill subproces;
+   „volum" = volumul sink-ului local (sau AVRCP); „status" = starea procesului
+   local, nu `media_controller.status`. Titlul now-playing rămâne din ICY.
+
+7. **Latență/codec.** SBC introduce latență (irelevant pentru radio, fără sync).
+   Boxa negociază codecul; nu controlăm calitatea fin la v2.
+
+### Pași de implementare (în ordine)
+
+#### Pasul 1 — Pairing + listare
+- Documentăm pairing-ul manual (`bluetoothctl`: `scan on`, `pair`, `trust`).
+- `bt/service.py`: `BluetoothService.get_devices()` (boxe trusted/connected).
+- `GET /api/output/bt/devices`. **Test:** boxa pereche apare în listă (pe RPi).
+
+#### Pasul 2 — Play/stop local pe sink
+- `POST /api/output/bt/play`: connect boxă → rezolvă stația → URL → pornește
+  `mpv --audio-device=<bt_sink> <url>` ca subproces; ține PID-ul.
+- `POST /api/output/bt/stop`: termină subprocesul.
+- **Test:** o stație sună pe boxa BT; tab UI închis nu o oprește (rulează pe RPi).
+
+#### Pasul 3 — Volum + status
+- `POST /api/output/bt/volume` → `pactl set-sink-volume`.
+- `GET /api/output/bt/status` → starea subprocesului + titlu ICY.
+
+#### Pasul 4 — Frontend unificat
+- `useRadioStore`: generalizează `castTarget` → `target` (`local|cast:|bt:`);
+  Play/volume/stop ramifică pe prefix.
+- Selector unic în `RadioView.vue` cu toate destinațiile.
+- **Test:** comutare local ↔ Cast ↔ BT din UI, fără sunet dublu (Problema 8 v1).
+
 ## În afara scopului (v2+)
 - Redare programată (necesită întâi un scheduler — APScheduler — care **nu există**).
 - Surse suplimentare: TTS-pe-boxă, YouTube (yt-dlp), file upload, Spotify.
