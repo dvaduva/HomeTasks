@@ -1279,6 +1279,10 @@ def get_radio_stations():
 _icy_cache = {}
 _ICY_CACHE_TTL = 15  # seconds
 
+# In-memory cache for probed Cast content types: { station_id: (timestamp, mime) }
+_cast_ct_cache = {}
+_CAST_CT_TTL = 3600  # seconds — stream codec rarely changes
+
 
 def _fetch_icy_metadata(stream_url: str, timeout: float = 5.0):
     """Fetch ICY StreamTitle from a Shoutcast/Icecast audio stream.
@@ -1469,14 +1473,26 @@ def _normalize_audio_mime(ct):
 def _cast_content_type(station):
     """Concrete MIME to announce to the Cast device on LOAD.
 
-    For proxied stations we briefly probe the upstream so the announced type
-    matches the bytes the device actually receives: announcing ``audio/mpeg``
-    for an AAC stream (e.g. Radio România Actualități, whose URL gives no hint)
-    makes the receiver error out and only recover after a long retry. The probe
-    is best-effort with a short timeout and falls back to the URL guess."""
+    Announcing the wrong type (e.g. ``audio/mpeg`` for an AAC stream like Radio
+    România Actualități or Radio ZU, whose URLs give no hint) makes the receiver
+    error out and recover only after a long retry. Order of preference:
+
+    1. explicit ``content_type`` in stations.json — authoritative, no network;
+    2. a guess from the URL extension;
+    3. for proxied stations only, a short cached upstream probe as last resort."""
+    explicit = _normalize_audio_mime(station.get('content_type'))
+    if explicit:
+        return explicit
+
     guess = _guess_audio_content_type(station.get('url'))
     if not station.get('proxy'):
         return guess
+
+    now = datetime.now().timestamp()
+    cached = _cast_ct_cache.get(station['id'])
+    if cached and (now - cached[0]) < _CAST_CT_TTL:
+        return cached[1]
+
     import requests as _requests
     try:
         r = _requests.get(
@@ -1484,12 +1500,14 @@ def _cast_content_type(station):
             headers={'User-Agent': 'HomeTasks/1.0', 'Icy-MetaData': '0'},
         )
         try:
-            return _normalize_audio_mime(r.headers.get('Content-Type')) or guess
+            ct = _normalize_audio_mime(r.headers.get('Content-Type')) or guess
         finally:
             r.close()
     except Exception as e:
         logger.debug("Cast content-type probe failed for %s: %s", station.get('id'), e)
-        return guess
+        ct = guess
+    _cast_ct_cache[station['id']] = (now, ct)
+    return ct
 
 
 def _detect_lan_ip():
@@ -1559,7 +1577,12 @@ def cast_play():
     last_err = None
     for route, url in attempts:
         try:
-            cast_service.play_url(device_id, url, content_type, title=station.get('name'))
+            # Direct attempt fails fast on a receiver error so we fall back to the
+            # proxy in ~1s; the proxy attempt gets the tolerant flap window.
+            cast_service.play_url(
+                device_id, url, content_type, title=station.get('name'),
+                tolerate_flap=(route != 'direct'),
+            )
             return jsonify({
                 'ok': True, 'device_id': device_id, 'station_id': station_id,
                 'url': url, 'route': route,

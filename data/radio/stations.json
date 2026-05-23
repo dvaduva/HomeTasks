@@ -7,6 +7,7 @@
       "genre": "Știri",
       "url": "https://stream4.srr.ro:8443/romania-actualitati",
       "logo": null,
+      "content_type": "audio/aac",
       "proxy": true
     },
     {
@@ -16,6 +17,7 @@
       "genre": "Pop / Hituri",
       "url": "https://astreaming.europafm.ro:8443/EuropaFM_aac",
       "logo": "https://www.europafm.ro/wp-content/themes/efm-2025/img/logo-230x70.png",
+      "content_type": "audio/aac",
       "proxy": true
     },
     {
@@ -24,7 +26,8 @@
       "description": "Hituri non-stop",
       "genre": "Pop / Dance",
       "url": "https://live.kissfm.ro/kissfm.aacp",
-      "logo": "https://api.kissfm.ro/resized/media-manager/2024/04/08/kissfm-inverted_20240408_155643_cm1uoycz.svg"
+      "logo": "https://api.kissfm.ro/resized/media-manager/2024/04/08/kissfm-inverted_20240408_155643_cm1uoycz.svg",
+      "content_type": "audio/aac"
     },
     {
       "id": "pro-fm",
@@ -32,7 +35,8 @@
       "description": "Muzică pop internațională",
       "genre": "Pop",
       "url": "https://edge126.rcs-rds.ro/profm/profm.mp3",
-      "logo": "https://www.profm.ro/static/theme-repo/bin/images/profm-logo.svg"
+      "logo": "https://www.profm.ro/static/theme-repo/bin/images/profm-logo.svg",
+      "content_type": "audio/mpeg"
     },
     {
       "id": "magic-fm",
@@ -40,7 +44,8 @@
       "description": "Cele mai frumoase melodii",
       "genre": "Adult Contemporary",
       "url": "https://live.magicfm.ro/magicfm.aacp",
-      "logo": "https://api.magicfm.ro/resized/media-manager/2024/10/03/magicfm-logo_20241003_183759.png"
+      "logo": "https://api.magicfm.ro/resized/media-manager/2024/10/03/magicfm-logo_20241003_183759.png",
+      "content_type": "audio/aac"
     },
     {
       "id": "virgin-radio",
@@ -49,6 +54,7 @@
       "genre": "Rock / Pop",
       "url": "https://astreaming.edi.ro:8443/VirginRadio_aac",
       "logo": "https://virginradio.ro/wp-content/themes/virgin_v3/img/logo.png",
+      "content_type": "audio/aac",
       "proxy": true
     },
     {
@@ -57,7 +63,8 @@
       "description": "Cele mai noi hituri românești și internaționale",
       "genre": "Pop / Hituri",
       "url": "http://zuicast.digitalag.ro:9420/zu",
-      "logo": "https://radiozu.ro/img/logo-zu.png"
+      "logo": "https://www.google.com/s2/favicons?domain=radiozu.ro&sz=128",
+      "content_type": "audio/aac"
     },
     {
       "id": "digi-fm",
@@ -65,7 +72,8 @@
       "description": "Muzică pentru oameni inteligenți",
       "genre": "Adult Contemporary",
       "url": "https://edge76.rcs-rds.ro/digifm/digifm.mp3",
-      "logo": "https://www.digifm.ro/static/theme-repo/bin/images/logo-digifm.svg"
+      "logo": "https://www.digifm.ro/static/theme-repo/bin/images/logo-digifm.svg",
+      "content_type": "audio/mpeg"
     },
     {
       "id": "rock-fm",
@@ -73,7 +81,8 @@
       "description": "Rock clasic și modern",
       "genre": "Rock",
       "url": "https://live.rockfm.ro/rockfm.aacp",
-      "logo": "https://api.rockfm.ro/resized/media-manager/2024/04/08/rockfm-inverted_20240408_162811_egjobrng.svg"
+      "logo": "https://api.rockfm.ro/resized/media-manager/2024/04/08/rockfm-inverted_20240408_162811_egjobrng.svg",
+      "content_type": "audio/aac"
     },
     {
       "id": "guerrilla-radio",
@@ -82,6 +91,7 @@
       "genre": "Rock / Talk",
       "url": "http://live.guerrillaradio.ro:8010/guerrilla.aac",
       "logo": "https://www.guerrillaradio.ro/wp-content/themes/guerrilla/library/images/new_logo_header.png",
+      "content_type": "audio/aac",
       "proxy": true
     },
     {
@@ -99,6 +109,7 @@
       "genre": "Smooth Jazz / Lounge",
       "url": "https://smooth.vanillaradio.com:8032/live",
       "logo": "https://www.google.com/s2/favicons?domain=vanillaradio.com&sz=128",
+      "content_type": "audio/mpeg",
       "proxy": true
     }
   ]

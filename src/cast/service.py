@@ -4,8 +4,9 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-CONNECT_TIMEOUT = 10       # seconds to wait for a device connection / media session
-PLAY_CONFIRM_TIMEOUT = 12  # seconds to wait for the device to actually start playing
+CONNECT_TIMEOUT = 10        # seconds to wait for a device connection / media session
+PLAY_CONFIRM_TIMEOUT = 12   # tolerant window for routes that legitimately flap (proxy)
+PLAY_CONFIRM_DIRECT = 4     # short window for the direct attempt: fail fast → fall back
 
 
 class CastService:
@@ -77,9 +78,14 @@ class CastService:
         return {'devices': devices, 'error': self._discovery_error}
 
     # ── control ────────────────────────────────────────────────────────────────
-    def play_url(self, device_id, url, content_type='audio/mpeg', title=None):
+    def play_url(self, device_id, url, content_type='audio/mpeg', title=None,
+                 tolerate_flap=True):
         """Tell a device to start streaming ``url``. The device fetches it itself,
         so playback survives the UI tab closing.
+
+        ``tolerate_flap`` picks the confirm strategy: True (proxy route) waits the
+        long, transient-error-tolerant window; False (direct route) fails fast on
+        the first error so the caller can fall back to the proxy without stalling.
 
         Raises RuntimeError if the device fails to actually start playing — the
         caller uses that to fall back to the LAN proxy URL."""
@@ -88,23 +94,27 @@ class CastService:
         # stream_type=LIVE: radio has no seekable timeline / fixed duration.
         mc.play_media(url, content_type, title=title, stream_type='LIVE')
         mc.block_until_active(timeout=CONNECT_TIMEOUT)
-        self._await_playing(mc)
+        self._await_playing(mc, tolerate_flap=tolerate_flap)
         logger.info("Cast play on %s: %s", device_id, url)
         return True
 
     @staticmethod
-    def _await_playing(mc):
+    def _await_playing(mc, tolerate_flap=True):
         """Block until the media is PLAYING/BUFFERING, or raise if the device
         never starts. A device that can't fetch a URL (bad TLS, refused port,
         unsupported codec) goes IDLE with idle_reason=ERROR.
 
-        Some streams (raw AAC over our proxy) make the receiver flap to
-        IDLE/ERROR once while it probes the format, then buffer and play. So a
-        single ERROR is not treated as fatal: we keep watching until the
-        deadline and reach PLAYING if the device recovers. Only if it never
-        starts do we raise — flagging whether we ever saw an error so the caller
-        can fall back to the LAN proxy."""
-        deadline = time.time() + PLAY_CONFIRM_TIMEOUT
+        ``tolerate_flap=True``: some streams (raw AAC over our proxy) flap to
+        IDLE/ERROR once while the receiver probes the format, then buffer and
+        play. We keep watching until ``PLAY_CONFIRM_TIMEOUT`` and reach PLAYING
+        if the device recovers; only a sustained failure raises.
+
+        ``tolerate_flap=False``: used for the direct attempt — raise on the first
+        ERROR within the short ``PLAY_CONFIRM_DIRECT`` window so the caller falls
+        back to the proxy in ~1s instead of stalling ~12s on a stream the device
+        won't accept directly."""
+        timeout = PLAY_CONFIRM_TIMEOUT if tolerate_flap else PLAY_CONFIRM_DIRECT
+        deadline = time.time() + timeout
         last_reason = None
         while time.time() < deadline:
             st = mc.status
@@ -115,6 +125,8 @@ class CastService:
                 reason = (getattr(st, 'idle_reason', '') or '').upper()
                 if reason in ('ERROR', 'CANCELLED', 'INTERRUPTED'):
                     last_reason = reason
+                    if not tolerate_flap:
+                        raise RuntimeError(f'Boxa nu a putut reda stream-ul (idle_reason={reason})')
             time.sleep(0.4)
         if last_reason:
             raise RuntimeError(f'Boxa nu a putut reda stream-ul (idle_reason={last_reason})')
