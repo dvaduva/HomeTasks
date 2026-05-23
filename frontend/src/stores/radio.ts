@@ -340,6 +340,22 @@ export const useRadioStore = defineStore('radio', () => {
     play(station);
   }
 
+  // Step to the next/previous station in list order, wrapping around. Used by
+  // voice/AI commands ("postul următor"). Plays on the current output target.
+  function stepStation(delta: number): void {
+    const list = stations.value;
+    if (!list.length) return;
+    const idx = currentId.value ? list.findIndex((s) => s.id === currentId.value) : -1;
+    const next = list[(idx + delta + list.length) % list.length] ?? list[0];
+    if (next) play(next);
+  }
+  function playNext(): void {
+    stepStation(1);
+  }
+  function playPrev(): void {
+    stepStation(-1);
+  }
+
   function togglePlayPause(): void {
     if (!currentId.value) return;
     if (isCasting.value) {
@@ -509,6 +525,8 @@ export const useRadioStore = defineStore('radio', () => {
     // actions
     init,
     play,
+    playNext,
+    playPrev,
     onStationClick,
     togglePlayPause,
     setVolume,

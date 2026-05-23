@@ -230,6 +230,124 @@ def handle_add_task_intent(message: str, db):
     return task, f"Task '{task.description}' creat pentru {user.name} la {scheduled_date.strftime('%d.%m.%Y %H:%M')}."
 
 
+# ── Radio voice/AI control ────────────────────────────────────────────────────
+# These power "pune Radio ZU", "oprește radioul", "pune Kiss FM pe boxa din living"
+# etc. The handler only *resolves* the command (which station, which Cast device,
+# which verb); the actual playback runs in the browser, so we return a structured
+# ``action_data`` that the frontend executes against the radio Pinia store.
+
+_RADIO_DIACRITICS = str.maketrans({
+    'ă': 'a', 'â': 'a', 'î': 'i', 'ș': 's', 'ş': 's', 'ț': 't', 'ţ': 't',
+})
+
+
+def _radio_normalize(text: str) -> str:
+    return (text or '').lower().translate(_RADIO_DIACRITICS)
+
+
+def _match_radio_station(message: str, stations):
+    """Best station whose name is mentioned in the message, or None.
+
+    Prefers a full normalized-name match (longest wins); falls back to the most
+    distinctive single word of a station name. Generic words like 'radio' or 'fm'
+    never win on their own, so 'pune zu' resolves 'Radio ZU' but 'pune radio'
+    does not pick an arbitrary station."""
+    norm_msg = _radio_normalize(message)
+    generic = {'radio', 'fm', 'post', 'postul', 'muzica', 'music', 'station'}
+
+    best, best_score = None, 0
+    for st in stations:
+        name_norm = _radio_normalize(st.name)
+        if name_norm and name_norm in norm_msg:
+            if len(name_norm) > best_score:
+                best, best_score = st, len(name_norm)
+            continue
+        for tok in re.findall(r'[a-z0-9]+', name_norm):
+            if tok in generic or len(tok) < 3:
+                continue
+            if re.search(r'\b' + re.escape(tok) + r'\b', norm_msg) and len(tok) > best_score:
+                best, best_score = st, len(tok)
+    return best
+
+
+def _match_cast_device(message: str):
+    """Resolve a Google Cast device by friendly name mentioned in the message.
+    Returns (device_id, device_name) or (None, None)."""
+    norm_msg = _radio_normalize(message)
+    try:
+        devices = cast_service.get_devices().get('devices', [])
+    except Exception:
+        return None, None
+    for d in devices:
+        name_norm = _radio_normalize(d.get('name', ''))
+        if not name_norm:
+            continue
+        if name_norm in norm_msg:
+            return d.get('id'), d.get('name')
+        for tok in re.findall(r'[a-z0-9]+', name_norm):
+            if len(tok) >= 3 and re.search(r'\b' + re.escape(tok) + r'\b', norm_msg):
+                return d.get('id'), d.get('name')
+    return None, None
+
+
+def handle_radio_intent(message: str, db):
+    """Parse a radio-control command. Returns (action_data | None, context_string).
+
+    A None action_data with empty context means "not a radio command" — the caller
+    falls through to a normal chat. The action_data shape consumed by the frontend
+    (frontend/src/stores/ai.ts):
+        {'verb': 'play'|'stop'|'pause'|'next'|'prev'|'volume',
+         'station_id': <slug>?, 'station_name': str?,
+         'cast_target': <device_id>?, 'cast_name': str?, 'volume': int?}
+    """
+    msg = _radio_normalize(message)
+
+    stop_kw = ['opreste radio', 'opreste muzica', 'opreste postul', 'inchide radio',
+               'opreste', 'stop', 'taci']
+    pause_kw = ['pauza', 'pause']
+    next_kw = ['urmatorul post', 'urmatorul', 'schimba postul', 'alt post', 'next']
+    prev_kw = ['postul anterior', 'postul precedent', 'inapoi', 'precedent', 'previous']
+    play_kw = ['pune', 'porneste', 'reda', 'da drumul', 'asculta', 'play', 'deschide radio']
+
+    vol_m = re.search(r'volum(?:ul)?\s*(?:la\s*)?(\d{1,3})', msg)
+    if vol_m:
+        v = max(0, min(100, int(vol_m.group(1))))
+        return {'verb': 'volume', 'volume': v}, f"Setez volumul la {v}%."
+
+    if any(k in msg for k in stop_kw):
+        return {'verb': 'stop'}, "Am oprit radioul."
+    if any(k in msg for k in pause_kw):
+        return {'verb': 'pause'}, "Am pus radioul pe pauză."
+    if any(k in msg for k in next_kw):
+        return {'verb': 'next'}, "Trec la postul următor."
+    if any(k in msg for k in prev_kw):
+        return {'verb': 'prev'}, "Revin la postul anterior."
+
+    if any(k in msg for k in play_kw):
+        stations = RadioStationRepository(db).get_all()
+        station = _match_radio_station(message, stations)
+        has_radio_word = any(w in msg for w in ('radio', 'muzica', 'post'))
+        # Guard against hijacking unrelated "pune ..." commands: only treat as a
+        # radio play when a station matched or the user clearly said radio/music.
+        if not station and not has_radio_word:
+            return None, ""
+        cast_id, cast_name = _match_cast_device(message)
+        action = {'verb': 'play'}
+        if station:
+            action['station_id'] = station.slug
+            action['station_name'] = station.name
+        if cast_id:
+            action['cast_target'] = cast_id
+            action['cast_name'] = cast_name
+        if not station:
+            available = ', '.join(s.name for s in stations[:8])
+            return action, f"Nu am identificat postul radio cerut. Posturi disponibile: {available}."
+        where = f" pe {cast_name}" if cast_name else ""
+        return action, f"Pornesc {station.name}{where}."
+
+    return None, ""
+
+
 def _detect_forecast_day(text: str):
     """
     Return how many days ahead the user is asking about, or None for today/current.
@@ -511,6 +629,7 @@ def ai_chat():
 
         action_result = None
         action_context = None
+        action_data = None
 
         db = get_db()
         try:
@@ -551,6 +670,20 @@ def ai_chat():
                 action_context = handle_weather_intent(message, db)
                 action_result = 'weather_data'
 
+            # Detect radio-control intent ("pune Radio ZU", "oprește radioul", …).
+            # handle_radio_intent self-guards and returns (None, "") for non-radio
+            # phrases, so a broad trigger here is safe.
+            elif any(kw in message_lower for kw in [
+                'radio', 'muzica', 'muzică', 'post', 'asculta', 'ascultă', 'pune',
+                'pornește', 'porneste', 'oprește', 'opreste', 'reda', 'redă',
+                'pauză', 'pauza', 'volum', 'play', 'stop', 'urmatorul', 'următorul'
+            ]):
+                action_data, action_context = handle_radio_intent(message, db)
+                if action_data is not None or action_context:
+                    action_result = 'radio_control'
+                else:
+                    action_context = None  # not actually a radio command
+
         except Exception as e:
             db.rollback()
             action_context = f"Acțiunea a eșuat: {str(e)}"
@@ -560,8 +693,9 @@ def ai_chat():
 
         # If Ollama is unavailable, return the action result directly
         if not ollama_client.is_server_running():
-            if action_context:
-                return jsonify({'response': action_context, 'action': action_result, 'model': 'none', 'done': True})
+            if action_context or action_data:
+                return jsonify({'response': action_context or '', 'action': action_result,
+                                'action_data': action_data, 'model': 'none', 'done': True})
             return jsonify({'error': 'Ollama server is not running or not accessible'}), 503
 
         result = ollama_client.chat(
@@ -578,7 +712,8 @@ def ai_chat():
             'model': result.get('model', ''),
             'created_at': result.get('created_at', ''),
             'done': result.get('done', False),
-            'action': action_result
+            'action': action_result,
+            'action_data': action_data
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
