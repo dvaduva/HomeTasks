@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRadioStore } from '@/stores/radio';
 import RadioStationsManager from '@/components/RadioStationsManager.vue';
 import '@/assets/css/radio.css';
 
 const managerOpen = ref(false);
+const query = ref('');
 
 // Full radio page. All playback state and the <audio> element now live in the
 // radio store, so this view and the floating RadioMiniPlayer stay in sync and
 // playback keeps going when the user navigates away.
 
 const radio = useRadioStore();
+
+const visibleStations = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return radio.sortedStations;
+  return radio.sortedStations.filter((s) =>
+    [s.name, s.genre, s.description, s.url].some((f) => (f || '').toLowerCase().includes(q)),
+  );
+});
 
 function initials(name: string): string {
   return name
@@ -120,11 +129,24 @@ onMounted(() => {
           <span>{{ $t('radio_manage') }}</span>
         </button>
       </div>
+      <div v-if="radio.stations.length" class="rd-search">
+        <svg class="rd-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" v-model="query" :placeholder="$t('radio_search_ph')" :aria-label="$t('radio_search_ph')">
+        <button
+          v-if="query"
+          type="button"
+          class="rd-search-clear"
+          :aria-label="$t('radio_search_clear')"
+          :title="$t('radio_search_clear')"
+          @click="query = ''"
+        >✕</button>
+      </div>
       <section class="rd-stations">
         <p v-if="radio.loadFailed" class="rd-empty">{{ $t('radio_load_failed') }}</p>
         <p v-else-if="!radio.stations.length" class="rd-empty">{{ $t('radio_loading') }}</p>
+        <p v-else-if="!visibleStations.length" class="rd-empty">{{ $t('radio_search_empty') }}</p>
         <div
-          v-for="s in radio.sortedStations"
+          v-for="s in visibleStations"
           v-else
           :key="s.id"
           class="rd-station"
@@ -205,6 +227,58 @@ onMounted(() => {
   border-color: var(--rd-accent);
 }
 .rd-manage-btn svg { flex: 0 0 auto; }
+
+.rd-search {
+  position: relative;
+  margin: 0 2px 12px;
+}
+.rd-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--rd-gray-500);
+  pointer-events: none;
+}
+.rd-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 40px 10px 36px;
+  border-radius: 8px;
+  border: 1px solid var(--rd-gray-300);
+  background: var(--rd-white);
+  color: var(--rd-gray-900);
+  font-size: 14px;
+  font-family: inherit;
+}
+.rd-search input:focus {
+  outline: none;
+  border-color: var(--rd-accent);
+  box-shadow: 0 0 0 3px var(--rd-accent-lt);
+}
+.rd-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--rd-gray-100, #f1f5f9);
+  color: var(--rd-gray-500);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.rd-search-clear:hover {
+  background: var(--rd-accent-lt);
+  color: var(--rd-accent-dk);
+}
 
 /* Matches the now-playing card: white surface, gray borders, purple accent. */
 .rd-cast {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRadioStore } from '@/stores/radio';
 import { useNotification } from '@/composables/useNotification';
@@ -19,6 +19,16 @@ const mode = ref<Mode>('none');
 const editingId = ref<string | null>(null);
 const saving = ref(false);
 const reordering = ref(false);
+const query = ref('');
+
+const searching = computed(() => query.value.trim().length > 0);
+const filteredStations = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return radio.stations;
+  return radio.stations.filter((s) =>
+    [s.name, s.genre, s.description, s.url].some((f) => (f || '').toLowerCase().includes(q)),
+  );
+});
 
 const blank: RadioStationInput = {
   name: '', url: '', genre: '', description: '', logo: '', content_type: '', proxy: false,
@@ -167,13 +177,26 @@ async function move(index: number, dir: -1 | 1): Promise<void> {
           <button type="button" class="btn btn-primary btn-sm" @click="startAdd">{{ $t('radio_mgr_add') }}</button>
         </div>
 
+        <div v-if="radio.stations.length" class="rd-mgr-search">
+          <input type="text" v-model="query" :placeholder="$t('radio_mgr_search_ph')" />
+          <button
+            v-if="query"
+            type="button"
+            class="rd-mgr-search-clear"
+            :aria-label="$t('radio_search_clear')"
+            :title="$t('radio_search_clear')"
+            @click="query = ''"
+          >✕</button>
+        </div>
+
         <p v-if="!radio.stations.length" class="settings-empty">{{ $t('radio_mgr_empty') }}</p>
+        <p v-else-if="!filteredStations.length" class="settings-empty">{{ $t('radio_mgr_no_results') }}</p>
 
         <ul class="rd-mgr-list">
-          <li v-for="(s, i) in radio.stations" :key="s.id" class="rd-mgr-row">
+          <li v-for="(s, i) in filteredStations" :key="s.id" class="rd-mgr-row">
             <div class="rd-mgr-reorder">
-              <button type="button" class="rd-mgr-arrow" :title="$t('radio_mgr_move_up')" :disabled="i === 0 || reordering" @click="move(i, -1)">▲</button>
-              <button type="button" class="rd-mgr-arrow" :title="$t('radio_mgr_move_down')" :disabled="i === radio.stations.length - 1 || reordering" @click="move(i, 1)">▼</button>
+              <button type="button" class="rd-mgr-arrow" :title="$t('radio_mgr_move_up')" :disabled="searching || i === 0 || reordering" @click="move(i, -1)">▲</button>
+              <button type="button" class="rd-mgr-arrow" :title="$t('radio_mgr_move_down')" :disabled="searching || i === filteredStations.length - 1 || reordering" @click="move(i, 1)">▼</button>
             </div>
             <div class="rd-mgr-logo">
               <img v-if="s.logo" :src="s.logo" alt="" />
@@ -212,6 +235,42 @@ async function move(index: number, dir: -1 | 1): Promise<void> {
   font-size: 13px;
   color: var(--rd-gray-500, #64748b);
   font-weight: 600;
+}
+.rd-mgr-search {
+  position: relative;
+  margin-bottom: 12px;
+}
+.rd-mgr-search input {
+  width: 100%;
+  padding: 8px 40px 8px 12px;
+  border: 1px solid var(--rd-gray-200, #e2e8f0);
+  border-radius: 10px;
+  font-size: 14px;
+  background: #fff;
+  box-sizing: border-box;
+}
+.rd-mgr-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--rd-gray-100, #f1f5f9);
+  color: var(--rd-gray-500, #64748b);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.rd-mgr-search-clear:hover {
+  background: var(--rd-accent-lt, #ede9fe);
+  color: var(--rd-accent-dk, #6d28d9);
 }
 .rd-mgr-list {
   list-style: none;
