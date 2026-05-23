@@ -6,7 +6,8 @@
       "description": "Postul public de știri și informații",
       "genre": "Știri",
       "url": "https://stream4.srr.ro:8443/romania-actualitati",
-      "logo": null
+      "logo": null,
+      "proxy": true
     },
     {
       "id": "europa-fm",
@@ -14,7 +15,8 @@
       "description": "Cele mai bune hituri ale momentului",
       "genre": "Pop / Hituri",
       "url": "https://astreaming.europafm.ro:8443/EuropaFM_aac",
-      "logo": "https://www.europafm.ro/wp-content/themes/efm-2025/img/logo-230x70.png"
+      "logo": "https://www.europafm.ro/wp-content/themes/efm-2025/img/logo-230x70.png",
+      "proxy": true
     },
     {
       "id": "kiss-fm",
@@ -46,7 +48,8 @@
       "description": "Rock și pop alternativ",
       "genre": "Rock / Pop",
       "url": "https://astreaming.edi.ro:8443/VirginRadio_aac",
-      "logo": "https://virginradio.ro/wp-content/themes/virgin_v3/img/logo.png"
+      "logo": "https://virginradio.ro/wp-content/themes/virgin_v3/img/logo.png",
+      "proxy": true
     },
     {
       "id": "radio-zu",
@@ -54,7 +57,7 @@
       "description": "Cele mai noi hituri românești și internaționale",
       "genre": "Pop / Hituri",
       "url": "http://zuicast.digitalag.ro:9420/zu",
-      "logo": "https://cms.digitalag.ro/cms_websites/cms_radiozu/noi/logo-zu.png"
+      "logo": "https://radiozu.ro/img/logo-zu.png"
     },
     {
       "id": "digi-fm",
@@ -95,7 +98,7 @@
       "description": "Smooth jazz, lounge și easy listening",
       "genre": "Smooth Jazz / Lounge",
       "url": "https://smooth.vanillaradio.com:8032/live",
-      "logo": "https://www.vanillaradio.com/wp-content/uploads/2020/04/Logo-smoothflash-player-1000x1000-1.jpg",
+      "logo": "https://www.google.com/s2/favicons?domain=vanillaradio.com&sz=128",
       "proxy": true
     }
   ]

@@ -16,7 +16,8 @@
       "Bash(./venv/Scripts/python.exe -c ' *)",
       "Bash(PYTHONIOENCODING=utf-8 PYTHONPATH=src ./venv/Scripts/python.exe -c ' *)",
       "Bash(PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -c ' *)",
-      "Bash(node -e \"console.log\\(require\\('./package.json'\\).scripts\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).scripts\\)\")",
+      "Bash(python -c \"import json; d=json.load\\(open\\('data/radio/stations.json',encoding='utf-8'\\)\\); [print\\(s.get\\('name'\\),'|',s.get\\('logo'\\) or s.get\\('favicon'\\) or s.get\\('image'\\)\\) for s in \\(d if isinstance\\(d,list\\) else d.get\\('stations',d\\)\\)]\")"
     ],
     "additionalDirectories": [
       "d:\\Surse\\Proiecte\\HomeTasks\\src"

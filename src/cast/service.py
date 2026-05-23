@@ -5,7 +5,7 @@ import threading
 logger = logging.getLogger(__name__)
 
 CONNECT_TIMEOUT = 10       # seconds to wait for a device connection / media session
-PLAY_CONFIRM_TIMEOUT = 6   # seconds to wait for the device to actually start playing
+PLAY_CONFIRM_TIMEOUT = 12  # seconds to wait for the device to actually start playing
 
 
 class CastService:
@@ -95,9 +95,17 @@ class CastService:
     @staticmethod
     def _await_playing(mc):
         """Block until the media is PLAYING/BUFFERING, or raise if the device
-        reports an error or never starts. A device that can't fetch a URL (bad
-        TLS, refused port, unsupported codec) goes IDLE with idle_reason=ERROR."""
+        never starts. A device that can't fetch a URL (bad TLS, refused port,
+        unsupported codec) goes IDLE with idle_reason=ERROR.
+
+        Some streams (raw AAC over our proxy) make the receiver flap to
+        IDLE/ERROR once while it probes the format, then buffer and play. So a
+        single ERROR is not treated as fatal: we keep watching until the
+        deadline and reach PLAYING if the device recovers. Only if it never
+        starts do we raise — flagging whether we ever saw an error so the caller
+        can fall back to the LAN proxy."""
         deadline = time.time() + PLAY_CONFIRM_TIMEOUT
+        last_reason = None
         while time.time() < deadline:
             st = mc.status
             state = (getattr(st, 'player_state', '') or '').upper()
@@ -106,8 +114,10 @@ class CastService:
             if state == 'IDLE':
                 reason = (getattr(st, 'idle_reason', '') or '').upper()
                 if reason in ('ERROR', 'CANCELLED', 'INTERRUPTED'):
-                    raise RuntimeError(f'Boxa nu a putut reda stream-ul (idle_reason={reason})')
+                    last_reason = reason
             time.sleep(0.4)
+        if last_reason:
+            raise RuntimeError(f'Boxa nu a putut reda stream-ul (idle_reason={last_reason})')
         raise RuntimeError('Boxa nu a confirmat redarea (timeout)')
 
     def stop(self, device_id):

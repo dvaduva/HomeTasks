@@ -1357,7 +1357,9 @@ def radio_proxy(station_id):
         logger.error(f"Radio proxy upstream failed for {station_id}: {e}")
         return jsonify({'error': 'upstream unreachable'}), 502
 
-    content_type = upstream.headers.get('Content-Type', 'audio/mpeg')
+    # Hand the Cast receiver a MIME it understands: Shoutcast's audio/aacp would
+    # otherwise make it error and recover only after a long retry.
+    content_type = _normalize_audio_mime(upstream.headers.get('Content-Type')) or 'audio/mpeg'
 
     def generate():
         try:
@@ -1447,6 +1449,49 @@ def _guess_audio_content_type(url):
     return 'audio/mpeg'  # mp3 and the safe default
 
 
+def _normalize_audio_mime(ct):
+    """Map Shoutcast/ICY content types onto the MIME the Cast receiver expects.
+    Returns None for unknown/opaque types so the caller can fall back to a
+    URL-based guess. ``audio/aacp`` in particular is a Shoutcast-ism the Cast
+    media player rejects — it wants plain ``audio/aac``."""
+    if not ct:
+        return None
+    ct = ct.split(';')[0].strip().lower()
+    if ct in ('audio/aacp', 'audio/x-aac', 'audio/aac'):
+        return 'audio/aac'
+    if ct in ('audio/mpeg', 'audio/mp3', 'audio/mpg'):
+        return 'audio/mpeg'
+    if ct in ('', 'application/octet-stream', 'text/html'):
+        return None  # opaque — let the caller guess from the URL instead
+    return ct
+
+
+def _cast_content_type(station):
+    """Concrete MIME to announce to the Cast device on LOAD.
+
+    For proxied stations we briefly probe the upstream so the announced type
+    matches the bytes the device actually receives: announcing ``audio/mpeg``
+    for an AAC stream (e.g. Radio România Actualități, whose URL gives no hint)
+    makes the receiver error out and only recover after a long retry. The probe
+    is best-effort with a short timeout and falls back to the URL guess."""
+    guess = _guess_audio_content_type(station.get('url'))
+    if not station.get('proxy'):
+        return guess
+    import requests as _requests
+    try:
+        r = _requests.get(
+            station['url'], stream=True, timeout=4,
+            headers={'User-Agent': 'HomeTasks/1.0', 'Icy-MetaData': '0'},
+        )
+        try:
+            return _normalize_audio_mime(r.headers.get('Content-Type')) or guess
+        finally:
+            r.close()
+    except Exception as e:
+        logger.debug("Cast content-type probe failed for %s: %s", station.get('id'), e)
+        return guess
+
+
 def _detect_lan_ip():
     """Best-effort: the LAN IP this machine routes out on (no packets sent)."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -1505,7 +1550,7 @@ def cast_play():
     if not station or not station.get('url'):
         return jsonify({'error': 'Stația nu a fost găsită'}), 404
 
-    content_type = _guess_audio_content_type(station.get('url'))
+    content_type = _cast_content_type(station)
     if station.get('proxy'):
         attempts = [('proxy', _proxy_url_for(station_id))]
     else:
