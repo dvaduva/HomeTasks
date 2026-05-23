@@ -70,6 +70,43 @@ class Comment(Base):
     def __repr__(self):
         return f"<Comment {self.text[:30]}...>"
 
+class RadioStation(Base):
+    __tablename__ = 'radio_stations'
+
+    id = Column(Integer, primary_key=True)
+    # Stable public identifier (e.g. "kiss-fm"). Exposed to the frontend as `id`
+    # so favorites (localStorage), the proxy path and Cast keep working unchanged.
+    slug = Column(String(100), nullable=False, unique=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, default='')
+    genre = Column(String(100), default='')
+    url = Column(String(500), nullable=False)
+    logo = Column(String(500), nullable=True)
+    # Concrete MIME announced to Cast on LOAD (e.g. "audio/aac"); optional.
+    content_type = Column(String(50), nullable=True)
+    # Whether the stream must be piped through the server-side proxy.
+    proxy = Column(Boolean, default=False)
+    # Display order in the stations list (ascending).
+    position = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        """Serialize in the shape the frontend already expects (id == slug)."""
+        return {
+            'id': self.slug,
+            'name': self.name,
+            'description': self.description or '',
+            'genre': self.genre or '',
+            'url': self.url,
+            'logo': self.logo,
+            'content_type': self.content_type,
+            'proxy': bool(self.proxy),
+        }
+
+    def __repr__(self):
+        return f"<RadioStation {self.slug}>"
+
 class Preferences(Base):
     __tablename__ = 'preferences'
 

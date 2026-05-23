@@ -109,8 +109,8 @@ onMounted(() => {
   <div ref="el" class="rd-mini" :class="{ playing: radio.isPlaying, dragging }">
     <div
       class="rd-mini-drag"
-      title="Trage pentru a muta"
-      aria-label="Trage pentru a muta"
+      :title="$t('radio_mini_drag')"
+      :aria-label="$t('radio_mini_drag')"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
@@ -119,7 +119,7 @@ onMounted(() => {
       <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.2"/><circle cx="7.5" cy="3" r="1.2"/><circle cx="2.5" cy="8" r="1.2"/><circle cx="7.5" cy="8" r="1.2"/><circle cx="2.5" cy="13" r="1.2"/><circle cx="7.5" cy="13" r="1.2"/></svg>
     </div>
 
-    <RouterLink class="rd-mini-link" to="/radio" title="Deschide pagina Radio">
+    <RouterLink class="rd-mini-link" to="/radio" :title="$t('radio_mini_open')">
       <div class="rd-mini-logo">
         <img
           v-if="radio.currentStation && radio.currentStation.logo"
@@ -137,8 +137,8 @@ onMounted(() => {
     <button
       type="button"
       class="rd-mini-btn rd-mini-play"
-      aria-label="Play/Pauză"
-      title="Play/Pauză"
+      :aria-label="$t('radio_play_pause')"
+      :title="$t('radio_play_pause')"
       @click="radio.togglePlayPause()"
     >
       <svg class="rd-mini-icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -148,8 +148,8 @@ onMounted(() => {
     <button
       type="button"
       class="rd-mini-btn rd-mini-close"
-      aria-label="Închide widget"
-      title="Ascunde"
+      :aria-label="$t('radio_mini_close')"
+      :title="$t('radio_mini_hide')"
       @click="radio.dismissMini()"
     >
       ✕

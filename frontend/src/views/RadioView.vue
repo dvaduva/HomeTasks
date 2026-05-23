@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRadioStore } from '@/stores/radio';
+import RadioStationsManager from '@/components/RadioStationsManager.vue';
 import '@/assets/css/radio.css';
+
+const managerOpen = ref(false);
 
 // Full radio page. All playback state and the <audio> element now live in the
 // radio store, so this view and the floating RadioMiniPlayer stay in sync and
@@ -38,16 +41,16 @@ onMounted(() => {
       <!-- Output target selector: Local browser or a Cast device -->
       <div class="rd-cast">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
-        <label for="rd-cast-target">Redă pe:</label>
+        <label for="rd-cast-target">{{ $t('radio_play_on') }}</label>
         <select id="rd-cast-target" :value="radio.castTarget" @change="onTargetChange">
-          <option value="local">Acest dispozitiv (browser)</option>
+          <option value="local">{{ $t('radio_this_device') }}</option>
           <option v-for="d in radio.castDevices" :key="d.id" :value="d.id">{{ d.name }}</option>
         </select>
         <button
           type="button"
           class="rd-cast-refresh"
-          title="Reîmprospătează dispozitivele Cast"
-          aria-label="Reîmprospătează dispozitivele Cast"
+          :title="$t('radio_refresh_cast')"
+          :aria-label="$t('radio_refresh_cast')"
           @click="radio.loadCastDevices()"
         >
           ⟳
@@ -77,8 +80,8 @@ onMounted(() => {
             type="button"
             class="rd-btn-play"
             :disabled="!radio.currentId"
-            aria-label="Play/Pauză"
-            title="Play/Pauză"
+            :aria-label="$t('radio_play_pause')"
+            :title="$t('radio_play_pause')"
             @click="radio.togglePlayPause()"
           >
             <svg v-if="!radio.isPlaying" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -89,8 +92,8 @@ onMounted(() => {
               type="button"
               class="rd-btn-mute"
               :class="{ muted: radio.muted }"
-              aria-label="Mute"
-              title="Mute/Unmute"
+              :aria-label="$t('radio_mute')"
+              :title="$t('radio_mute')"
               @click="radio.toggleMute()"
             >
               <svg v-if="!radio.muted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
@@ -102,7 +105,7 @@ onMounted(() => {
               class="rd-volume"
               min="0"
               max="100"
-              aria-label="Volum"
+              :aria-label="$t('radio_volume')"
               @input="onVolumeInput"
             >
           </div>
@@ -110,9 +113,16 @@ onMounted(() => {
       </div>
 
       <!-- Stations list -->
+      <div class="rd-stations-head">
+        <h2 class="rd-stations-title">{{ $t('radio_stations_title') }}</h2>
+        <button type="button" class="rd-manage-btn" :title="$t('radio_manage_title')" @click="managerOpen = true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>{{ $t('radio_manage') }}</span>
+        </button>
+      </div>
       <section class="rd-stations">
-        <p v-if="radio.loadFailed" class="rd-empty">Nu s-a putut încărca lista de posturi.</p>
-        <p v-else-if="!radio.stations.length" class="rd-empty">Se încarcă lista posturilor...</p>
+        <p v-if="radio.loadFailed" class="rd-empty">{{ $t('radio_load_failed') }}</p>
+        <p v-else-if="!radio.stations.length" class="rd-empty">{{ $t('radio_loading') }}</p>
         <div
           v-for="s in radio.sortedStations"
           v-else
@@ -127,7 +137,7 @@ onMounted(() => {
           <button
             type="button"
             class="rd-station-main"
-            :aria-label="`Redă ${s.name}`"
+            :aria-label="$t('radio_play_station', { name: s.name })"
             @click="radio.onStationClick(s)"
           >
             <div class="rd-station-logo">
@@ -147,8 +157,8 @@ onMounted(() => {
           <button
             type="button"
             class="rd-station-fav"
-            aria-label="Favorit"
-            title="Adaugă/scoate din favorite"
+            :aria-label="$t('radio_favorite')"
+            :title="$t('radio_favorite_toggle')"
             @click.stop="radio.toggleFavorite(s.id)"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -156,10 +166,46 @@ onMounted(() => {
         </div>
       </section>
     </div>
+
+    <RadioStationsManager :open="managerOpen" @close="managerOpen = false" />
   </div>
 </template>
 
 <style scoped>
+.rd-stations-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 2px 10px;
+}
+.rd-stations-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--rd-gray-700);
+  margin: 0;
+}
+.rd-manage-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--rd-gray-300);
+  background: var(--rd-white);
+  color: var(--rd-gray-700);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.rd-manage-btn:hover {
+  background: var(--rd-accent-lt);
+  color: var(--rd-accent-dk);
+  border-color: var(--rd-accent);
+}
+.rd-manage-btn svg { flex: 0 0 auto; }
+
 /* Matches the now-playing card: white surface, gray borders, purple accent. */
 .rd-cast {
   display: flex;

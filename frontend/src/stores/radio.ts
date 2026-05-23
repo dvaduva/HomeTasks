@@ -1,7 +1,13 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import { radioApi, type RadioStation } from '@/api/radio';
+import { radioApi, type RadioStation, type RadioStationInput } from '@/api/radio';
 import { castApi, type CastDevice } from '@/api/cast';
+import { i18n } from '@/i18n';
+
+// Status strings shown in the now-playing UI go through i18n. The store isn't a
+// component, so we use the global instance rather than useI18n().
+const t = (key: string, params?: Record<string, unknown>) =>
+  i18n.global.t(key, params ?? {});
 
 // Persistent radio store — owns a single <audio> element that lives as long as
 // the app does. Both RadioView.vue (full page) and RadioMiniPlayer.vue (floating
@@ -35,10 +41,37 @@ export const useRadioStore = defineStore('radio', () => {
   const loadFailed = ref(false);
 
   const isPlaying = ref(false);
-  const npName = ref('Niciun post selectat');
-  const npStatus = ref('Selectați un post din listă pentru a porni redarea');
+  // Now-playing name/status are locale-reactive: we store the i18n key (+ params)
+  // rather than a pre-translated string, then derive the text via computed so a
+  // language switch updates it live. A real value (e.g. a station name) is held
+  // as a literal with key = null.
+  const npNameKey = ref<string | null>('radio_np_none');
+  const npNameLiteral = ref('');
+  const npStatusKey = ref<string | null>('radio_np_hint');
+  const npStatusParams = ref<Record<string, unknown>>({});
   const npStatusClass = ref<'' | 'loading' | 'error'>('');
   const npTrack = ref('');
+
+  const npName = computed(() => {
+    void i18n.global.locale.value; // re-evaluate on locale change
+    return npNameKey.value ? t(npNameKey.value) : npNameLiteral.value;
+  });
+  const npStatus = computed(() => {
+    void i18n.global.locale.value;
+    return npStatusKey.value ? t(npStatusKey.value, npStatusParams.value) : '';
+  });
+
+  function setStatus(key: string, params?: Record<string, unknown>): void {
+    npStatusKey.value = key;
+    npStatusParams.value = params ?? {};
+  }
+  function setName(key: string): void {
+    npNameKey.value = key;
+  }
+  function setNameLiteral(text: string): void {
+    npNameKey.value = null;
+    npNameLiteral.value = text;
+  }
 
   const volume = ref(loadVolume());
   let prevVolume = volume.value > 0 ? volume.value : 80;
@@ -59,9 +92,9 @@ export const useRadioStore = defineStore('radio', () => {
   const isCasting = computed(() => castTarget.value !== 'local');
 
   function castDeviceName(id: string): string {
-    if (id === 'local') return 'Local';
+    if (id === 'local') return t('radio_cast_local');
     const d = castDevices.value.find((x) => x.id === id);
-    return d ? d.name : 'dispozitiv';
+    return d ? d.name : t('radio_cast_device');
   }
 
   const currentStation = computed<RadioStation | null>(
@@ -120,7 +153,7 @@ export const useRadioStore = defineStore('radio', () => {
   // ── audio events ───────────────────────────────────────────────────────────
   function onAudioPlaying(): void {
     isPlaying.value = true;
-    npStatus.value = 'În redare ●';
+    setStatus('radio_np_playing');
     npStatusClass.value = '';
     startNowPlayingPolling();
   }
@@ -130,17 +163,17 @@ export const useRadioStore = defineStore('radio', () => {
     if (isCasting.value) return;
     isPlaying.value = false;
     if (currentId.value) {
-      npStatus.value = 'În pauză';
+      setStatus('radio_np_paused');
       npStatusClass.value = '';
     }
     stopNowPlayingPolling();
   }
   function onAudioWaiting(): void {
-    npStatus.value = 'Se încarcă...';
+    setStatus('radio_np_buffering');
     npStatusClass.value = 'loading';
   }
   function onAudioError(): void {
-    npStatus.value = 'Eroare: stream indisponibil sau format neacceptat.';
+    setStatus('radio_np_error');
     npStatusClass.value = 'error';
     isPlaying.value = false;
     stopNowPlayingPolling();
@@ -191,19 +224,21 @@ export const useRadioStore = defineStore('radio', () => {
   function playCast(station: RadioStation): void {
     stopLocalAudio();
     const name = castDeviceName(castTarget.value);
-    npStatus.value = `Se trimite către ${name}...`;
+    setStatus('radio_cast_sending', { name });
     npStatusClass.value = 'loading';
     castApi
       .play(castTarget.value, station.id)
       .then(() => {
         isPlaying.value = true;
-        npStatus.value = `Redare pe ${name} ●`;
+        setStatus('radio_cast_playing', { name });
         npStatusClass.value = '';
         startCastStatusPolling();
       })
       .catch((err: { message?: string }) => {
         isPlaying.value = false;
-        npStatus.value = `Eroare cast: ${err?.message || 'dispozitiv indisponibil'}`;
+        setStatus('radio_cast_error', {
+          msg: err?.message || t('radio_cast_device_unavailable'),
+        });
         npStatusClass.value = 'error';
       });
   }
@@ -212,7 +247,7 @@ export const useRadioStore = defineStore('radio', () => {
     const dev = castTarget.value;
     stopCastStatusPolling();
     isPlaying.value = false;
-    npStatus.value = 'Oprit';
+    setStatus('radio_cast_stopped');
     npStatusClass.value = '';
     localStorage.setItem(PLAY_KEY, '0');
     if (dev !== 'local') castApi.stop(dev).catch(() => undefined);
@@ -253,7 +288,7 @@ export const useRadioStore = defineStore('radio', () => {
 
   function play(station: RadioStation): void {
     currentId.value = station.id;
-    npName.value = station.name;
+    setNameLiteral(station.name);
     npTrack.value = '';
     localStorage.setItem(LAST_KEY, station.id);
     markActive();
@@ -263,16 +298,16 @@ export const useRadioStore = defineStore('radio', () => {
 
   function playLocal(station: RadioStation): void {
     const a = ensureAudio();
-    npStatus.value = 'Se conectează...';
+    setStatus('radio_np_connecting');
     npStatusClass.value = 'loading';
 
     a.src = streamUrlFor(station);
     a.play().catch((err: DOMException) => {
       if (err && err.name === 'NotAllowedError') {
-        npStatus.value = 'Apăsați play pentru a relua redarea';
+        setStatus('radio_np_press_play_resume');
         npStatusClass.value = '';
       } else {
-        npStatus.value = 'Eroare la redare. Verificați adresa stream-ului.';
+        setStatus('radio_np_play_error');
         npStatusClass.value = 'error';
       }
       isPlaying.value = false;
@@ -370,6 +405,54 @@ export const useRadioStore = defineStore('radio', () => {
     miniDismissed.value = true;
   }
 
+  // ── admin (station management) ───────────────────────────────────────────────
+  // Editor mutations go straight to the backend (DB), then we re-pull the list so
+  // the player, mini-widget and favorites all reflect the new set immediately.
+  async function refreshStations(): Promise<void> {
+    const data = await radioApi.stations();
+    stations.value = data.stations || [];
+    loadFailed.value = false;
+  }
+
+  async function createStation(data: RadioStationInput): Promise<RadioStation> {
+    const created = await radioApi.create(data);
+    await refreshStations();
+    return created;
+  }
+
+  async function updateStation(id: string, data: Partial<RadioStationInput>): Promise<void> {
+    await radioApi.update(id, data);
+    await refreshStations();
+    // If the live station changed, refresh the now-playing label.
+    if (id === currentId.value) {
+      const st = currentStation.value;
+      if (st) setNameLiteral(st.name);
+    }
+  }
+
+  async function deleteStation(id: string): Promise<void> {
+    // If we're deleting what's currently playing, stop first so we don't leave a
+    // dangling reference to a station that no longer exists.
+    if (id === currentId.value) {
+      if (isCasting.value) stopCast();
+      else stopLocalAudio();
+      isPlaying.value = false;
+      currentId.value = null;
+      setName('radio_np_none');
+      setStatus('radio_np_hint');
+      npStatusClass.value = '';
+      localStorage.setItem(PLAY_KEY, '0');
+    }
+    await radioApi.remove(id);
+    if (favorites.value.has(id)) toggleFavorite(id);
+    await refreshStations();
+  }
+
+  async function reorderStations(order: string[]): Promise<void> {
+    const data = await radioApi.reorder(order);
+    stations.value = data.stations || [];
+  }
+
   // ── init ───────────────────────────────────────────────────────────────────
   // Idempotent: App.vue and RadioView.vue both call it; only the first runs.
   let initPromise: Promise<void> | null = null;
@@ -395,8 +478,8 @@ export const useRadioStore = defineStore('radio', () => {
         play(last);
       } else {
         currentId.value = last.id;
-        npName.value = last.name;
-        npStatus.value = 'Apăsați play pentru a porni';
+        setNameLiteral(last.name);
+        setStatus('radio_np_press_play_start');
         npStatusClass.value = '';
       }
     })();
@@ -436,5 +519,11 @@ export const useRadioStore = defineStore('radio', () => {
     loadCastDevices,
     setCastTarget,
     stopCast,
+    // admin
+    refreshStations,
+    createStation,
+    updateStation,
+    deleteStation,
+    reorderStations,
   };
 });

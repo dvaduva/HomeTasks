@@ -1,7 +1,8 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import calendar as _calendar
-from .models import User, Task, Comment, Preferences, TaskStatus, RecurrencePattern
+import re as _re
+from .models import User, Task, Comment, Preferences, RadioStation, TaskStatus, RecurrencePattern
 from .database import SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
@@ -212,6 +213,96 @@ class CommentRepository:
             self.db.commit()
             return True
         return False
+
+def _slugify(text: str) -> str:
+    """ASCII slug from a station name, with Romanian diacritics folded."""
+    text = (text or '').strip().lower()
+    for a, b in (('ă', 'a'), ('â', 'a'), ('î', 'i'), ('ș', 's'), ('ş', 's'),
+                 ('ț', 't'), ('ţ', 't')):
+        text = text.replace(a, b)
+    text = _re.sub(r'[^a-z0-9]+', '-', text).strip('-')
+    return text or 'station'
+
+
+class RadioStationRepository:
+    # Fields a client may set on create/update. `slug` and `position` are managed
+    # server-side, so they are intentionally excluded.
+    EDITABLE = ('name', 'description', 'genre', 'url', 'logo', 'content_type', 'proxy')
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_all(self) -> List[RadioStation]:
+        return self.db.query(RadioStation).order_by(
+            RadioStation.position, RadioStation.id
+        ).all()
+
+    def get_by_slug(self, slug: str) -> Optional[RadioStation]:
+        return self.db.query(RadioStation).filter(RadioStation.slug == slug).first()
+
+    def count(self) -> int:
+        return self.db.query(RadioStation).count()
+
+    def _unique_slug(self, base: str) -> str:
+        slug = _slugify(base)
+        candidate = slug
+        i = 2
+        while self.get_by_slug(candidate) is not None:
+            candidate = f"{slug}-{i}"
+            i += 1
+        return candidate
+
+    def _next_position(self) -> int:
+        last = self.db.query(RadioStation).order_by(RadioStation.position.desc()).first()
+        return (last.position + 1) if last else 0
+
+    def create(self, data: Dict[str, Any], *, slug: Optional[str] = None,
+               position: Optional[int] = None) -> RadioStation:
+        fields = {k: data[k] for k in self.EDITABLE if k in data}
+        station = RadioStation(
+            slug=slug or self._unique_slug(fields.get('name', 'station')),
+            position=position if position is not None else self._next_position(),
+            **fields,
+        )
+        self.db.add(station)
+        self.db.commit()
+        self.db.refresh(station)
+        return station
+
+    def update(self, slug: str, data: Dict[str, Any]) -> Optional[RadioStation]:
+        station = self.get_by_slug(slug)
+        if not station:
+            return None
+        for key in self.EDITABLE:
+            if key in data:
+                setattr(station, key, data[key])
+        station.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(station)
+        return station
+
+    def delete(self, slug: str) -> bool:
+        station = self.get_by_slug(slug)
+        if not station:
+            return False
+        self.db.delete(station)
+        self.db.commit()
+        return True
+
+    def reorder(self, slugs: List[str]) -> List[RadioStation]:
+        """Apply the given slug order. Slugs not listed keep trailing positions."""
+        order = {slug: i for i, slug in enumerate(slugs)}
+        stations = self.db.query(RadioStation).all()
+        tail = len(order)
+        for st in stations:
+            if st.slug in order:
+                st.position = order[st.slug]
+            else:
+                st.position = tail
+                tail += 1
+        self.db.commit()
+        return self.get_all()
+
 
 class PreferencesRepository:
     def __init__(self, db: Session):

@@ -9,8 +9,8 @@ from sqlalchemy import func, and_, or_
 logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 from task_manager.database import create_tables, engine
-from task_manager.models import Base, User, Task, Comment, Preferences, TaskStatus, RecurrencePattern
-from task_manager.repository import UserRepository, TaskRepository, CommentRepository, PreferencesRepository, expand_recurring_tasks
+from task_manager.models import Base, User, Task, Comment, Preferences, RadioStation, TaskStatus, RecurrencePattern
+from task_manager.repository import UserRepository, TaskRepository, CommentRepository, PreferencesRepository, RadioStationRepository, expand_recurring_tasks
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import json
@@ -72,6 +72,52 @@ def initialize_database():
     except Exception as e:
         session.rollback()
         print(f"Error initializing data: {e}")
+    finally:
+        session.close()
+
+    # Seed radio stations from the bundled JSON the first time (idempotent).
+    _seed_radio_stations()
+
+
+def _stations_json_path():
+    return os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
+    )
+
+
+def _seed_radio_stations():
+    """Import data/radio/stations.json into the DB once, if the table is empty.
+
+    The JSON file remains the seed source; after this runs the DB is the source
+    of truth and the editor writes to it. Order is preserved via `position`.
+    """
+    session = sessionmaker(bind=engine)()
+    try:
+        repo = RadioStationRepository(session)
+        if repo.count() > 0:
+            return
+        with open(_stations_json_path(), 'r', encoding='utf-8') as f:
+            stations = json.load(f).get('stations', [])
+        for pos, s in enumerate(stations):
+            slug = (s.get('id') or '').strip() or repo._unique_slug(s.get('name', 'station'))
+            session.add(RadioStation(
+                slug=slug,
+                name=s.get('name', ''),
+                description=s.get('description', '') or '',
+                genre=s.get('genre', '') or '',
+                url=s.get('url', ''),
+                logo=s.get('logo'),
+                content_type=s.get('content_type'),
+                proxy=bool(s.get('proxy', False)),
+                position=pos,
+            ))
+        session.commit()
+        logger.info("Seeded %d radio stations from stations.json", len(stations))
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        session.rollback()
+        logger.warning("Radio station seed failed: %s", e)
     finally:
         session.close()
 
@@ -1262,17 +1308,106 @@ def refresh_tuya():
 
 @app.route('/api/radio/stations')
 def get_radio_stations():
-    stations_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
-    )
+    db = get_db()
     try:
-        with open(stations_path, 'r', encoding='utf-8') as f:
-            return jsonify(json.load(f))
-    except FileNotFoundError:
-        return jsonify({'stations': []})
+        stations = [s.to_dict() for s in RadioStationRepository(db).get_all()]
+        return jsonify({'stations': stations})
     except Exception as e:
         logger.error(f"Error loading radio stations: {e}")
         return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+def _validate_station_payload(data, *, partial=False):
+    """Return (cleaned_dict, error_msg). On create, name and url are required."""
+    if not isinstance(data, dict):
+        return None, 'corp invalid'
+    cleaned = {}
+    for key in RadioStationRepository.EDITABLE:
+        if key in data:
+            cleaned[key] = data[key]
+    if not partial:
+        if not (cleaned.get('name') or '').strip():
+            return None, 'name este obligatoriu'
+        if not (cleaned.get('url') or '').strip():
+            return None, 'url este obligatoriu'
+    if 'proxy' in cleaned:
+        cleaned['proxy'] = bool(cleaned['proxy'])
+    # Normalize optional strings: blank content_type/logo become NULL.
+    for key in ('logo', 'content_type'):
+        if key in cleaned and not (cleaned[key] or '').strip():
+            cleaned[key] = None
+    return cleaned, None
+
+
+@app.route('/api/radio/stations', methods=['POST'])
+def create_radio_station():
+    db = get_db()
+    try:
+        cleaned, err = _validate_station_payload(request.get_json(silent=True))
+        if err:
+            return jsonify({'error': err}), 400
+        station = RadioStationRepository(db).create(cleaned)
+        return jsonify(station.to_dict()), 201
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating radio station: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@app.route('/api/radio/stations/reorder', methods=['POST'])
+def reorder_radio_stations():
+    db = get_db()
+    try:
+        data = request.get_json(silent=True) or {}
+        order = data.get('order')
+        if not isinstance(order, list):
+            return jsonify({'error': 'order trebuie să fie o listă de id-uri'}), 400
+        stations = RadioStationRepository(db).reorder([str(s) for s in order])
+        return jsonify({'stations': [s.to_dict() for s in stations]})
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error reordering radio stations: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@app.route('/api/radio/stations/<station_id>', methods=['PUT'])
+def update_radio_station(station_id):
+    db = get_db()
+    try:
+        cleaned, err = _validate_station_payload(request.get_json(silent=True), partial=True)
+        if err:
+            return jsonify({'error': err}), 400
+        station = RadioStationRepository(db).update(station_id, cleaned)
+        if not station:
+            return jsonify({'error': 'station not found'}), 404
+        return jsonify(station.to_dict())
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating radio station: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@app.route('/api/radio/stations/<station_id>', methods=['DELETE'])
+def delete_radio_station(station_id):
+    db = get_db()
+    try:
+        if not RadioStationRepository(db).delete(station_id):
+            return jsonify({'error': 'station not found'}), 404
+        return jsonify({'message': 'deleted'}), 200
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting radio station: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
 
 
 # In-memory cache for ICY metadata: { url: (timestamp, title_or_None) }
@@ -1336,16 +1471,13 @@ def radio_proxy(station_id):
     audio bytes to the client."""
     import requests as _requests
 
-    stations_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
-    )
+    db = get_db()
     try:
-        with open(stations_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        station_row = RadioStationRepository(db).get_by_slug(station_id)
+        station = station_row.to_dict() if station_row else None
+    finally:
+        db.close()
 
-    station = next((s for s in data.get('stations', []) if s.get('id') == station_id), None)
     if not station or not station.get('url'):
         return jsonify({'error': 'station not found'}), 404
 
@@ -1391,20 +1523,17 @@ def get_radio_now_playing():
     if not station_id:
         return jsonify({'error': 'id is required'}), 400
 
-    stations_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
-    )
+    db = get_db()
     try:
-        with open(stations_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        station = RadioStationRepository(db).get_by_slug(station_id)
+        url = station.url if station else None
+        found = station is not None
+    finally:
+        db.close()
 
-    station = next((s for s in data.get('stations', []) if s.get('id') == station_id), None)
-    if not station:
+    if not found:
         return jsonify({'error': 'station not found'}), 404
 
-    url = station.get('url')
     if not url:
         return jsonify({'title': None})
 
@@ -1434,11 +1563,12 @@ def get_cast_devices():
 
 
 def _load_radio_stations():
-    stations_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'radio', 'stations.json'
-    )
-    with open(stations_path, 'r', encoding='utf-8') as f:
-        return json.load(f).get('stations', [])
+    """Return all stations (ordered) as plain dicts in the public shape."""
+    db = get_db()
+    try:
+        return [s.to_dict() for s in RadioStationRepository(db).get_all()]
+    finally:
+        db.close()
 
 
 def _guess_audio_content_type(url):
