@@ -4,6 +4,9 @@ server.log
 nul
 tuya_devices.json
 
+# Claude Code local settings (per-user, nu se urcă)
+.claude/settings.local.json
+
 # Frontend SPA (Vite)
 frontend/node_modules/
 frontend/dist/
