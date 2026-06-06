@@ -266,6 +266,33 @@ află în directorul `frontend/`; Flask servește bundle-ul construit din
 
 Prerechizite suplimentare: **Node.js 18+ și npm**.
 
+#### Instalarea Node.js 18 (pe Raspberry Pi)
+**Important:** Node.js din depozitul implicit Raspberry Pi OS / Debian este de
+obicei mult prea vechi (ex. v10), iar `vue-tsc`/Vite au nevoie de **Node 18+**.
+Cu un Node vechi, build-ul eșuează cu erori de tipul
+`SyntaxError: Unexpected token .` (optional chaining `?.`) sau avertismente
+`npm WARN EBADENGINE ... current: { node: 'v10.x' }`. Instalați Node 18 din
+NodeSource:
+
+```bash
+# Eliminați Node-ul vechi din apt (dacă există)
+sudo apt remove --purge nodejs npm -y
+sudo apt autoremove -y
+
+# Adăugați depozitul NodeSource 18.x și instalați
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install nodejs -y
+
+# Confirmați versiunea (trebuie v18.x)
+node -v
+npm -v
+```
+
+> Funcționează și pe Raspberry Pi OS 32-bit (armhf) — NodeSource oferă build-uri
+> armhf pentru Node 18. Dacă NodeSource nu merge pe placa voastră, folosiți `nvm`:
+> `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash`,
+> redeschideți terminalul, apoi `nvm install 18 && nvm use 18`.
+
 ```bash
 # Instalare dependențe SPA (o singură dată)
 cd frontend
@@ -429,6 +456,16 @@ source venv/bin/activate
 pip install --upgrade -r requirements.txt
 ```
 
+### Rebuild frontend SPA (după `git pull`)
+Dacă a fost actualizat codul din `frontend/`, refaceți bundle-ul servit de Flask:
+```bash
+cd frontend
+npm install        # actualizează dependențele SPA dacă s-au schimbat
+npm run build      # regenerează frontend/dist/
+cd ..
+sudo systemctl restart hometasks   # dacă rulează ca serviciu
+```
+
 ### Actualizarea modelului Ollama
 ```bash
 ollama pull llama3:8b  # înlocuiți cu modelul voastră
@@ -496,6 +533,28 @@ Cu acești pași, răspunsurile vocale AI (și YouTube) ar trebui să se audă �
    sudo usermod -a -G audio pi
    ```
 3. Reporniți sistemul sau deconectați-vă și reconectați-vă.
+
+### Problema: "SyntaxError: Unexpected token ." sau "vue-tsc: Permission denied" la `npm run build`
+**Cauză**: Node.js prea vechi (ex. v10 din depozitul Raspberry Pi OS). `vue-tsc`
+și Vite folosesc sintaxă (optional chaining `?.`) suportată doar de **Node 18+**.
+Semnele tipice:
+- `SyntaxError: Unexpected token .` în `@volar/typescript/.../runTsc.js`
+- `npm WARN EBADENGINE ... required: { node: '^18.0.0 ...' }, current: { node: 'v10.x' }`
+- `ExperimentalWarning: The fs.promises API is experimental` (Node 10/11)
+- `sh: 1: vue-tsc: Permission denied` (cod 126) — binarele din `node_modules/.bin/`
+  fără bit de execuție, frecvent după `npm install` rulat cu un Node vechi.
+
+**Soluție**:
+1. Instalați **Node 18** (vezi „Instalarea Node.js 18 (pe Raspberry Pi)"). Verificați cu `node -v`.
+2. Reinstalați curat dependențele SPA cu Node-ul nou și rebuild:
+   ```bash
+   cd ~/HomeTasks/frontend
+   rm -rf node_modules package-lock.json
+   npm install
+   npm run build
+   ```
+> Nu rulați `npm` cu `sudo` — nu rezolvă versiunea Node și strică owner-ul
+> fișierelor. Dacă ați folosit `sudo` din greșeală: `sudo chown -R pi:pi node_modules ~/.npm`.
 
 ### Problema: "ERROR: Unsupported architecture: armv7l" la instalarea Ollama
 **Cauză**: Ollama nu oferă build-uri pentru procesor 32-bit ARM (armv7l). Scriptul oficial suportă doar x86_64 și arm64 (64-bit).
