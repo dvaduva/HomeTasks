@@ -1,5 +1,7 @@
 # Arhitectura aplicației HomeTasks (Web)
 
+> [English](ARCHITECTURE.md) · **Română**
+
 ## Diagrama de arhitectură
 
 ```

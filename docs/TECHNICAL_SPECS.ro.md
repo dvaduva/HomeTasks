@@ -1,5 +1,7 @@
 # Specificații tehnice - HomeTasks
 
+> [English](TECHNICAL_SPECS.md) · **Română**
+
 ## Cerințe hardware minime
 
 ### Raspberry Pi (sau orice alt dispozitiv)

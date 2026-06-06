@@ -1,5 +1,7 @@
 # Ghid de utilizare - HomeTasks (Web)
 
+> [English](USAGE.md) · **Română**
+
 ## Deschiderea și navigarea de bază
 
 ### Pornierea aplicației

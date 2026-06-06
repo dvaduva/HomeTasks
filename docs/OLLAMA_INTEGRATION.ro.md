@@ -1,5 +1,7 @@
 # Integrare cu Ollama - HomeTasks
 
+> [English](OLLAMA_INTEGRATION.md) · **Română**
+
 ## Arhitectura integrării
 
 HomeTasks communicează cu serverul Ollama prin interfața HTTP REST pe portul 11434 (implicit). Toate cererile sunt efectuate către endpoint-ul `/api/generate` pentru generarea de text sau `/api/chat` pentru conversații structurate.

@@ -1,74 +1,73 @@
-# HomeTasks - Aplicație de management al taskurilor familiei
+# HomeTasks - Family task management application
 
-HomeTasks este o aplicatie web proiectata pentru a rula pe un Raspberry Pi, accesibil prin browser pe localhost și dispozitivele din aceeași rețea. Aplicatia ajuta familiile să organizeze și să urmărească taskurile zilnice, să afișeze informații despre vreme și să permită interacțiunea cu un model AI prin comenzi vocale în română și engleză.
+> **English** · [Română](README.ro.md)
 
-## Caracteristici principale
+HomeTasks is a web application designed to run on a Raspberry Pi, accessible through a browser on localhost and on devices on the same network. The application helps families organize and track daily tasks, display weather information, and interact with an AI model through voice commands in Romanian and English.
 
-- Afișare taskuri pentru membrii familiei pentru ziua curente și pentru următoarele 7 zile
-- Afișare stare vreme în timp real
-- Adăugare taskuri pentru diversi utilizatori
-- Adăugare comentarii, posibilitatea de inchidere a taskului și refuzarea acestuia
-- Integrare cu model AI de pe un server Ollama
-- Discutie cu modelul AI prin recunoastere vocală (limba română și engleză)
-- Interfață web responsiva, accesibilă de pe orice browser (incluzând pe Raspberry Pi)
-- Suport pentru taskuri repetitive (zile fixe din săptămână, zile fixe din lună)
+## Key features
 
-## Tehnologii utilizate
+- Display tasks for family members for the current day and the next 7 days
+- Real-time weather display
+- Add tasks for various users
+- Add comments, ability to close a task and refuse it
+- Integration with an AI model on an Ollama server
+- Conversation with the AI model through voice recognition (Romanian and English)
+- Responsive web interface, accessible from any browser (including on the Raspberry Pi)
+- Support for recurring tasks (fixed weekdays, fixed days of the month)
 
-- **Limbaj de programare**: Python
-- **Framework web**: Flask (sau FastAPI)
-- **Platformă hardware**: Raspberry Pi (orice dispozitiv capabil să ruleze Python)
-- **Baza de date**: SQLite pentru stocarea taskurilor și utilizatorilor
-- **Integrare AI**: Ollama server pentru modelele de limbaj mare
-- **Recunoaștere vocală**: SpeechRecognition bibliotecă cu suport pentru limba română și engleză (folosit prin API-ul browserului sau prin Python pe server)
-- **Serviciu meteorologic**: OpenWeatherMap API sau similar
-- **Frontend**: HTML5, CSS3, JavaScript (Vanilla sau cu un framework mic precum HTMX pentru simplicitate)
+## Technologies used
 
-## Structura proiectului
+- **Programming language**: Python
+- **Web framework**: Flask
+- **Hardware platform**: Raspberry Pi (any device capable of running Python)
+- **Database**: SQLite for storing tasks and users
+- **AI integration**: Ollama server for large language models
+- **Voice recognition**: SpeechRecognition library with support for Romanian and English (used through the browser API or through Python on the server)
+- **Weather service**: OpenWeatherMap API or similar
+- **Frontend**: Vue 3 + Vite + Pinia + Vue Router SPA (see [SPA_MIGRATION.md](SPA_MIGRATION.md))
+
+## Project structure
 
 ```
 HomeTasks/
-├── docs/                # Documentație proiect
-├── src/                 # Sursă aplicație
-│   ├── main.py          # punct de intrare (Flask app)
-│   ├── requirements.txt # dependente Python
-│   ├── task_manager/    # gestionare taskuri (modele, logique de business)
+├── docs/                # Project documentation
+├── frontend/            # Vue 3 + Vite SPA (built into frontend/dist/)
+├── src/                 # Application source (backend)
+│   ├── main.py          # entry point (Flask app: REST API + SPA serving)
+│   ├── task_manager/    # task management (models, business logic)
 │   │   ├── models.py
+│   │   ├── database.py
 │   │   └── repository.py
-│   ├── weather/         # integrare serviciu meteorologic
+│   ├── weather/         # weather service integration
 │   │   └── service.py
-│   ├── ollama/          # comunicare cu serverul Ollama
+│   ├── ollama/          # communication with the Ollama server
 │   │   └── client.py
-│   ├── voice/           # modul recunoaștere vocală (opțional, pentru server-side speech-to-text)
-│   │   └── processor.py
-│   └── static/          # fișiere statice (CSS, JS, imagini)
-│       ├── css/
-│       ├── js/
-│       └── images/
-├── templates/           # template-uri HTML (Folosit de Flask)
-│   ├── base.html
-│   ├── index.html
-│   ├── task.html
-│   └── weather.html
-├── data/                # director pentru baza de date SQLite și alte fișiere de date
+│   ├── voice/           # voice recognition module (optional, server-side STT)
+│   │   └── service.py
+│   ├── tuya/            # Tuya IoT integration (temperature sensors)
+│   │   └── service.py
+│   └── cast/            # Google Cast control (radio casting)
+│       └── service.py
+├── data/                # SQLite database and other data files
 │   └── hometasks.db
-├── tests/               # teste unitare și de integrare
-└── README.md            # acest fișier
+├── tests/               # unit and integration tests
+└── README.md            # this file
 ```
 
-## început rapid
+## Quick start
 
-1. Asigurați-vă că aveți un Raspberry Pi cu sistem de operare instalat (Raspberry OS recomandat) sau orice alt calculator cu Python
-2. Instala dependentele necesare: `pip install -r src/requirements.txt`
-3. Configura serverul Ollama local și descărca un model potrivit (ex: llama3)
-4. Obține o cheie API pentru serviciul meteorologic ales
-5. Rulează aplicația: `python src/main.py`
-6. Deschide browserul și navighează la: `http://localhost:5000` (sau adresa IP a Raspberry Pi-ului pentru a accesa de pe alte dispozitive: `http://<raspberry-pi-ip>:5000`)
+1. Make sure you have a Raspberry Pi with an operating system installed (Raspberry Pi OS recommended) or any other computer with Python
+2. Install the required dependencies: `pip install -r requirements.txt`
+3. Set up the local Ollama server and download a suitable model (e.g. llama3)
+4. Get an API key for the chosen weather service
+5. Build the SPA frontend: `cd frontend && npm install && npm run build`
+6. Run the application: `python src/main.py`
+7. Open the browser and navigate to: `http://localhost:5000` (or the Raspberry Pi's IP address to access from other devices: `http://<raspberry-pi-ip>:5000`)
 
-## Contribuire
+## Contributing
 
-Contribuțiile sunt binevenite! Vă rugăm să deschideți un issue pentru discutarea modificărilor majore înainte de a face un pull request.
+Contributions are welcome! Please open an issue to discuss major changes before submitting a pull request.
 
-## Licență
+## License
 
-Acest proiect este licențiat sub licența MIT - vezi fișierul [LICENSE](LICENSE) pentru detalii.
+This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.

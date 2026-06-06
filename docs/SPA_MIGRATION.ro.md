@@ -1,5 +1,7 @@
 # Plan de portare HomeTasks către SPA
 
+> [English](SPA_MIGRATION.md) · **Română**
+
 Document de planificare pentru tranziția aplicației HomeTasks dintr-o aplicație multi-pagină Flask + Jinja + JS vanilla într-o **Single Page Application** (SPA) care consumă API-ul REST existent.
 
 ---
@@ -172,7 +174,7 @@ Backend rămâne neschimbat structural — singura modificare e:
 - [x] Creează directorul `frontend/` și inițializează proiect Vite + Vue.
 - [x] Configurează proxy Vite spre Flask (`/api` → `http://localhost:5000`) pentru dev.
 - [x] Adaugă `frontend/dist/` în `.gitignore`.
-- [x] Adaugă script `npm run dev` și `npm run build` în README/INSTALARE.
+- [x] Adaugă script `npm run dev` și `npm run build` în README/INSTALLATION.
 
 ### Faza 1 — Infrastructură (1-2 zile)
 
@@ -263,7 +265,7 @@ Flask trebuie să servească SPA-ul și să facă fallback pe `index.html` pentr
       `.br`/`.gz` incluse: ~619 KB pe disc — sub țintă (< 300 KB pe wire).
 - [ ] Testare în kiosk Chromium pe RPi — de făcut pe device (nu putem rula
       Chromium ARM din acest mediu).
-- [x] Update [docs/INSTALARE.md](docs/INSTALARE.md), [docs/ARHITECTURA.md](docs/ARHITECTURA.md), [docs/SPECIFICATII_TEHNICE.md](docs/SPECIFICATII_TEHNICE.md).
+- [x] Update [docs/INSTALLATION.ro.md](INSTALLATION.ro.md), [docs/ARCHITECTURE.ro.md](ARCHITECTURE.ro.md), [docs/TECHNICAL_SPECS.ro.md](TECHNICAL_SPECS.ro.md).
 
 > **Note Faza 6:** Flask nu mai are nici `template_folder`, nici `static_folder`
 > — întregul UI vine din `frontend/dist/`. Asset-urile precompresate sunt servite

@@ -1,28 +1,30 @@
 # Audio Casting Module — HomeTasks
 
-> Plan de implementare pentru distribuirea radio-ului către dispozitive
-> **Google Cast** (Chromecast / Google Home / **Mi Smart Speaker**).
+> **English** · [Română](audio-streaming.ro.md)
+
+> Implementation plan for streaming the radio to **Google Cast** devices
+> (Chromecast / Google Home / **Mi Smart Speaker**).
 >
-> **Scop îngustat (v1):** păstrăm redarea radio existentă din browser, neatinsă,
-> și adăugăm posibilitatea de a *trimite* (cast) același stream către o boxă
-> Cast din rețea, controlat server-side prin `pychromecast`.
+> **Narrowed scope (v1):** we keep the existing in-browser radio playback
+> untouched and add the ability to *send* (cast) the same stream to a Cast
+> speaker on the network, controlled server-side through `pychromecast`.
 
-## Rol HomeTasks
+## HomeTasks' role
 
-HomeTasks devine **Controller** de cast:
-- descoperă dispozitivele Google Cast din rețea (`pychromecast` + `zeroconf`);
-- îi spune unui dispozitiv ales „redă acest URL de stream";
-- controlează volum / stop și raportează starea curentă.
+HomeTasks becomes a cast **Controller**:
+- discovers the Google Cast devices on the network (`pychromecast` + `zeroconf`);
+- tells a chosen device "play this stream URL";
+- controls volume / stop and reports the current state.
 
-Dispozitivul Cast (Mi Smart Speaker etc.) **trage stream-ul singur** de la sursă,
-exact ca un Chromecast. Browserul / tab-ul UI poate fi închis fără să se
-întrerupă redarea pe boxă.
+The Cast device (Mi Smart Speaker, etc.) **pulls the stream itself** from the
+source, exactly like a Chromecast. The browser / UI tab can be closed without
+interrupting playback on the speaker.
 
-> Redarea **locală** rămâne neschimbată: `HTMLAudioElement` în tab-ul curent,
-> gestionat de `useRadioStore`. „Cast" este o *destinație alternativă*, nu o
-> înlocuire.
+> **Local** playback stays unchanged: an `HTMLAudioElement` in the current tab,
+> managed by `useRadioStore`. "Cast" is an *alternative destination*, not a
+> replacement.
 
-## Arhitectură
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -35,308 +37,316 @@ exact ca un Chromecast. Browserul / tab-ul UI poate fi închis fără să se
 │         ┌───────────┴────────────┐                    │
 │         ▼                        ▼                     │
 │  HTMLAudioElement          cast target select         │
-│  (redare LOCALĂ            (Local / <device>)         │
-│   în browser — există)            │                   │
+│  (LOCAL playback           (Local / <device>)         │
+│   in the browser — exists)        │                   │
 └───────────────────────────────────┼───────────────────┘
                                      │ fetch /api/cast/*
 ┌────────────────────────────────────┼───────────────────┐
 │  Backend — Flask JSON API (src/main.py)                 │
 │              ┌──────────────────────▼─────────────────┐ │
 │              │  cast/service.py  (pychromecast)        │ │
-│              │  - discovery (cache device-uri)         │ │
+│              │  - discovery (device cache)             │ │
 │              │  - play(device, stream_url)             │ │
 │              │  - stop / set_volume / status           │ │
 │              └──────────────────────┬──────────────────┘ │
-│   reciclează: /api/radio/proxy/<id> (stream reachable)   │
+│   reuses: /api/radio/proxy/<id> (reachable stream)       │
 └──────────────────────────────────────┼──────────────────┘
                                         ▼
                           Mi Smart Speaker / Google Home
-                          (trage stream-ul direct de la URL)
+                          (pulls the stream directly from the URL)
 ```
 
-## Biblioteci
+## Libraries
 
-### Necesare (v1)
-- `pychromecast` — descoperire + control Google Cast (include `zeroconf` pentru mDNS)
+### Required (v1)
+- `pychromecast` — Google Cast discovery + control (includes `zeroconf` for mDNS)
 
-### Explicit NEINTRODUSE în v1
-- `python-mpv` — serverul e headless, nu redă local
-- `Flask-SocketIO` — folosim polling, consistent cu restul aplicației
-- `pyttsx3` / `gTTS` pentru cast — TTS există deja doar pentru voice (`/api/voice/speak`); cast-ul de TTS e v2
-- `yt-dlp`, surse Spotify — v2+
+### Explicitly NOT introduced in v1
+- `python-mpv` — the server is headless, it does not play locally
+- `Flask-SocketIO` — we use polling, consistent with the rest of the application
+- `pyttsx3` / `gTTS` for cast — TTS already exists only for voice (`/api/voice/speak`); casting TTS is v2
+- `yt-dlp`, Spotify sources — v2+
 
-## API REST (nou)
+## REST API (new)
 
-Toate sub `/api/cast/*`, în stilul JSON existent (vezi `/api/radio/*`).
+All under `/api/cast/*`, in the existing JSON style (see `/api/radio/*`).
 
-| Metodă | Endpoint              | Descriere                                                        |
+| Method | Endpoint              | Description                                                      |
 |--------|-----------------------|------------------------------------------------------------------|
-| GET    | `/api/cast/devices`   | Listează dispozitivele Cast descoperite (`{devices: [...]}`)     |
-| POST   | `/api/cast/play`      | `{device_id, station_id}` → spune boxei să redea stream-ul stației |
-| POST   | `/api/cast/stop`      | `{device_id}` → oprește redarea pe boxă                          |
+| GET    | `/api/cast/devices`   | Lists the discovered Cast devices (`{devices: [...]}`)           |
+| POST   | `/api/cast/play`      | `{device_id, station_id}` → tells the speaker to play the station's stream |
+| POST   | `/api/cast/stop`      | `{device_id}` → stops playback on the speaker                    |
 | POST   | `/api/cast/volume`    | `{device_id, volume: 0.0-1.0}`                                   |
-| GET    | `/api/cast/status`    | `{device_id}` → stare curentă (playing/paused, titlu, volum)     |
+| GET    | `/api/cast/status`    | `{device_id}` → current state (playing/paused, title, volume)    |
 
-Frontend-ul corespunzător: un nou modul `frontend/src/api/cast.ts` (oglindă a
-`radio.ts`) și extinderea `useRadioStore` cu starea „cast target".
+The corresponding frontend: a new `frontend/src/api/cast.ts` module (a mirror of
+`radio.ts`) and extending `useRadioStore` with the "cast target" state.
 
-> **De ce `station_id` și nu URL liber:** sursele sunt limitate la stațiile din
-> `data/radio/stations.json`. Backend-ul rezolvă `station_id → URL` și decide
-> dacă trimite URL-ul direct sau pe cel via proxy (vezi mai jos).
+> **Why `station_id` and not a free URL:** the sources are limited to the stations
+> in `data/radio/stations.json`. The backend resolves `station_id → URL` and
+> decides whether to send the direct URL or the one via the proxy (see below).
 
-## Stream-ul trebuie să fie accesibil DE pe boxă
+## The stream must be reachable FROM the speaker
 
-Aceasta e mecanica esențială (și o sursă de bug-uri): boxa Cast nu primește
-audio de la HomeTasks — primește un **URL** pe care îl deschide singură. Deci:
+This is the essential mechanic (and a source of bugs): the Cast speaker doesn't
+receive audio from HomeTasks — it receives a **URL** that it opens itself. So:
 
-1. Stație cu URL public (ex. `https://live.kissfm.ro/kissfm.aacp`): trimitem URL-ul
-   direct boxei. Mi Smart Speaker / Cast acceptă **MP3 și AAC** peste HTTP/HTTPS.
-2. Stație care necesită proxy (CORS / port non-standard `:8443` / TLS dubios —
-   vezi flag-ul `proxy` din `stations.json`): trimitem boxei
-   `http://<IP-LAN-HomeTasks>:5000/api/radio/proxy/<station_id>`.
-   **Reciclăm proxy-ul existent** (`radio_proxy` în `src/main.py`).
+1. A station with a public URL (e.g. `https://live.kissfm.ro/kissfm.aacp`): we send
+   the URL directly to the speaker. Mi Smart Speaker / Cast accept **MP3 and AAC**
+   over HTTP/HTTPS.
+2. A station that needs a proxy (CORS / non-standard port `:8443` / dubious TLS —
+   see the `proxy` flag in `stations.json`): we send the speaker
+   `http://<HomeTasks-LAN-IP>:5000/api/radio/proxy/<station_id>`.
+   **We reuse the existing proxy** (`radio_proxy` in `src/main.py`).
 
-Pentru cazul (2), HomeTasks trebuie să-și cunoască **IP-ul/URL-ul propriu
-accesibil în LAN** de către boxă (nu `localhost`). Acesta devine un punct de
-configurare (vezi `config`).
+For case (2), HomeTasks must know its **own URL/IP reachable on the LAN** by the
+speaker (not `localhost`). This becomes a configuration point (see `config`).
 
-## Configurare
+## Configuration
 
-Aplicația nu folosește `config.yaml` — citește din `.env` + tabela
-`Preferences`. Adăugăm:
+The application doesn't use a `config.yaml` — it reads from `.env` + the
+`Preferences` table. We add:
 
 ```env
-# IP/URL-ul HomeTasks accesibil de boxa Cast în LAN (pentru stream proxy).
-# Dacă lipsește, se folosește host-ul din care a venit request-ul (nu localhost).
+# The HomeTasks IP/URL reachable by the Cast speaker on the LAN (for the proxy stream).
+# If missing, the host the request came from is used (not localhost).
 CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
 ```
 
-(Opțional, mai târziu, mutabil în `Preferences` ca celelalte setări dinamice.)
+(Optionally, later, movable into `Preferences` like the other dynamic settings.)
 
-## Frontend (Vue) — modificări minime
+## Frontend (Vue) — minimal changes
 
-- `frontend/src/api/cast.ts` — client pentru `/api/cast/*`.
-- `useRadioStore`: adaugă `castTarget: 'local' | <device_id>` și acțiunile
-  `castTo(deviceId)`, `stopCast()`. Când `castTarget !== 'local'`, butonul Play
-  apelează `/api/cast/play` în loc de `HTMLAudioElement.play()` (și oprește
-  audio-ul local, ca să nu sune în două locuri).
-- UI: un **selector de destinație** (dropdown „Local / <nume boxă>") în
-  `RadioView.vue` și/sau `RadioMiniPlayer.vue`.
-- Starea de pe boxă (now-playing/volum) se ia prin **polling** pe
-  `/api/cast/status`, reutilizând `usePolling`.
+- `frontend/src/api/cast.ts` — a client for `/api/cast/*`.
+- `useRadioStore`: add `castTarget: 'local' | <device_id>` and the actions
+  `castTo(deviceId)`, `stopCast()`. When `castTarget !== 'local'`, the Play button
+  calls `/api/cast/play` instead of `HTMLAudioElement.play()` (and stops the local
+  audio so it doesn't play in two places).
+- UI: a **destination selector** (a "Local / <speaker name>" dropdown) in
+  `RadioView.vue` and/or `RadioMiniPlayer.vue`.
+- The speaker state (now-playing/volume) is taken through **polling** on
+  `/api/cast/status`, reusing `usePolling`.
 
-## Probleme de implementare (citește înainte de a începe)
+## Implementation issues (read before starting)
 
-1. **Gunicorn: stare pychromecast single-process + streaming care nu blochează.**
-   ✅ *rezolvat.* `pychromecast` ține conexiunea la boxă în memoria *unui singur*
-   proces (cu >1 worker un `/api/cast/stop` ar putea nimeri alt worker). DAR
-   proxy-ul radio streamează **sincron** pe toată durata redării (ore), așa că un
-   singur worker `sync` ar bloca întreaga aplicație. **Aplicat:**
-   `worker_class = "gthread"`, `workers = 1`, `threads = 8` în
-   `deploy/gunicorn.conf.py` — un proces (stare cast coerentă) + thread-uri (un
-   stream proxy nu mai blochează API-ul). Plus reconectare lazy în
-   `CastService._get_cast` (socket mort → reconstruit din discovery cache).
+1. **Gunicorn: single-process pychromecast state + non-blocking streaming.**
+   ✅ *resolved.* `pychromecast` keeps the connection to the speaker in the memory
+   of a *single* process (with >1 worker, a `/api/cast/stop` could hit a different
+   worker). BUT the radio proxy streams **synchronously** for the entire playback
+   duration (hours), so a single `sync` worker would block the whole application.
+   **Applied:** `worker_class = "gthread"`, `workers = 1`, `threads = 8` in
+   `deploy/gunicorn.conf.py` — one process (coherent cast state) + threads (a proxy
+   stream no longer blocks the API). Plus lazy reconnection in
+   `CastService._get_cast` (dead socket → rebuilt from the discovery cache).
 
-2. **Discovery nu trebuie să blocheze handler-ul HTTP.** ✅ *rezolvat.*
-   Folosim un `CastBrowser` + `Zeroconf` **persistent** (descoperire continuă,
-   event-driven — actualizează lista live când apar/dispar device-uri), pornit
-   **lazy** la primul request (`cast_service.start()`, idempotent) ca să trăiască
-   în worker, nu în masterul preîncărcat. `/api/cast/devices` doar citește lista,
-   nu scanează la cerere.
+2. **Discovery must not block the HTTP handler.** ✅ *resolved.*
+   We use a **persistent** `CastBrowser` + `Zeroconf` (continuous, event-driven
+   discovery — updates the list live as devices appear/disappear), started
+   **lazily** on the first request (`cast_service.start()`, idempotent) so it lives
+   in the worker, not in the preloaded master. `/api/cast/devices` only reads the
+   list, it doesn't scan on demand.
 
-3. **`localhost` nu merge pentru proxy.** ✅ *atenuat.* Dacă boxei i-am da un URL
-   cu `localhost`/`127.0.0.1`, s-ar conecta la *ea însăși*. `_cast_base_url`
-   detectează host-ul loopback și îl înlocuiește automat cu IP-ul LAN real al
-   mașinii (`_detect_lan_ip`); `CAST_PUBLIC_BASE_URL` îl suprascrie explicit.
-   **Atenție:** firewall-ul (ex. Windows) trebuie să permită portul 5000 inbound,
-   altfel boxa tot nu ajunge la proxy.
+3. **`localhost` doesn't work for the proxy.** ✅ *mitigated.* If we gave the
+   speaker a URL with `localhost`/`127.0.0.1`, it would connect to *itself*.
+   `_cast_base_url` detects the loopback host and automatically replaces it with
+   the machine's real LAN IP (`_detect_lan_ip`); `CAST_PUBLIC_BASE_URL` overrides
+   it explicitly. **Note:** the firewall (e.g. Windows) must allow port 5000
+   inbound, otherwise the speaker still won't reach the proxy.
 
-4. **TLS pe boxă.** Stream-urile pe `:8443` cu certificate neobișnuite pot fi
-   respinse de boxă chiar dacă merg în browser. Dacă o stație eșuează la cast
-   dar merge local, ruteaz-o prin proxy (HTTP în LAN, transcodare zero).
+4. **TLS on the speaker.** Streams on `:8443` with unusual certificates may be
+   rejected by the speaker even if they work in the browser. If a station fails to
+   cast but works locally, route it through the proxy (HTTP on the LAN, zero
+   transcoding).
 
-5. **Codec.** Mi Smart Speaker (Cast) redă MP3/AAC; majoritatea stațiilor din
-   `stations.json` sunt deja AAC/MP3. HLS (`.m3u8`) și formate exotice nu sunt
-   garantate — de validat per-stație.
+5. **Codec.** Mi Smart Speaker (Cast) plays MP3/AAC; most of the stations in
+   `stations.json` are already AAC/MP3. HLS (`.m3u8`) and exotic formats are not
+   guaranteed — to be validated per station.
 
-6. **Metadata ICY ≠ control Cast.** Titlul „now playing" pe boxă vine din media
-   status-ul Cast, nu din proxy-ul ICY existent (`/api/radio/now-playing`).
-   Pentru consistență, `/api/cast/status` poate prelua titlul din ICY ca azi.
+6. **ICY metadata ≠ Cast control.** The "now playing" title on the speaker comes
+   from the Cast media status, not from the existing ICY proxy
+   (`/api/radio/now-playing`). For consistency, `/api/cast/status` can take the
+   title from ICY as it does today.
 
-7. **Mediul de dezvoltare e Windows, ținta e RPi/Linux.** `zeroconf`/mDNS poate
-   fi blocat de firewall pe Windows; discovery se testează realist doar în
-   rețeaua unde stă boxa.
+7. **The development environment is Windows, the target is RPi/Linux.**
+   `zeroconf`/mDNS may be blocked by the firewall on Windows; discovery is
+   realistically tested only on the network where the speaker is.
 
-8. **Race local vs cast.** Dacă utilizatorul redă local și apoi dă cast, trebuie
-   oprit explicit `HTMLAudioElement` local (altfel sună în două locuri). Logica
-   de toggle din `useRadioStore` trebuie extinsă cu grijă.
+8. **Local vs cast race.** If the user plays locally and then casts, the local
+   `HTMLAudioElement` must be stopped explicitly (otherwise it plays in two
+   places). The toggle logic in `useRadioStore` must be extended carefully.
 
-## Pași de implementare (în ordine)
+## Implementation steps (in order)
 
-### Pasul 1 — Discovery ✅ implementat
-- `cast/service.py`: `CastBrowser` persistent (descoperire continuă), pornit lazy.
-- `GET /api/cast/devices` returnează lista live.
-- **Test:** Mi Smart Speaker apare în listă (necesită rețeaua cu boxa).
+### Step 1 — Discovery ✅ implemented
+- `cast/service.py`: a persistent `CastBrowser` (continuous discovery), started lazily.
+- `GET /api/cast/devices` returns the live list.
+- **Test:** Mi Smart Speaker appears in the list (requires the network with the speaker).
 
-### Pasul 2 — Cast play/stop ✅ implementat
-- `POST /api/cast/play` `{device_id, station_id}`: rezolvă stația → URL (direct sau proxy) → `media_controller.play_media(url, content_type, stream_type='LIVE')`.
+### Step 2 — Cast play/stop ✅ implemented
+- `POST /api/cast/play` `{device_id, station_id}`: resolves the station → URL (direct or proxy) → `media_controller.play_media(url, content_type, stream_type='LIVE')`.
 - `POST /api/cast/stop`.
-- `workers = 1` în gunicorn (Problema 1).
-- **Test:** o stație publică sună pe boxă; tab-ul UI închis nu o oprește (necesită rețeaua cu boxa).
+- `workers = 1` in gunicorn (Issue 1).
+- **Test:** a public station plays on the speaker; closing the UI tab doesn't stop it (requires the network with the speaker).
 
-### Pasul 3 — Volum + status ✅ implementat
+### Step 3 — Volume + status ✅ implemented
 - `POST /api/cast/volume` `{device_id, volume: 0.0-1.0}` → `cast.set_volume`.
-- `GET /api/cast/status?device_id=...` → volum/mut din `cast.status` + player_state/title din `media_controller.status`.
-- **Test:** volum reglabil; status reflectă play/stop real (necesită rețeaua cu boxa).
+- `GET /api/cast/status?device_id=...` → volume/mute from `cast.status` + player_state/title from `media_controller.status`.
+- **Test:** volume adjustable; status reflects real play/stop (requires the network with the speaker).
 
-### Pasul 4 — Frontend ✅ implementat
-- `frontend/src/api/cast.ts` + export în `api/index.ts`.
-- `useRadioStore`: `castTarget`/`castDevices`/`isCasting`, acțiuni `loadCastDevices`/`setCastTarget`/`stopCast`; `play`/`onStationClick`/`togglePlayPause`/`setVolume` ramificate local↔cast; polling status la 5s.
-- Oprire audio local la comutarea pe cast (Problema 8) — `setCastTarget` + guard pe `onAudioPause`.
-- Selector destinație „Acest dispozitiv / <boxă>" în `RadioView.vue`.
-- **Test:** flux complet din UI pe ambele destinații (necesită rețeaua cu boxa).
+### Step 4 — Frontend ✅ implemented
+- `frontend/src/api/cast.ts` + export in `api/index.ts`.
+- `useRadioStore`: `castTarget`/`castDevices`/`isCasting`, actions `loadCastDevices`/`setCastTarget`/`stopCast`; `play`/`onStationClick`/`togglePlayPause`/`setVolume` branched local↔cast; status polling at 5s.
+- Stop local audio when switching to cast (Issue 8) — `setCastTarget` + a guard on `onAudioPause`.
+- A "This device / <speaker>" destination selector in `RadioView.vue`.
+- **Test:** the complete flow from the UI on both destinations (requires the network with the speaker).
 
-### Pasul 5 — Stații prin proxy + edge-cases ✅ implementat
-- **Auto-fallback** direct→proxy în `/api/cast/play`: încearcă URL-ul direct, iar
-  dacă boxa nu confirmă redarea (`CastService._await_playing` detectează
-  `idle_reason=ERROR` sau timeout), reia automat prin proxy-ul LAN. Stațiile cu
-  `proxy:true` merg direct pe proxy. Răspunsul include `route: direct|proxy`.
-- `CAST_PUBLIC_BASE_URL` documentat în `.env.example` (fallback: host-ul cererii).
-- Fix gunicorn `gthread` (vezi Problema 1) — necesar ca stream-ul proxy să nu
-  blocheze aplicația.
-- **Test (pe teren):** o stație care eșuează direct sună prin proxy; verifică
-  `route` în răspuns.
+### Step 5 — Stations via proxy + edge cases ✅ implemented
+- **Auto-fallback** direct→proxy in `/api/cast/play`: tries the direct URL, and if
+  the speaker doesn't confirm playback (`CastService._await_playing` detects
+  `idle_reason=ERROR` or a timeout), it automatically retries via the LAN proxy.
+  Stations with `proxy:true` go directly through the proxy. The response includes
+  `route: direct|proxy`.
+- `CAST_PUBLIC_BASE_URL` documented in `.env.example` (fallback: the request's host).
+- The gunicorn `gthread` fix (see Issue 1) — needed so the proxy stream doesn't
+  block the application.
+- **Test (in the field):** a station that fails directly plays through the proxy;
+  check `route` in the response.
 
-## Bluetooth A2DP — streaming local către boxe (v2, planificat)
+## Bluetooth A2DP — local streaming to speakers (v2, planned)
 
-> A doua destinație de redare: o boxă **Bluetooth** legată direct de RPi.
-> **Atenție — e arhitectura inversă față de Cast**, nu o extindere a ei.
+> The second playback destination: a **Bluetooth** speaker connected directly to the RPi.
+> **Note — this is the inverse architecture compared to Cast**, not an extension of it.
 
-### De ce e fundamental diferit de Cast
+### Why it is fundamentally different from Cast
 
-La Cast, boxa **trage URL-ul singură** prin rețea; HomeTasks doar comandă și
-serverul rămâne headless. La Bluetooth nu există rețea între RPi și boxă: linkul
-A2DP e punct-la-punct, deci **RPi-ul devine playerul** — face fetch → decodează
-(mp3/aac → PCM) → encodează SBC/AAC → împinge în sink-ul Bluetooth prin stack-ul
-audio Linux. Boxa primește doar audio deja redat.
+With Cast, the speaker **pulls the URL itself** over the network; HomeTasks only
+commands it and the server stays headless. With Bluetooth there is no network
+between the RPi and the speaker: the A2DP link is point-to-point, so **the RPi
+becomes the player** — it fetches → decodes (mp3/aac → PCM) → encodes SBC/AAC →
+pushes into the Bluetooth sink through the Linux audio stack. The speaker receives
+only already-played audio.
 
 | | Google Cast (v1) | Bluetooth A2DP (v2) |
 |---|---|---|
-| Cine ia stream-ul | boxa, singură | **RPi** (fetch + decode + redă) |
-| Rolul HomeTasks | controller remote | **player local** + sursă A2DP |
-| Server headless | da | **nu** (produce audio pe RPi) |
-| Transport | rețea HTTP(S) | radio BT punct-la-punct (~10 m) |
-| Volum / stop | comenzi remote pe boxă | sink local (`pactl`) / kill subproces |
-| Discovery | mDNS, zero-config | **pairing manual** o dată (stateful) |
+| Who takes the stream | the speaker, itself | **the RPi** (fetch + decode + play) |
+| HomeTasks' role | remote controller | **local player** + A2DP source |
+| Headless server | yes | **no** (produces audio on the RPi) |
+| Transport | HTTP(S) network | point-to-point BT radio (~10 m) |
+| Volume / stop | remote commands on the speaker | local sink (`pactl`) / kill subprocess |
+| Discovery | mDNS, zero-config | **manual pairing** once (stateful) |
 
-> Asta **relaxează** o premisă din v1 (linia: *„serverul e headless, nu redă
-> local"*): pentru BT, redarea locală pe RPi devine obligatorie. `python-mpv` /
-> `ffmpeg` / GStreamer — excluse explicit la v1 — devin necesare aici.
-> Nu schimbă nimic la Cast: rămâne controller pur.
+> This **relaxes** an assumption from v1 (the line: *"the server is headless, it
+> does not play locally"*): for BT, local playback on the RPi becomes mandatory.
+> `python-mpv` / `ffmpeg` / GStreamer — explicitly excluded in v1 — become
+> necessary here. It changes nothing about Cast: it remains a pure controller.
 
-### Model unificat de destinație (UI + API)
+### Unified destination model (UI + API)
 
-Extindem abstracția existentă de destinație într-un singur selector:
+We extend the existing destination abstraction into a single selector:
 
 ```
 target = 'local' | 'cast:<device_id>' | 'bt:<device_id>'
 ```
 
-`useRadioStore` păstrează un singur `target`; butonul Play ramifică pe prefix:
-`local:` → `HTMLAudioElement`, `cast:` → `/api/cast/*` (azi), `bt:` →
-`/api/output/bt/*` (nou). Selectorul din `RadioView.vue` listează toate
-destinațiile la un loc (Acest dispozitiv / boxe Cast / boxe Bluetooth).
-Backend-ul rutează după prefix; mecanismele din spate rămân separate.
+`useRadioStore` keeps a single `target`; the Play button branches on the prefix:
+`local:` → `HTMLAudioElement`, `cast:` → `/api/cast/*` (today), `bt:` →
+`/api/output/bt/*` (new). The selector in `RadioView.vue` lists all destinations
+together (This device / Cast speakers / Bluetooth speakers). The backend routes by
+prefix; the underlying mechanisms stay separate.
 
-### Biblioteci
+### Libraries
 
-**Sistem (RPi/Linux — NU `pip`):**
-- `bluez` — stack Bluetooth + `bluetoothctl` (pairing/connect/trust) și D-Bus.
-- `pipewire` (sau `pulseaudio`) — rutarea unui sink audio către boxa BT.
+**System (RPi/Linux — NOT `pip`):**
+- `bluez` — Bluetooth stack + `bluetoothctl` (pairing/connect/trust) and D-Bus.
+- `pipewire` (or `pulseaudio`) — routing an audio sink to the BT speaker.
 
 **Python:**
-- redare: shell-out la `mpv`/`ffmpeg` ca subproces, SAU `python-mpv`.
-- control BT/sink: `dbus-python`/`pydbus` (BlueZ) ori shell-out la
-  `bluetoothctl` + `pactl`. Pragmatic la v2: shell-out, fără binding D-Bus.
+- playback: shell-out to `mpv`/`ffmpeg` as a subprocess, OR `python-mpv`.
+- BT/sink control: `dbus-python`/`pydbus` (BlueZ) or shell-out to
+  `bluetoothctl` + `pactl`. Pragmatic for v2: shell-out, without a D-Bus binding.
 
-### API REST (nou, sub abstracția de output)
+### REST API (new, under the output abstraction)
 
-| Metodă | Endpoint                  | Descriere                                                       |
+| Method | Endpoint                  | Description                                                    |
 |--------|---------------------------|----------------------------------------------------------------|
-| GET    | `/api/output/bt/devices`  | Boxe BT pereche/conectate (`{devices:[{id,name,connected}]}`)   |
-| POST   | `/api/output/bt/play`     | `{device_id, station_id}` → conectează + pornește playerul local pe sink |
-| POST   | `/api/output/bt/stop`     | `{device_id}` → oprește subprocesul player                     |
+| GET    | `/api/output/bt/devices`  | Paired/connected BT speakers (`{devices:[{id,name,connected}]}`) |
+| POST   | `/api/output/bt/play`     | `{device_id, station_id}` → connects + starts the local player on the sink |
+| POST   | `/api/output/bt/stop`     | `{device_id}` → stops the player subprocess                    |
 | POST   | `/api/output/bt/volume`   | `{device_id, volume:0.0-1.0}` → `pactl set-sink-volume`         |
-| GET    | `/api/output/bt/status`   | stare subproces (playing/idle) + titlu ICY ca azi              |
+| GET    | `/api/output/bt/status`   | subprocess state (playing/idle) + ICY title as today           |
 
-`station_id → URL` se rezolvă exact ca la Cast (reciclând logica din
-`/api/cast/play`), dar URL-ul e consumat **local de RPi**, nu trimis boxei — deci
-problemele de `CAST_PUBLIC_BASE_URL` / proxy LAN / firewall **nu se aplică**.
-Cod nou paralel cu `cast/service.py`: un `bt/service.py` (`BluetoothService`).
+`station_id → URL` is resolved exactly as for Cast (reusing the logic from
+`/api/cast/play`), but the URL is consumed **locally by the RPi**, not sent to the
+speaker — so the `CAST_PUBLIC_BASE_URL` / LAN proxy / firewall issues **do not
+apply**. New code parallel to `cast/service.py`: a `bt/service.py`
+(`BluetoothService`).
 
-### Probleme de implementare specifice BT
+### BT-specific implementation issues
 
-1. **Pairing e stare manuală, nu discovery.** Boxa trebuie *paired + trusted* o
-   dată cu `bluetoothctl` înainte ca API-ul s-o poată folosi; după, reconectare
-   automată. Nu există echivalent zero-config al mDNS. `/devices` listează ce e
-   deja pereche, nu scanează la cerere (scan-ul BT e lent și deranjează linkul).
+1. **Pairing is manual state, not discovery.** The speaker must be *paired +
+   trusted* once with `bluetoothctl` before the API can use it; after that,
+   automatic reconnection. There is no zero-config equivalent to mDNS. `/devices`
+   lists what is already paired, it doesn't scan on demand (BT scanning is slow and
+   disturbs the link).
 
-2. **Un singur sink A2DP odată.** A2DP e 1 sursă → 1 sink. Fără multi-room (rămâne
-   la Snapcast, v2+). Comutarea între boxe BT = deconectare + reconectare.
+2. **A single A2DP sink at a time.** A2DP is 1 source → 1 sink. No multi-room (that
+   stays with Snapcast, v2+). Switching between BT speakers = disconnect +
+   reconnect.
 
-3. **Subprocesul player trebuie gestionat de un singur proces.** Se aliniază cu
-   `workers=1`/`gthread` existent (Problema 1): pornim/oprim un `mpv` detașat care
-   scrie în sink-ul BT; HomeTasks ține PID-ul. Procesul nu blochează thread-urile
-   (rulează out-of-process), spre deosebire de proxy-ul sincron.
+3. **The player subprocess must be managed by a single process.** It aligns with
+   the existing `workers=1`/`gthread` (Issue 1): we start/stop a detached `mpv` that
+   writes to the BT sink; HomeTasks keeps the PID. The process doesn't block the
+   threads (it runs out-of-process), unlike the synchronous proxy.
 
-4. **Permisiuni D-Bus/BlueZ.** User-ul sub care rulează gunicorn trebuie să aibă
-   acces la BlueZ și la sesiunea audio (grup `bluetooth`, sesiune PipeWire/Pulse
-   pentru user-ul de serviciu). Pe RPi headless asta înseamnă PipeWire pe system
-   bus sau un user-service dedicat — punct sensibil de configurare.
+4. **D-Bus/BlueZ permissions.** The user gunicorn runs under must have access to
+   BlueZ and to the audio session (the `bluetooth` group, a PipeWire/Pulse session
+   for the service user). On a headless RPi this means PipeWire on the system bus or
+   a dedicated user-service — a sensitive configuration point.
 
-5. **Imposibil de testat pe Windows.** BlueZ e doar Linux; tot dezvoltarea/testul
-   se fac pe RPi cu boxa reală (mai strict decât la Cast, unde măcar discovery-ul
-   se putea inspecta).
+5. **Impossible to test on Windows.** BlueZ is Linux-only; all development/testing
+   is done on the RPi with the real speaker (stricter than for Cast, where at least
+   discovery could be inspected).
 
-6. **Volum/stop/status au alt sens decât la Cast.** „stop" = kill subproces;
-   „volum" = volumul sink-ului local (sau AVRCP); „status" = starea procesului
-   local, nu `media_controller.status`. Titlul now-playing rămâne din ICY.
+6. **Volume/stop/status have a different meaning than for Cast.** "stop" = kill the
+   subprocess; "volume" = the local sink's volume (or AVRCP); "status" = the state
+   of the local process, not `media_controller.status`. The now-playing title still
+   comes from ICY.
 
-7. **Latență/codec.** SBC introduce latență (irelevant pentru radio, fără sync).
-   Boxa negociază codecul; nu controlăm calitatea fin la v2.
+7. **Latency/codec.** SBC introduces latency (irrelevant for radio, no sync). The
+   speaker negotiates the codec; we don't control quality finely in v2.
 
-### Pași de implementare (în ordine)
+### Implementation steps (in order)
 
-#### Pasul 1 — Pairing + listare
-- Documentăm pairing-ul manual (`bluetoothctl`: `scan on`, `pair`, `trust`).
-- `bt/service.py`: `BluetoothService.get_devices()` (boxe trusted/connected).
-- `GET /api/output/bt/devices`. **Test:** boxa pereche apare în listă (pe RPi).
+#### Step 1 — Pairing + listing
+- We document the manual pairing (`bluetoothctl`: `scan on`, `pair`, `trust`).
+- `bt/service.py`: `BluetoothService.get_devices()` (trusted/connected speakers).
+- `GET /api/output/bt/devices`. **Test:** the paired speaker appears in the list (on the RPi).
 
-#### Pasul 2 — Play/stop local pe sink
-- `POST /api/output/bt/play`: connect boxă → rezolvă stația → URL → pornește
-  `mpv --audio-device=<bt_sink> <url>` ca subproces; ține PID-ul.
-- `POST /api/output/bt/stop`: termină subprocesul.
-- **Test:** o stație sună pe boxa BT; tab UI închis nu o oprește (rulează pe RPi).
+#### Step 2 — Local play/stop on the sink
+- `POST /api/output/bt/play`: connect the speaker → resolve the station → URL → start
+  `mpv --audio-device=<bt_sink> <url>` as a subprocess; keep the PID.
+- `POST /api/output/bt/stop`: terminate the subprocess.
+- **Test:** a station plays on the BT speaker; closing the UI tab doesn't stop it (runs on the RPi).
 
-#### Pasul 3 — Volum + status
+#### Step 3 — Volume + status
 - `POST /api/output/bt/volume` → `pactl set-sink-volume`.
-- `GET /api/output/bt/status` → starea subprocesului + titlu ICY.
+- `GET /api/output/bt/status` → the subprocess state + the ICY title.
 
-#### Pasul 4 — Frontend unificat
-- `useRadioStore`: generalizează `castTarget` → `target` (`local|cast:|bt:`);
-  Play/volume/stop ramifică pe prefix.
-- Selector unic în `RadioView.vue` cu toate destinațiile.
-- **Test:** comutare local ↔ Cast ↔ BT din UI, fără sunet dublu (Problema 8 v1).
+#### Step 4 — Unified frontend
+- `useRadioStore`: generalize `castTarget` → `target` (`local|cast:|bt:`);
+  Play/volume/stop branch on the prefix.
+- A single selector in `RadioView.vue` with all destinations.
+- **Test:** switching local ↔ Cast ↔ BT from the UI, without double audio (Issue 8 v1).
 
-## În afara scopului (v2+)
-- Redare programată (necesită întâi un scheduler — APScheduler — care **nu există**).
-- Surse suplimentare: TTS-pe-boxă, YouTube (yt-dlp), file upload, Spotify.
-- Coadă persistentă.
+## Out of scope (v2+)
+- Scheduled playback (requires a scheduler first — APScheduler — which **does not exist**).
+- Additional sources: TTS-on-speaker, YouTube (yt-dlp), file upload, Spotify.
+- Persistent queue.
 - Multi-room sync (Snapcast).
-- WebSocket push în loc de polling.
+- WebSocket push instead of polling.
 
-## Resurse
+## Resources
 - pychromecast: https://github.com/home-assistant-libs/pychromecast
-- Cast media content types (codec-uri suportate): documentația Google Cast
-- Cod relevant existent: `src/main.py` (`/api/radio/*`, `radio_proxy`),
+- Cast media content types (supported codecs): the Google Cast documentation
+- Relevant existing code: `src/main.py` (`/api/radio/*`, `radio_proxy`),
   `frontend/src/stores/radio.ts`, `data/radio/stations.json`

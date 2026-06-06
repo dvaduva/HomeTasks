@@ -1,5 +1,7 @@
 # Ghid de instalare - HomeTasks (Web)
 
+> [English](INSTALLATION.md) · **Română**
+
 ## Prerechizite hardware
 
 ### Dispozitivul server (Raspberry Pi sau orice alt calculator)
@@ -262,7 +264,7 @@ Aplicația va porni pe http://localhost:5000
 Aplicația este o **Single Page Application** Vue 3 + Vite + Pinia. Codul SPA se
 află în directorul `frontend/`; Flask servește bundle-ul construit din
 `frontend/dist/` și expune doar API-ul REST `/api/*`. Vezi
-[docs/PORTARE_SPA.md](PORTARE_SPA.md) pentru detalii arhitecturale.
+[docs/SPA_MIGRATION.ro.md](SPA_MIGRATION.ro.md) pentru detalii arhitecturale.
 
 Prerechizite suplimentare: **Node.js 18+ și npm**.
 
