@@ -12,11 +12,11 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/*.log
-frontend/coverage/
+/frontend/coverage
 
 src/__pycache__/
 src/bt/__pycache__/
 src/cast/__pycache__/
 src/wifi/__pycache__/
 tests/__pycache__/
-/frontend/coverage
+

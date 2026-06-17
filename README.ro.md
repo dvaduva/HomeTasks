@@ -78,6 +78,7 @@ cd frontend && npm run dev      # pornește Flask separat: python src/main.py
 | [docs/OLLAMA_INTEGRATION.ro.md](docs/OLLAMA_INTEGRATION.ro.md) | Integrarea cu Ollama |
 | [docs/TECHNICAL_SPECS.ro.md](docs/TECHNICAL_SPECS.ro.md) | Specificații tehnice |
 | [docs/audio-streaming.ro.md](docs/audio-streaming.ro.md) | Streaming audio (Cast / Bluetooth) |
+| [docs/TESTING.ro.md](docs/TESTING.ro.md) | Rularea testelor de backend (pytest) și frontend (Vitest) |
 
 > Fiecare document are și o versiune în engleză alături (`*.md`).
 

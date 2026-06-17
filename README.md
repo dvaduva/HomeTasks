@@ -78,6 +78,7 @@ cd frontend && npm run dev      # start Flask separately: python src/main.py
 | [docs/OLLAMA_INTEGRATION.md](docs/OLLAMA_INTEGRATION.md) | Ollama integration |
 | [docs/TECHNICAL_SPECS.md](docs/TECHNICAL_SPECS.md) | Technical specifications |
 | [docs/audio-streaming.md](docs/audio-streaming.md) | Audio streaming (Cast / Bluetooth) |
+| [docs/TESTING.md](docs/TESTING.md) | Running the backend (pytest) and frontend (Vitest) tests |
 
 > Each document has a Romanian version alongside it (`*.ro.md`).
 
