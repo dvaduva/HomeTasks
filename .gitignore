@@ -14,8 +14,7 @@ frontend/.vite/
 frontend/*.log
 
 src/__pycache__/
-src/cast/__pycache__/
 src/bt/__pycache__/
-tests/__pycache__/
+src/cast/__pycache__/
 src/wifi/__pycache__/
 tests/__pycache__/
