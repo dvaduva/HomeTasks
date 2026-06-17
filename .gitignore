@@ -17,3 +17,5 @@ src/__pycache__/main.cpython-313.pyc
 src/cast/__pycache__/service.cpython-313.pyc
 src/bt/__pycache__/__init__.cpython-313.pyc
 src/bt/__pycache__/service.cpython-313.pyc
+tests/__pycache__/test_bt_service.cpython-313-pytest-9.0.2.pyc
+tests/__pycache__/test_bt_api.cpython-313-pytest-9.0.2.pyc
