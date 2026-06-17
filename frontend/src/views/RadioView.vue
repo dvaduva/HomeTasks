@@ -49,10 +49,14 @@ onMounted(() => {
 <template>
   <div class="radio-view">
     <div class="rd-body">
+      <div class="rd-top-row">
       <!-- Output target selector: Local browser, a Cast device or a BT speaker -->
       <div class="rd-cast">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
-        <label for="rd-cast-target">{{ $t('radio_play_on') }}</label>
+        <div class="rd-cast-head">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
+          <label for="rd-cast-target">{{ $t('radio_play_on') }}</label>
+        </div>
+        <div class="rd-cast-controls">
         <select id="rd-cast-target" :value="radio.target" @change="onTargetChange">
           <option value="local">{{ $t('radio_this_device') }}</option>
           <optgroup v-if="radio.castDevices.length" :label="$t('radio_cast_group')">
@@ -85,6 +89,7 @@ onMounted(() => {
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
         </button>
+        </div>
       </div>
 
       <!-- Now playing bar -->
@@ -140,6 +145,7 @@ onMounted(() => {
             >
           </div>
         </div>
+      </div>
       </div>
 
       <!-- Stations list -->
@@ -216,6 +222,23 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* Two-column layout: "Redă pe" selector beside the Now Playing bar. */
+.rd-top-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  gap: 14px;
+}
+.rd-top-row > :deep(.rd-cast),
+.rd-top-row > :deep(.rd-now-playing) {
+  margin-bottom: 0;
+}
+@media (max-width: 720px) {
+  .rd-top-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .rd-stations-head {
   display: flex;
   align-items: center;
@@ -305,23 +328,35 @@ onMounted(() => {
 /* Matches the now-playing card: white surface, gray borders, purple accent. */
 .rd-cast {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   background: var(--rd-white);
   border-radius: var(--rd-radius);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-  padding: 12px 16px;
+  padding: 12px 14px;
   margin-bottom: 14px;
   color: var(--rd-gray-700);
   font-size: 14px;
 }
-.rd-cast > svg {
+/* Icon + "Redă pe" label on their own line. */
+.rd-cast-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rd-cast-head > svg {
   color: var(--rd-accent);
   flex: 0 0 auto;
 }
 .rd-cast label {
   font-weight: 600;
   white-space: nowrap;
+}
+/* Selector + action buttons on the line below. */
+.rd-cast-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .rd-cast select {
   flex: 1;
