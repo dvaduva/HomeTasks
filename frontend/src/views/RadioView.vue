@@ -2,9 +2,11 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRadioStore } from '@/stores/radio';
 import RadioStationsManager from '@/components/RadioStationsManager.vue';
+import BluetoothManager from '@/components/BluetoothManager.vue';
 import '@/assets/css/radio.css';
 
 const managerOpen = ref(false);
+const btManagerOpen = ref(false);
 const query = ref('');
 
 // Full radio page. All playback state and the <audio> element now live in the
@@ -35,34 +37,53 @@ function onVolumeInput(e: Event): void {
 }
 
 function onTargetChange(e: Event): void {
-  radio.setCastTarget((e.target as HTMLSelectElement).value);
+  radio.setTarget((e.target as HTMLSelectElement).value);
 }
 
 onMounted(() => {
   radio.init();
-  radio.loadCastDevices();
+  radio.loadOutputDevices();
 });
 </script>
 
 <template>
   <div class="radio-view">
     <div class="rd-body">
-      <!-- Output target selector: Local browser or a Cast device -->
+      <!-- Output target selector: Local browser, a Cast device or a BT speaker -->
       <div class="rd-cast">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
         <label for="rd-cast-target">{{ $t('radio_play_on') }}</label>
-        <select id="rd-cast-target" :value="radio.castTarget" @change="onTargetChange">
+        <select id="rd-cast-target" :value="radio.target" @change="onTargetChange">
           <option value="local">{{ $t('radio_this_device') }}</option>
-          <option v-for="d in radio.castDevices" :key="d.id" :value="d.id">{{ d.name }}</option>
+          <optgroup v-if="radio.castDevices.length" :label="$t('radio_cast_group')">
+            <option v-for="d in radio.castDevices" :key="d.id" :value="'cast:' + d.id">
+              {{ d.name }}
+            </option>
+          </optgroup>
+          <optgroup v-if="radio.btDevices.length" :label="$t('radio_bt_group')">
+            <option v-for="d in radio.btDevices" :key="d.id" :value="'bt:' + d.id">
+              {{ d.name }}
+            </option>
+          </optgroup>
         </select>
         <button
           type="button"
           class="rd-cast-refresh"
           :title="$t('radio_refresh_cast')"
           :aria-label="$t('radio_refresh_cast')"
-          @click="radio.loadCastDevices()"
+          @click="radio.loadOutputDevices()"
         >
           ⟳
+        </button>
+        <button
+          v-if="radio.btAvailable"
+          type="button"
+          class="rd-cast-refresh"
+          :title="$t('radio_bt_manage_title')"
+          :aria-label="$t('radio_bt_manage_title')"
+          @click="btManagerOpen = true"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
         </button>
       </div>
 
@@ -190,6 +211,7 @@ onMounted(() => {
     </div>
 
     <RadioStationsManager :open="managerOpen" @close="managerOpen = false" />
+    <BluetoothManager :open="btManagerOpen" @close="btManagerOpen = false" />
   </div>
 </template>
 

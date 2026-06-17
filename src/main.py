@@ -19,6 +19,7 @@ from ollama.client import ollama_client
 from voice.service import voice_service
 from tuya.service import tuya_service
 from cast.service import cast_service
+from bt.service import bluetooth_service
 
 # Load environment variables
 load_dotenv()
@@ -1904,6 +1905,156 @@ def cast_status():
         return jsonify(cast_service.status(device_id))
     except Exception as e:
         logger.warning("Cast status failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+# ── Bluetooth A2DP output (RPi is the player) ────────────────────────────────────
+# Inverse of Cast: here the RPi fetches + decodes the stream and pushes it into a
+# BlueZ A2DP sink (see src/bt/service.py and docs/audio-streaming.ro.md). The
+# `station['url']` is consumed locally by mpv, so the LAN-proxy / CAST_PUBLIC_BASE_URL
+# machinery the Cast path needs does not apply.
+
+@app.route('/api/output/bt/devices')
+def bt_devices():
+    """Return paired Bluetooth speakers ({id, name, connected}). Linux/RPi only —
+    degrades to an empty list + friendly error elsewhere."""
+    return jsonify(bluetooth_service.get_devices())
+
+
+@app.route('/api/output/bt/play', methods=['POST'])
+def bt_play():
+    """Play a radio station on a Bluetooth speaker. Body: {device_id, station_id}.
+
+    mpv decodes any codec, so we hand it the station's direct URL — the `proxy`
+    flag exists only for browser CORS/mixed-content limits, which don't apply to a
+    local player on the RPi."""
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get('device_id') or '').strip()
+    station_id = (data.get('station_id') or '').strip()
+    if not device_id or not station_id:
+        return jsonify({'error': 'device_id și station_id sunt obligatorii'}), 400
+
+    try:
+        stations = _load_radio_stations()
+    except Exception as e:
+        return jsonify({'error': f'Nu pot citi stațiile: {e}'}), 500
+
+    station = next((s for s in stations if s.get('id') == station_id), None)
+    if not station or not station.get('url'):
+        return jsonify({'error': 'Stația nu a fost găsită'}), 404
+
+    try:
+        bluetooth_service.play(
+            device_id, station['url'], title=station.get('name'), station_id=station_id,
+        )
+        return jsonify({
+            'ok': True, 'device_id': device_id, 'station_id': station_id,
+            'url': station['url'],
+        })
+    except Exception as e:
+        logger.warning("BT play failed for %s: %s", station_id, e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/output/bt/stop', methods=['POST'])
+def bt_stop():
+    """Stop the Bluetooth player subprocess. Body: {device_id}."""
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get('device_id') or '').strip()
+    if not device_id:
+        return jsonify({'error': 'device_id este obligatoriu'}), 400
+    try:
+        bluetooth_service.stop(device_id)
+        return jsonify({'ok': True, 'device_id': device_id})
+    except Exception as e:
+        logger.warning("BT stop failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/output/bt/volume', methods=['POST'])
+def bt_volume():
+    """Set the Bluetooth sink volume. Body: {device_id, volume: 0.0-1.0}."""
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get('device_id') or '').strip()
+    volume = data.get('volume')
+    if not device_id or volume is None:
+        return jsonify({'error': 'device_id și volume sunt obligatorii'}), 400
+    try:
+        volume = float(volume)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'volume trebuie să fie un număr între 0.0 și 1.0'}), 400
+    try:
+        applied = bluetooth_service.set_volume(device_id, volume)
+        return jsonify({'ok': True, 'device_id': device_id, 'volume': applied})
+    except Exception as e:
+        logger.warning("BT volume failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/output/bt/status')
+def bt_status():
+    """Player state + ICY now-playing title. Query: ?device_id=..."""
+    device_id = (request.args.get('device_id') or '').strip()
+    try:
+        st = bluetooth_service.status(device_id)
+    except Exception as e:
+        logger.warning("BT status failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+    # Merge the now-playing title from the same ICY source the local path uses.
+    title = None
+    station_id = st.get('station_id')
+    if st.get('state') == 'playing' and station_id:
+        db = get_db()
+        try:
+            station = RadioStationRepository(db).get_by_slug(station_id)
+            url = station.url if station else None
+        finally:
+            db.close()
+        if url:
+            title = _fetch_icy_metadata(url)
+    st['title'] = title
+    return jsonify(st)
+
+
+@app.route('/api/output/bt/scan', methods=['POST'])
+def bt_scan():
+    """Run a bounded discovery window and return known + discovered devices for
+    the pairing UI. Body: {timeout?: seconds}. RPi only."""
+    data = request.get_json(silent=True) or {}
+    timeout = data.get('timeout', 10)
+    try:
+        return jsonify(bluetooth_service.scan(timeout))
+    except Exception as e:
+        logger.warning("BT scan failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/output/bt/pair', methods=['POST'])
+def bt_pair():
+    """Pair + trust + connect a speaker. Body: {device_id}."""
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get('device_id') or '').strip()
+    if not device_id:
+        return jsonify({'error': 'device_id este obligatoriu'}), 400
+    try:
+        return jsonify({'ok': True, **bluetooth_service.pair(device_id)})
+    except Exception as e:
+        logger.warning("BT pair failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/output/bt/remove', methods=['POST'])
+def bt_remove():
+    """Forget (unpair) a speaker. Body: {device_id}."""
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get('device_id') or '').strip()
+    if not device_id:
+        return jsonify({'error': 'device_id este obligatoriu'}), 400
+    try:
+        return jsonify({'ok': True, **bluetooth_service.remove(device_id)})
+    except Exception as e:
+        logger.warning("BT remove failed: %s", e)
         return jsonify({'error': str(e)}), 502
 
 

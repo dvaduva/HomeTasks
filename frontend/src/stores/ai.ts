@@ -40,7 +40,9 @@ export const useAiStore = defineStore('ai', () => {
     }
     switch (ad.verb) {
       case 'play': {
-        if (ad.cast_target) radio.setCastTarget(ad.cast_target);
+        // Voice matching yields a raw Cast device uuid; the store now uses
+        // prefixed targets ('cast:'/'bt:'/'local').
+        if (ad.cast_target) radio.setTarget('cast:' + ad.cast_target);
         const st = ad.station_id
           ? radio.stations.find((s) => s.id === ad.station_id)
           : radio.currentStation;
@@ -48,7 +50,7 @@ export const useAiStore = defineStore('ai', () => {
         break;
       }
       case 'stop':
-        if (radio.isCasting) radio.stopCast();
+        if (radio.isRemote) radio.stopRemote();
         else if (radio.isPlaying) radio.togglePlayPause();
         break;
       case 'pause':

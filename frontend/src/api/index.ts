@@ -27,3 +27,5 @@ export { radioApi } from './radio';
 export type { RadioStation, RadioNowPlaying } from './radio';
 export { castApi } from './cast';
 export type { CastDevice, CastStatusInfo } from './cast';
+export { btApi } from './bt';
+export type { BtDevice, BtStatusInfo } from './bt';

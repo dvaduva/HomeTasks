@@ -209,10 +209,15 @@ CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
 - **Test (pe teren):** o stație care eșuează direct sună prin proxy; verifică
   `route` în răspuns.
 
-## Bluetooth A2DP — streaming local către boxe (v2, planificat)
+## Bluetooth A2DP — streaming local către boxe (v2, implementat)
 
 > A doua destinație de redare: o boxă **Bluetooth** legată direct de RPi.
 > **Atenție — e arhitectura inversă față de Cast**, nu o extindere a ei.
+>
+> **Stare:** implementat. Backend `src/bt/service.py` (`BluetoothService`) +
+> rutele `/api/output/bt/*` în `src/main.py`; frontend unificat pe `target`
+> (`local` / `cast:<id>` / `bt:<mac>`) în `frontend/src/stores/radio.ts` cu
+> selector grupat în `RadioView.vue`. Rulează doar pe RPi (BlueZ/PipeWire).
 
 ### De ce e fundamental diferit de Cast
 
@@ -265,11 +270,17 @@ Backend-ul rutează după prefix; mecanismele din spate rămân separate.
 
 | Metodă | Endpoint                  | Descriere                                                       |
 |--------|---------------------------|----------------------------------------------------------------|
-| GET    | `/api/output/bt/devices`  | Boxe BT pereche/conectate (`{devices:[{id,name,connected}]}`)   |
+| GET    | `/api/output/bt/devices`  | Boxe BT pereche (`{devices:[{id,name,connected,paired}], available}`) |
 | POST   | `/api/output/bt/play`     | `{device_id, station_id}` → conectează + pornește playerul local pe sink |
 | POST   | `/api/output/bt/stop`     | `{device_id}` → oprește subprocesul player                     |
 | POST   | `/api/output/bt/volume`   | `{device_id, volume:0.0-1.0}` → `pactl set-sink-volume`         |
 | GET    | `/api/output/bt/status`   | stare subproces (playing/idle) + titlu ICY ca azi              |
+| POST   | `/api/output/bt/scan`     | `{timeout?}` → scanare scurtă, listă pereche + descoperite (pairing UI) |
+| POST   | `/api/output/bt/pair`     | `{device_id}` → `pair` + `trust` + `connect` (din UI)          |
+| POST   | `/api/output/bt/remove`   | `{device_id}` → uită boxa (unpair)                             |
+
+`available` din `/devices` semnalează dacă host-ul chiar are BlueZ — frontend-ul
+afișează butonul de pairing doar atunci (adică pe RPi).
 
 `station_id → URL` se rezolvă exact ca la Cast (reciclând logica din
 `/api/cast/play`), dar URL-ul e consumat **local de RPi**, nu trimis boxei — deci
@@ -329,6 +340,34 @@ Cod nou paralel cu `cast/service.py`: un `bt/service.py` (`BluetoothService`).
   Play/volume/stop ramifică pe prefix.
 - Selector unic în `RadioView.vue` cu toate destinațiile.
 - **Test:** comutare local ↔ Cast ↔ BT din UI, fără sunet dublu (Problema 8 v1).
+
+### Runbook RPi (o singură dată)
+
+**Pachete (NU `pip`):**
+```sh
+sudo apt install bluez pipewire pipewire-pulse mpv
+```
+User-ul de serviciu (cel din `deploy/hometasks.service`) trebuie să fie în grupul
+`bluetooth` și să aibă o sesiune PipeWire/Pulse activă (Problema 4).
+
+**Pairing din interfață (recomandat):** în Radio, lângă selectorul de
+destinație, apare butonul „Boxe Bluetooth" (doar dacă `available=true`, adică pe
+RPi). Pune boxa în mod împerechere → **Scanează** → **Împerechează**; aplicația
+rulează `pair` + `trust` + `connect`. După aceea se reconectează automat și apare
+în selector. Tot de acolo o poți **Uita** (unpair).
+
+**Pairing manual (fallback prin shell), echivalent:**
+```sh
+bluetoothctl
+  power on
+  scan on            # așteaptă să apară MAC-ul boxei, apoi:
+  scan off
+  pair  AA:BB:CC:DD:EE:FF
+  trust AA:BB:CC:DD:EE:FF
+  connect AA:BB:CC:DD:EE:FF
+  exit
+```
+După `trust`, `play` reconectează automat boxa dacă e oprită.
 
 ## În afara scopului (v2+)
 - Redare programată (necesită întâi un scheduler — APScheduler — care **nu există**).

@@ -212,10 +212,15 @@ CAST_PUBLIC_BASE_URL=http://192.168.1.50:5000
 - **Test (in the field):** a station that fails directly plays through the proxy;
   check `route` in the response.
 
-## Bluetooth A2DP — local streaming to speakers (v2, planned)
+## Bluetooth A2DP — local streaming to speakers (v2, implemented)
 
 > The second playback destination: a **Bluetooth** speaker connected directly to the RPi.
 > **Note — this is the inverse architecture compared to Cast**, not an extension of it.
+>
+> **Status:** implemented. Backend `src/bt/service.py` (`BluetoothService`) +
+> the `/api/output/bt/*` routes in `src/main.py`; frontend unified on `target`
+> (`local` / `cast:<id>` / `bt:<mac>`) in `frontend/src/stores/radio.ts` with a
+> grouped selector in `RadioView.vue`. Runs on the RPi only (BlueZ/PipeWire).
 
 ### Why it is fundamentally different from Cast
 
@@ -269,11 +274,17 @@ prefix; the underlying mechanisms stay separate.
 
 | Method | Endpoint                  | Description                                                    |
 |--------|---------------------------|----------------------------------------------------------------|
-| GET    | `/api/output/bt/devices`  | Paired/connected BT speakers (`{devices:[{id,name,connected}]}`) |
+| GET    | `/api/output/bt/devices`  | Paired BT speakers (`{devices:[{id,name,connected,paired}], available}`) |
 | POST   | `/api/output/bt/play`     | `{device_id, station_id}` → connects + starts the local player on the sink |
 | POST   | `/api/output/bt/stop`     | `{device_id}` → stops the player subprocess                    |
 | POST   | `/api/output/bt/volume`   | `{device_id, volume:0.0-1.0}` → `pactl set-sink-volume`         |
 | GET    | `/api/output/bt/status`   | subprocess state (playing/idle) + ICY title as today           |
+| POST   | `/api/output/bt/scan`     | `{timeout?}` → short scan, returns paired + discovered (pairing UI) |
+| POST   | `/api/output/bt/pair`     | `{device_id}` → `pair` + `trust` + `connect` (from the UI)     |
+| POST   | `/api/output/bt/remove`   | `{device_id}` → forget the speaker (unpair)                    |
+
+`available` from `/devices` signals whether the host actually has BlueZ — the
+frontend shows the pairing button only then (i.e. on the RPi).
 
 `station_id → URL` is resolved exactly as for Cast (reusing the logic from
 `/api/cast/play`), but the URL is consumed **locally by the RPi**, not sent to the
@@ -337,6 +348,34 @@ apply**. New code parallel to `cast/service.py`: a `bt/service.py`
   Play/volume/stop branch on the prefix.
 - A single selector in `RadioView.vue` with all destinations.
 - **Test:** switching local ↔ Cast ↔ BT from the UI, without double audio (Issue 8 v1).
+
+### RPi runbook (one-time)
+
+**Packages (NOT `pip`):**
+```sh
+sudo apt install bluez pipewire pipewire-pulse mpv
+```
+The service user (the one in `deploy/hometasks.service`) must be in the
+`bluetooth` group and have an active PipeWire/Pulse session (Issue 4).
+
+**Pairing from the UI (recommended):** in Radio, next to the destination
+selector, a "Bluetooth speakers" button appears (only when `available=true`,
+i.e. on the RPi). Put the speaker in pairing mode → **Scan** → **Pair**; the app
+runs `pair` + `trust` + `connect`. It then auto-reconnects and shows up in the
+selector. From the same dialog you can **Forget** (unpair) it.
+
+**Manual pairing (shell fallback), equivalent:**
+```sh
+bluetoothctl
+  power on
+  scan on            # wait for the speaker's MAC to show up, then:
+  scan off
+  pair  AA:BB:CC:DD:EE:FF
+  trust AA:BB:CC:DD:EE:FF
+  connect AA:BB:CC:DD:EE:FF
+  exit
+```
+After `trust`, `play` reconnects the speaker automatically if it's off.
 
 ## Out of scope (v2+)
 - Scheduled playback (requires a scheduler first — APScheduler — which **does not exist**).
