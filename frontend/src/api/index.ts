@@ -29,3 +29,5 @@ export { castApi } from './cast';
 export type { CastDevice, CastStatusInfo } from './cast';
 export { btApi } from './bt';
 export type { BtDevice, BtStatusInfo } from './bt';
+export { wifiApi } from './wifi';
+export type { WifiNetwork, WifiStatusInfo } from './wifi';

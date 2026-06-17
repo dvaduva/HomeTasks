@@ -84,6 +84,69 @@ sudo systemctl status hometasks
 sudo journalctl -u hometasks -f   # urmărire log-uri live
 ```
 
+## Configurare Wi-Fi din interfață (doar RPi)
+
+Tab-ul **Setări → Rețea** permite scanarea și conectarea la o rețea Wi-Fi direct
+din interfață. Funcționează doar pe RPi, prin `nmcli` (NetworkManager), și apare
+automat doar acolo unde `nmcli` există (pe Windows/dev tab-ul este ascuns).
+
+### 1. Asigură-te că NetworkManager gestionează Wi-Fi-ul
+
+Raspberry Pi OS Bookworm folosește NetworkManager implicit. Verifică:
+
+```bash
+nmcli general status        # trebuie să răspundă (NetworkManager activ)
+nmcli device wifi list      # trebuie să listeze rețele
+```
+
+Pe imagini mai vechi (cu `dhcpcd`/`wpa_supplicant`), activează NetworkManager:
+
+```bash
+sudo raspi-config   # Advanced Options → Network Config → NetworkManager
+sudo reboot
+```
+
+### 2. Permite userului serviciului (`pi`) să administreze rețeaua
+
+Aplicația rulează ca user `pi` (vezi `hometasks.service`), iar `nmcli connect` /
+`disconnect` cer drepturi prin polkit. Userul trebuie să fie în grupul `netdev`:
+
+```bash
+sudo usermod -aG netdev pi
+```
+
+Dacă polkit tot refuză acțiunea (eroare „not authorized" la conectare), adaugă o
+regulă care permite membrilor `netdev` controlul rețelei fără parolă:
+
+```bash
+sudo tee /etc/polkit-1/rules.d/50-hometasks-nm.rules > /dev/null <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0 &&
+        subject.isInGroup("netdev")) {
+        return polkit.Result.YES;
+    }
+});
+EOF
+sudo systemctl restart polkit
+```
+
+Apoi repornește aplicația ca să prindă noul grup:
+
+```bash
+sudo systemctl restart hometasks
+```
+
+### 3. Testează
+
+```bash
+# ca user pi, fără sudo — trebuie să meargă:
+sudo -u pi nmcli device wifi connect "<SSID>" password "<parola>"
+```
+
+Dacă această comandă reușește fără `sudo`, butonul „Conectează" din interfață va
+funcționa. Endpoint-urile expuse sunt `/api/wifi/status`, `/api/wifi/scan`,
+`/api/wifi/connect`, `/api/wifi/disconnect`.
+
 ## Comenzi utile
 
 ```bash

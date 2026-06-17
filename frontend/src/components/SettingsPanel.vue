@@ -6,6 +6,8 @@ import { useUsersStore } from '@/stores/users';
 import { useNotification } from '@/composables/useNotification';
 import { useI18n } from 'vue-i18n';
 import type { Preferences } from '@/api/types';
+import { wifiApi } from '@/api/wifi';
+import WiFiManager from '@/components/WiFiManager.vue';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
@@ -16,8 +18,12 @@ const ai = useAiStore();
 const { success, error: errorToast, confirm } = useNotification();
 const { t } = useI18n();
 
-type Tab = 'general' | 'utilizatori' | 'weather' | 'ai' | 'voice' | 'tuya';
+type Tab = 'general' | 'utilizatori' | 'weather' | 'ai' | 'voice' | 'tuya' | 'network';
 const tab = ref<Tab>('general');
+
+// Wi-Fi config is RPi-only: probe nmcli availability when the modal opens and
+// only surface the Network tab where it actually works.
+const wifiAvailable = ref(false);
 
 const draft = ref<Partial<Preferences>>({});
 
@@ -29,6 +35,12 @@ watch(
   () => props.open,
   (open) => {
     if (open && prefs.data) draft.value = { ...prefs.data };
+    if (open) {
+      wifiApi
+        .status()
+        .then((s) => (wifiAvailable.value = !!s.available))
+        .catch(() => (wifiAvailable.value = false));
+    }
   },
 );
 
@@ -110,6 +122,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
         <button type="button" class="tab-btn" :class="{ active: tab === 'ai' }" @click="tab = 'ai'">AI</button>
         <button type="button" class="tab-btn" :class="{ active: tab === 'voice' }" @click="tab = 'voice'">{{ $t('tab_voice') }}</button>
         <button type="button" class="tab-btn" :class="{ active: tab === 'tuya' }" @click="tab = 'tuya'">Tuya</button>
+        <button v-if="wifiAvailable" type="button" class="tab-btn" :class="{ active: tab === 'network' }" @click="tab = 'network'">{{ $t('tab_network') }}</button>
       </div>
 
       <div v-show="tab === 'general'" class="tab-content" :class="{ active: tab === 'general' }">
@@ -238,6 +251,11 @@ async function renameUser(id: number, name: string, color: string): Promise<void
             <option value="in">IN (openapi.tuyain.com)</option>
           </select>
         </div>
+      </div>
+
+      <div v-if="wifiAvailable" v-show="tab === 'network'" class="tab-content" :class="{ active: tab === 'network' }">
+        <p class="form-hint form-hint-spaced">{{ $t('wifi_hint') }}</p>
+        <WiFiManager :active="open && tab === 'network'" />
       </div>
 
       <div class="modal-actions">

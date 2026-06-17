@@ -20,6 +20,7 @@ from voice.service import voice_service
 from tuya.service import tuya_service
 from cast.service import cast_service
 from bt.service import bluetooth_service
+from wifi.service import wifi_service
 
 # Load environment variables
 load_dotenv()
@@ -2055,6 +2056,53 @@ def bt_remove():
         return jsonify({'ok': True, **bluetooth_service.remove(device_id)})
     except Exception as e:
         logger.warning("BT remove failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+# ── Wi-Fi (RPi self-configuration via NetworkManager) ────────────────────────────
+# Lets the kiosk join a Wi-Fi network from the Settings UI without a shell. Thin
+# wrapper over `nmcli` (see src/wifi/service.py). Linux/RPi only — degrades to a
+# friendly "unavailable" elsewhere so the frontend can hide the option.
+
+@app.route('/api/wifi/status')
+def wifi_status():
+    """Return {available, connected, ssid, ip} for the RPi's Wi-Fi."""
+    try:
+        return jsonify(wifi_service.status())
+    except Exception as e:
+        logger.warning("Wi-Fi status failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/wifi/scan', methods=['POST'])
+def wifi_scan():
+    """Scan for nearby networks. Returns {networks, available, error}. RPi only."""
+    return jsonify(wifi_service.scan())
+
+
+@app.route('/api/wifi/connect', methods=['POST'])
+def wifi_connect():
+    """Join a network. Body: {ssid, password?, hidden?}."""
+    data = request.get_json(silent=True) or {}
+    ssid = (data.get('ssid') or '').strip()
+    password = data.get('password') or None
+    hidden = bool(data.get('hidden', False))
+    if not ssid:
+        return jsonify({'error': 'ssid este obligatoriu'}), 400
+    try:
+        return jsonify({'ok': True, **wifi_service.connect(ssid, password, hidden)})
+    except Exception as e:
+        logger.warning("Wi-Fi connect failed: %s", e)
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/wifi/disconnect', methods=['POST'])
+def wifi_disconnect():
+    """Disconnect the active Wi-Fi device (saved profile kept)."""
+    try:
+        return jsonify({'ok': True, **wifi_service.disconnect()})
+    except Exception as e:
+        logger.warning("Wi-Fi disconnect failed: %s", e)
         return jsonify({'error': str(e)}), 502
 
 

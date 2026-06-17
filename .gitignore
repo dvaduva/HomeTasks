@@ -13,9 +13,9 @@ frontend/dist/
 frontend/.vite/
 frontend/*.log
 
-src/__pycache__/main.cpython-313.pyc
-src/cast/__pycache__/service.cpython-313.pyc
-src/bt/__pycache__/__init__.cpython-313.pyc
-src/bt/__pycache__/service.cpython-313.pyc
-tests/__pycache__/test_bt_service.cpython-313-pytest-9.0.2.pyc
-tests/__pycache__/test_bt_api.cpython-313-pytest-9.0.2.pyc
+src/__pycache__/
+src/cast/__pycache__/
+src/bt/__pycache__/
+tests/__pycache__/
+src/wifi/__pycache__/
+tests/__pycache__/
