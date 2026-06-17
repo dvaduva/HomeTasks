@@ -25,6 +25,7 @@ const activeRouteIdx = ref(0);
 const activeStation = ref<string | null>(null);
 const dayType = ref<DayType>(getDayType());
 const aiOpen = ref(false);
+const routePickerOpen = ref(false);
 
 const scheduleScrollEl = ref<HTMLElement | null>(null);
 const aiInputEl = ref<HTMLInputElement | null>(null);
@@ -194,6 +195,13 @@ const currentDateStr = computed(() => formatCurrentDate());
 function selectRoute(idx: number): void {
   activeRouteIdx.value = idx;
   activeStation.value = null;
+  routePickerOpen.value = false;
+}
+function toggleRoutePicker(): void {
+  routePickerOpen.value = !routePickerOpen.value;
+}
+function closeRoutePicker(): void {
+  routePickerOpen.value = false;
 }
 function selectStation(name: string): void {
   if (!stationHasData(name)) return;
@@ -519,7 +527,9 @@ async function loadRoutes(): Promise<void> {
 }
 
 function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape' && aiOpen.value) closeAiPanel();
+  if (e.key !== 'Escape') return;
+  if (routePickerOpen.value) closeRoutePicker();
+  else if (aiOpen.value) closeAiPanel();
 }
 
 onMounted(() => {
@@ -580,21 +590,23 @@ onUnmounted(() => {
     <div class="tp-body">
       <!-- Sidebar -->
       <aside class="tp-sidebar">
-        <div class="tp-route-tabs">
+        <div class="tp-route-picker">
           <p v-if="loadError" class="tp-error">Eroare la încărcarea datelor: {{ loadError }}</p>
           <button
-            v-for="(route, idx) in routes"
-            :key="route.route + idx"
+            v-else-if="activeRoute"
             type="button"
-            class="tp-route-tab"
-            :class="{ active: idx === activeRouteIdx }"
-            @click="selectRoute(idx)"
+            class="tp-route-tab tp-route-current"
+            :class="{ open: routePickerOpen }"
+            :aria-expanded="routePickerOpen"
+            title="Schimbă linia"
+            @click="toggleRoutePicker"
           >
-            <span class="tp-route-num">{{ route.route }}</span>
+            <span class="tp-route-num">{{ activeRoute.route }}</span>
             <span class="tp-route-dir">
-              <strong>{{ route.direction.split(' -> ')[0] }}</strong><br>
-              → {{ route.direction.split(' -> ')[1] }}
+              <strong>{{ activeRoute.direction.split(' -> ')[0] }}</strong><br>
+              → {{ activeRoute.direction.split(' -> ')[1] }}
             </span>
+            <svg class="tp-route-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
         </div>
 
@@ -777,6 +789,34 @@ onUnmounted(() => {
         </div>
         <div class="tp-ai-note">Datele au caracter orientativ.</div>
       </aside>
+    </div>
+
+    <!-- Route picker popup -->
+    <div v-if="routePickerOpen" class="tp-route-modal-overlay" @click="closeRoutePicker">
+      <div class="tp-route-modal" role="dialog" aria-label="Selectează linia" @click.stop>
+        <div class="tp-route-modal-header">
+          <span>Selectează linia</span>
+          <button type="button" class="tp-route-modal-close" title="Închide" @click="closeRoutePicker">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="tp-route-modal-list">
+          <button
+            v-for="(route, idx) in routes"
+            :key="route.route + idx"
+            type="button"
+            class="tp-route-tab"
+            :class="{ active: idx === activeRouteIdx }"
+            @click="selectRoute(idx)"
+          >
+            <span class="tp-route-num">{{ route.route }}</span>
+            <span class="tp-route-dir">
+              <strong>{{ route.direction.split(' -> ')[0] }}</strong><br>
+              → {{ route.direction.split(' -> ')[1] }}
+            </span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <div
