@@ -169,6 +169,7 @@ frontend/src/
 │   ├── RadioMiniPlayer / RadioStationsManager / VoiceController / SettingsPanel
 └── views/
     ├── DashboardView.test.ts  HistoryView.test.ts  RadioView.test.ts
+    └── CalendarView.test.ts   TransportView.test.ts
 ```
 
 ### Convenții
@@ -198,8 +199,10 @@ frontend/src/
 ### Despre coverage
 
 `npm run test:coverage` scrie un raport HTML în `frontend/coverage/`. Acel folder
-este ignorat de git. Zonele rămase cu coverage scăzut sunt cele mai mari două
-view-uri, `CalendarView.vue` și `TransportView.vue`, în mare parte prezentaționale.
+este ignorat de git. Toate modulele de API, store-urile, composables, componentele
+și view-urile au acoperire de teste; liniile rămase neacoperite sunt în mare parte
+ramuri defensive și căi specifice browser-ului (drag, Web Speech API, TTS pe
+server) care nu pot rula sub jsdom.
 
 ---
 

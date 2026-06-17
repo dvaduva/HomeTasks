@@ -167,6 +167,7 @@ frontend/src/
 │   ├── RadioMiniPlayer / RadioStationsManager / VoiceController / SettingsPanel
 └── views/
     ├── DashboardView.test.ts  HistoryView.test.ts  RadioView.test.ts
+    └── CalendarView.test.ts   TransportView.test.ts
 ```
 
 ### Conventions
@@ -194,8 +195,10 @@ frontend/src/
 ### A note on coverage
 
 `npm run test:coverage` writes an HTML report to `frontend/coverage/`. That folder
-is git-ignored. The remaining low-coverage areas are the two largest views,
-`CalendarView.vue` and `TransportView.vue`, which are mostly presentational.
+is git-ignored. All API modules, stores, composables, components and views have
+test coverage; the uncovered lines that remain are mostly defensive branches and
+browser-only paths (drag handling, Web Speech API, server TTS) that can't run
+under jsdom.
 
 ---
 

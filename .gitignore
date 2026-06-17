@@ -1,3 +1,4 @@
+/.claude
 /.env
 /data/hometasks.db
 server.log
@@ -19,5 +20,3 @@ src/bt/__pycache__/
 src/cast/__pycache__/
 src/wifi/__pycache__/
 tests/__pycache__/
-
-/.claude
