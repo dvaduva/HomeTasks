@@ -13,7 +13,7 @@ const tasks = [
 ] as any;
 
 function mountList(props: Record<string, unknown>) {
-  return mountWithPlugins(TaskList, { props, global: { stubs } });
+  return mountWithPlugins(TaskList, { props: props as any, global: { stubs } });
 }
 
 describe('TaskList.vue', () => {
