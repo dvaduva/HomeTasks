@@ -131,12 +131,27 @@ def test_get_devices_excludes_unpaired(svc):
 
 # ── sink resolution ──────────────────────────────────────────────────────────────
 def test_sink_token():
-    assert BluetoothService._sink_token(MAC) == 'bluez_output.AA_BB_CC_DD_EE_FF'
+    assert BluetoothService._sink_token(MAC) == 'AA_BB_CC_DD_EE_FF'
 
 
 def test_find_sink_found(svc):
     service, _, _ = svc
     assert service._find_sink(MAC, wait=0) == SINK
+
+
+def test_find_sink_pulseaudio_naming(svc):
+    """Older PulseAudio (RPi Bullseye) names the sink `bluez_sink.<MAC>.a2dp_sink`
+    instead of PipeWire's `bluez_output.<MAC>.…` — both must resolve."""
+    service, _, _ = svc
+    pa_sink = 'bluez_sink.AA_BB_CC_DD_EE_FF.a2dp_sink'
+
+    def handler(cmd):
+        if cmd[0] == 'pactl' and cmd[1] == 'list':
+            return 0, f'1\t{pa_sink}\tmodule-bluez5-device.c\ts16le\tSUSPENDED\n'
+        return default_handler(cmd)
+
+    service._handler = handler
+    assert service._find_sink(MAC, wait=0) == pa_sink
 
 
 def test_find_sink_missing_raises(svc):

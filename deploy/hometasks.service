@@ -1,14 +1,26 @@
 [Unit]
 Description=HomeTasks - Family Task Manager
-After=network.target
+After=network.target bluetooth.service pulseaudio.service
+Wants=bluetooth.service pulseaudio.service
 
 [Service]
 User=pi
 Group=pi
-WorkingDirectory=/home/pi/hometasks
-Environment="PATH=/home/pi/hometasks/venv/bin"
-EnvironmentFile=/home/pi/hometasks/.env
-ExecStart=/home/pi/hometasks/venv/bin/gunicorn --config deploy/gunicorn.conf.py wsgi:app
+# bluetooth: D-Bus access to BlueZ (bluetoothctl connect/scan from the UI).
+# pulse-access: connect to the system-mode PulseAudio socket for A2DP playback.
+SupplementaryGroups=bluetooth pulse-access
+WorkingDirectory=/home/pi/HomeTasks
+# systemd creates/owns /var/log/hometasks on each start (gunicorn writes
+# access.log/error.log there); /var/log can be cleared on reboot otherwise.
+LogsDirectory=hometasks
+# venv first (gunicorn/python), then system dirs so the BT stack — bluetoothctl,
+# pactl, mpv in /usr/bin — is found by shutil.which (else the UI hides Bluetooth).
+Environment="PATH=/home/pi/HomeTasks/venv/bin:/usr/local/bin:/usr/bin:/bin"
+# Talk to the always-on system PulseAudio (see deploy/README BT runbook) so mpv
+# and pactl work without a per-user login session.
+Environment="PULSE_SERVER=unix:/run/pulse/native"
+EnvironmentFile=/home/pi/HomeTasks/.env
+ExecStart=/home/pi/HomeTasks/venv/bin/gunicorn --config deploy/gunicorn.conf.py wsgi:app
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

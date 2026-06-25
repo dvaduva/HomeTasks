@@ -152,10 +152,16 @@ watch(
 .bt-mgr-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  /* inner padding so focus rings / borders aren't clipped by the scroll box */
+  padding: 4px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* the scan can return many devices (BLE sensors, phones, …) — keep the modal
+     bounded and let the list scroll instead of overflowing off-screen. */
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .bt-mgr-item {
   display: flex;

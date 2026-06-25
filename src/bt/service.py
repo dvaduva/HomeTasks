@@ -190,11 +190,17 @@ class BluetoothService:
             )
 
     # ── sink resolution ──────────────────────────────────────────────────────────
+    # The MAC underscored is the stable part of a Bluetooth sink name; the prefix
+    # depends on the audio stack: PipeWire / newer PulseAudio expose
+    # `bluez_output.<MAC>.…`, while older PulseAudio (e.g. 14.x on RPi Bullseye)
+    # exposes `bluez_sink.<MAC>.…a2dp_sink`. Match the MAC, not the prefix.
+    SINK_PREFIXES = ('bluez_output.', 'bluez_sink.')
+
     @staticmethod
     def _sink_token(mac):
-        """The pactl sink-name fragment BlueZ creates for a device:
-        AA:BB:CC:DD:EE:FF -> bluez_output.AA_BB_CC_DD_EE_FF"""
-        return 'bluez_output.' + mac.upper().replace(':', '_')
+        """The MAC fragment present in any Bluetooth sink name:
+        AA:BB:CC:DD:EE:FF -> AA_BB_CC_DD_EE_FF"""
+        return mac.upper().replace(':', '_')
 
     def _find_sink(self, mac, wait=SINK_WAIT):
         """Return the full PulseAudio/PipeWire sink name for the connected speaker,
@@ -208,7 +214,9 @@ class BluetoothService:
                 for line in out.splitlines():
                     # columns: index  name  driver  sample-spec  state
                     parts = line.split('\t')
-                    if len(parts) >= 2 and parts[1].startswith(token):
+                    if (len(parts) >= 2
+                            and parts[1].startswith(self.SINK_PREFIXES)
+                            and token in parts[1]):
                         return parts[1]
             if time.time() >= deadline:
                 raise RuntimeError(
