@@ -1,5 +1,7 @@
 # Deploy HomeTasks pe Raspberry Pi
 
+> [English](DEPLOY.en.md) · **Română**
+
 ## Cerințe
 
 - Raspberry Pi cu Raspberry Pi OS (sau Debian/Ubuntu)
@@ -12,9 +14,14 @@
 ### 1. Clonează/copiază proiectul
 
 ```bash
-git clone <repo-url> /home/pi/hometasks
-cd /home/pi/hometasks
+git clone <repo-url> /home/pi/HomeTasks
+cd /home/pi/HomeTasks
 ```
+
+> ⚠️ Calea este **case-sensitive** și trebuie să fie exact `/home/pi/HomeTasks` —
+> e cea folosită de `deploy/hometasks.service` (`WorkingDirectory`, `ExecStart`,
+> `EnvironmentFile`). Dacă cloni cu altă literă (ex. `hometasks`), serviciul nu
+> pornește („gunicorn / .env nu există"). Directorul de log rămâne `/var/log/hometasks`.
 
 ### 2. Creează mediul virtual și instalează dependențele
 
@@ -54,10 +61,14 @@ fiecare deploy.
 ### 5. Creează directorul pentru date și log-uri
 
 ```bash
-mkdir -p /home/pi/hometasks/data
+mkdir -p /home/pi/HomeTasks/data
 sudo mkdir -p /var/log/hometasks
 sudo chown pi:pi /var/log/hometasks
 ```
+
+> Notă: unitul declară `LogsDirectory=hometasks`, deci systemd recreează
+> `/var/log/hometasks` la fiecare pornire. `mkdir`-ul de aici e necesar doar pentru
+> testul manual de la pasul 6 (gunicorn rulat direct, nu prin systemd).
 
 ### 6. Testează că aplicația pornește
 
@@ -110,11 +121,13 @@ sudo reboot
 
 Aplicația rulează ca user `pi` prin systemd, **fără sesiune grafică** (vezi
 `hometasks.service`), iar `nmcli connect` / `disconnect` cer drepturi prin polkit.
-Userul trebuie să fie în grupul `netdev`:
+Procesul trebuie să fie în grupul `netdev` — unitul îl declară deja explicit
+(`SupplementaryGroups=... netdev`), deci e suficient ca grupul să existe. Pentru
+siguranță, adaugă-l și userului (folosit la pașii manuali / `sudo -u pi`):
 
 ```bash
 sudo usermod -aG netdev pi
-sudo systemctl restart hometasks   # ca procesul să prindă noul grup
+sudo systemctl restart hometasks   # reîncarcă grupurile procesului
 ```
 
 Verifică ce versiune de polkit ai — pașii diferă:
@@ -181,6 +194,13 @@ sudo -u pi nmcli device wifi connect "<SSID>" password "<parola>"
 Dacă `pkcheck` dă `exit=0` și comanda reușește fără `sudo`, butonul „Conectează"
 din interfață va funcționa. Endpoint-urile expuse sunt `/api/wifi/status`,
 `/api/wifi/scan`, `/api/wifi/connect`, `/api/wifi/disconnect`.
+
+## Boxe Bluetooth / audio (doar RPi)
+
+Redarea radio pe o boxă Bluetooth cere un setup de sistem separat (BlueZ + acces
+D-Bus pentru `pi`, PulseAudio în mod system, `mpv` cu bibliotecile VideoCore).
+Procedura completă, cu toate capcanele, e în
+[docs/audio-streaming.ro.md](../docs/audio-streaming.ro.md) → „Runbook RPi".
 
 ## Comenzi utile
 
