@@ -88,9 +88,9 @@ export const useAiStore = defineStore('ai', () => {
     }
   }
 
-  async function loadModels(): Promise<void> {
+  async function loadModels(provider?: string): Promise<void> {
     try {
-      const res = await aiApi.models();
+      const res = await aiApi.models(provider);
       models.value = res.models || [];
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);

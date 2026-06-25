@@ -35,6 +35,9 @@ export interface AiModel {
 export const aiApi = {
   chat: (message: string, opts?: { temperature?: number; max_tokens?: number }) =>
     api.post<AiChatResponse>('/api/ai/chat', { message, ...opts }),
-  models: () => api.get<{ models: AiModel[] }>('/api/ai/models'),
+  models: (provider?: string) =>
+    api.get<{ provider?: string; models: AiModel[] }>('/api/ai/models', {
+      query: provider ? { provider } : undefined,
+    }),
   status: () => api.get<AiStatus>('/api/ai/status'),
 };

@@ -43,6 +43,7 @@ watch(
   (open) => {
     if (open && prefs.data) draft.value = makeDraft(prefs.data);
     if (open) {
+      if (draft.value.ai_enabled !== false) ai.loadModels(draft.value.ai_provider).catch(() => undefined);
       users.fetchAll().catch(() => undefined);
       wifiApi
         .status()
@@ -59,6 +60,28 @@ watch(
   },
 );
 
+// Provider catalog. `keyField` is the draft field that holds the credential —
+// the Ollama URL for the local provider, an API key for cloud ones.
+const AI_PROVIDERS = [
+  { id: 'ollama', cloud: false, keyField: 'ollama_base_url' },
+  { id: 'openrouter', cloud: true, keyField: 'openrouter_api_key' },
+  { id: 'groq', cloud: true, keyField: 'groq_api_key' },
+  { id: 'mistral', cloud: true, keyField: 'mistral_api_key' },
+  { id: 'gemini', cloud: true, keyField: 'gemini_api_key' },
+] as const;
+
+const activeProvider = computed(
+  () => AI_PROVIDERS.find((p) => p.id === draft.value.ai_provider) ?? AI_PROVIDERS[0],
+);
+const isCloudProvider = computed(() => activeProvider.value.cloud);
+
+// Bind the active cloud provider's API-key field generically; the underlying
+// draft key changes with the selected provider.
+const apiKeyModel = computed<string>({
+  get: () => String((draft.value as Record<string, unknown>)[activeProvider.value.keyField] ?? ''),
+  set: (v) => ((draft.value as Record<string, unknown>)[activeProvider.value.keyField] = v),
+});
+
 const aiTemp = computed({
   get: () => Number(draft.value.ai_temperature ?? 0.7),
   set: (v: number) => (draft.value.ai_temperature = v),
@@ -69,8 +92,16 @@ const voiceSens = computed({
 });
 
 async function loadModels(): Promise<void> {
-  await ai.loadModels();
+  await ai.loadModels(draft.value.ai_provider);
   if (ai.models.length === 0) errorToast(t('ollama_unavailable'));
+}
+
+// Switching provider: the shared `ai_model` pref is interpreted per provider, so
+// clear the stale selection and re-fetch the new provider's model list.
+async function onProviderChange(): Promise<void> {
+  draft.value.ai_model = '';
+  ai.models = [];
+  await ai.loadModels(draft.value.ai_provider);
 }
 
 async function save(): Promise<void> {
@@ -208,9 +239,23 @@ async function renameUser(id: number, name: string, color: string): Promise<void
         <p class="form-hint form-hint-spaced">{{ $t('hint_ai_enabled') }}</p>
         <template v-if="draft.ai_enabled">
         <div class="form-group">
+          <label for="ai-provider">{{ $t('lbl_ai_provider') }}</label>
+          <select id="ai-provider" v-model="draft.ai_provider" @change="onProviderChange">
+            <option v-for="p in AI_PROVIDERS" :key="p.id" :value="p.id">{{ $t('opt_provider_' + p.id) }}</option>
+          </select>
+        </div>
+        <p v-if="isCloudProvider" class="form-hint form-hint-spaced">{{ $t('hint_cloud_privacy') }}</p>
+        <div v-if="!isCloudProvider" class="form-group">
           <label for="ollama-url">{{ $t('lbl_ollama_url') }}</label>
           <div class="input-with-btn">
             <KeyboardInput id="ollama-url" v-model="draft.ollama_base_url" placeholder="http://localhost:11434" />
+            <button type="button" class="btn btn-secondary btn-sm" :title="$t('title_check_models')" @click="loadModels">{{ $t('models_btn_label') }}</button>
+          </div>
+        </div>
+        <div v-else class="form-group">
+          <label for="ai-api-key">{{ $t('lbl_api_key') }}</label>
+          <div class="input-with-btn">
+            <KeyboardInput id="ai-api-key" v-model="apiKeyModel" type="password" />
             <button type="button" class="btn btn-secondary btn-sm" :title="$t('title_check_models')" @click="loadModels">{{ $t('models_btn_label') }}</button>
           </div>
         </div>

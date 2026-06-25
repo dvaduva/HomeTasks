@@ -186,7 +186,7 @@ schimbare de comportament încă).
 - **Gata când:** un provider cloud selectat în prefs răspunde la `/api/ai/chat`
   și listează modele, totul sub test cu mock-uri.
 
-### Faza 4 — Frontend
+### Faza 4 — Frontend ✅ Gata
 **Scop:** utilizatorii pot alege un provider, introduce o cheie și alege un model.
 - `<select>` de provider + câmpuri condiționate URL/API-key în
   `SettingsPanel.vue`.

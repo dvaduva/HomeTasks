@@ -42,10 +42,15 @@ export interface Preferences {
   weather_units: string;
   weather_update_interval: number;
   ai_enabled: boolean;
+  ai_provider: string;
   ollama_base_url: string;
   ai_model: string;
   ai_temperature: number;
   ai_max_tokens: number;
+  openrouter_api_key: string;
+  groq_api_key: string;
+  gemini_api_key: string;
+  mistral_api_key: string;
   voice_language: string;
   voice_sensitivity: number;
   voice_auto_start: boolean;

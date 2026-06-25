@@ -179,7 +179,7 @@ later phases depend on earlier ones.
 - **Done when:** a cloud provider selected in prefs answers `/api/ai/chat` and
   lists models, all under test with mocks.
 
-### Phase 4 — Frontend
+### Phase 4 — Frontend ✅ Done
 **Goal:** users can pick a provider, enter a key, and choose a model.
 - Provider `<select>` + conditional URL/API-key fields in `SettingsPanel.vue`.
 - Model dropdown re-fetches on provider change; inline cloud-privacy note.
