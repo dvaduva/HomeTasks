@@ -7,6 +7,7 @@ import '@/assets/css/radio.css';
 
 const managerOpen = ref(false);
 const btManagerOpen = ref(false);
+const targetPickerOpen = ref(false);
 const query = ref('');
 
 // Full radio page. All playback state and the <audio> element now live in the
@@ -36,8 +37,16 @@ function onVolumeInput(e: Event): void {
   radio.setVolume(Number((e.target as HTMLInputElement).value));
 }
 
-function onTargetChange(e: Event): void {
-  radio.setTarget((e.target as HTMLSelectElement).value);
+// Pick a destination from the popup, then close it.
+function pickTarget(tgt: string): void {
+  radio.setTarget(tgt);
+  targetPickerOpen.value = false;
+}
+
+// Open the pairing dialog from inside the destination popup.
+function openBtManager(): void {
+  targetPickerOpen.value = false;
+  btManagerOpen.value = true;
 }
 
 onMounted(() => {
@@ -49,49 +58,6 @@ onMounted(() => {
 <template>
   <div class="radio-view">
     <div class="rd-body">
-      <div class="rd-top-row">
-      <!-- Output target selector: Local browser, a Cast device or a BT speaker -->
-      <div class="rd-cast">
-        <div class="rd-cast-head">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
-          <label for="rd-cast-target">{{ $t('radio_play_on') }}</label>
-        </div>
-        <div class="rd-cast-controls">
-        <select id="rd-cast-target" :value="radio.target" @change="onTargetChange">
-          <option value="local">{{ $t('radio_this_device') }}</option>
-          <optgroup v-if="radio.castDevices.length" :label="$t('radio_cast_group')">
-            <option v-for="d in radio.castDevices" :key="d.id" :value="'cast:' + d.id">
-              {{ d.name }}
-            </option>
-          </optgroup>
-          <optgroup v-if="radio.btDevices.length" :label="$t('radio_bt_group')">
-            <option v-for="d in radio.btDevices" :key="d.id" :value="'bt:' + d.id">
-              {{ d.name }}
-            </option>
-          </optgroup>
-        </select>
-        <button
-          type="button"
-          class="rd-cast-refresh"
-          :title="$t('radio_refresh_cast')"
-          :aria-label="$t('radio_refresh_cast')"
-          @click="radio.loadOutputDevices()"
-        >
-          ⟳
-        </button>
-        <button
-          v-if="radio.btAvailable"
-          type="button"
-          class="rd-cast-refresh"
-          :title="$t('radio_bt_manage_title')"
-          :aria-label="$t('radio_bt_manage_title')"
-          @click="btManagerOpen = true"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
-        </button>
-        </div>
-      </div>
-
       <!-- Now playing bar -->
       <div class="rd-now-playing" :class="{ playing: radio.isPlaying }">
         <div class="rd-np-info">
@@ -111,6 +77,16 @@ onMounted(() => {
           </div>
         </div>
         <div class="rd-np-controls">
+          <button
+            type="button"
+            class="rd-btn-output"
+            :class="{ active: radio.target !== 'local' }"
+            :title="$t('radio_play_on') + ': ' + radio.targetName(radio.target)"
+            :aria-label="$t('radio_play_on') + ': ' + radio.targetName(radio.target)"
+            @click="targetPickerOpen = true"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
+          </button>
           <button
             type="button"
             class="rd-btn-play"
@@ -145,7 +121,6 @@ onMounted(() => {
             >
           </div>
         </div>
-      </div>
       </div>
 
       <!-- Stations list -->
@@ -216,31 +191,106 @@ onMounted(() => {
       </section>
     </div>
 
+    <!-- Output destination picker (opened by the compact "Redă pe" button) -->
+    <div v-if="targetPickerOpen" class="modal-overlay active" @click.self="targetPickerOpen = false">
+      <div class="modal rd-output-modal">
+        <div class="modal-head">
+          <h2>{{ $t('radio_play_on') }}</h2>
+          <button type="button" class="icon-btn" :title="$t('radio_bt_close')" @click="targetPickerOpen = false">✕</button>
+        </div>
+        <ul class="rd-output-list">
+          <li>
+            <button
+              type="button"
+              class="rd-output-opt"
+              :class="{ active: radio.target === 'local' }"
+              @click="pickTarget('local')"
+            >
+              <svg class="rd-output-opt-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span class="rd-output-opt-name">{{ $t('radio_this_device') }}</span>
+              <svg v-if="radio.target === 'local'" class="rd-output-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+          </li>
+
+          <template v-if="radio.castDevices.length">
+            <li class="rd-output-group">{{ $t('radio_cast_group') }}</li>
+            <li v-for="d in radio.castDevices" :key="'cast:' + d.id">
+              <button
+                type="button"
+                class="rd-output-opt"
+                :class="{ active: radio.target === 'cast:' + d.id }"
+                @click="pickTarget('cast:' + d.id)"
+              >
+                <svg class="rd-output-opt-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
+                <span class="rd-output-opt-name">{{ d.name }}</span>
+                <svg v-if="radio.target === 'cast:' + d.id" class="rd-output-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </li>
+          </template>
+
+          <template v-if="radio.btDevices.length">
+            <li class="rd-output-group">{{ $t('radio_bt_group') }}</li>
+            <li v-for="d in radio.btDevices" :key="'bt:' + d.id">
+              <button
+                type="button"
+                class="rd-output-opt"
+                :class="{ active: radio.target === 'bt:' + d.id }"
+                @click="pickTarget('bt:' + d.id)"
+              >
+                <svg class="rd-output-opt-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+                <span class="rd-output-opt-name">{{ d.name }}</span>
+                <svg v-if="radio.target === 'bt:' + d.id" class="rd-output-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </li>
+          </template>
+        </ul>
+
+        <div class="modal-actions rd-output-actions">
+          <button type="button" class="btn btn-secondary btn-sm" @click="radio.loadOutputDevices()">
+            ⟳ {{ $t('radio_refresh_cast') }}
+          </button>
+          <button v-if="radio.btAvailable" type="button" class="btn btn-secondary btn-sm" @click="openBtManager">
+            {{ $t('radio_bt_manage_title') }}
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" @click="targetPickerOpen = false">
+            {{ $t('radio_bt_close') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <RadioStationsManager :open="managerOpen" @close="managerOpen = false" />
     <BluetoothManager :open="btManagerOpen" @close="btManagerOpen = false" />
   </div>
 </template>
 
 <style scoped>
-/* Two-column layout: "Redă pe" selector beside the Now Playing bar. */
-.rd-top-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: stretch;
-  gap: 14px;
+/* Compact destination button, placed inside the now-playing controls (no extra
+   row — vertical space is scarce on the 7" screen). Opens the picker popup. */
+.rd-btn-output {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--rd-gray-300);
+  background: var(--rd-gray-50);
+  color: var(--rd-gray-500);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.rd-top-row > :deep(.rd-cast),
-.rd-top-row > :deep(.rd-now-playing) {
-  margin-bottom: 0;
-  /* grid items default to min-width:auto, so a long station name / RDS text
-     widens the cell and pushes the controls off-screen instead of letting the
-     name ellipsize. Allow the cell to shrink so the ellipsis kicks in. */
-  min-width: 0;
+.rd-btn-output:hover {
+  background: var(--rd-accent-lt);
+  color: var(--rd-accent-dk);
+  border-color: var(--rd-accent);
 }
-@media (max-width: 720px) {
-  .rd-top-row {
-    grid-template-columns: 1fr;
-  }
+/* Highlighted when playing somewhere other than this browser (Cast / Bluetooth). */
+.rd-btn-output.active {
+  background: var(--rd-accent);
+  color: var(--rd-white);
+  border-color: var(--rd-accent);
 }
 
 .rd-stations-head {
@@ -329,79 +379,70 @@ onMounted(() => {
   color: var(--rd-accent-dk);
 }
 
-/* Matches the now-playing card: white surface, gray borders, purple accent. */
-.rd-cast {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--rd-white);
-  border-radius: var(--rd-radius);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-  padding: 12px 14px;
-  margin-bottom: 14px;
-  color: var(--rd-gray-700);
-  font-size: 14px;
+/* Destination picker popup (reuses the global .modal / .modal-head / .modal-actions). */
+.rd-output-modal {
+  max-width: 440px;
 }
-/* Icon + "Redă pe" label on their own line. */
-.rd-cast-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.rd-output-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  max-height: min(55vh, 420px);
 }
-.rd-cast-head > svg {
-  color: var(--rd-accent);
-  flex: 0 0 auto;
+.rd-output-group {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--rd-gray-500, #64748b);
+  padding: 12px 8px 4px;
 }
-.rd-cast label {
-  font-weight: 600;
-  white-space: nowrap;
-}
-/* Selector + action buttons on the line below. */
-.rd-cast-controls {
+.rd-output-opt {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-.rd-cast select {
-  flex: 1;
-  min-width: 0;
-  /* room on the right for the custom chevron */
-  padding: 8px 34px 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--rd-gray-300);
-  background-color: var(--rd-gray-50);
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
   color: var(--rd-gray-900);
   font-size: 14px;
   font-family: inherit;
+  text-align: left;
   cursor: pointer;
-  /* replace the native arrow (which has no padding) with our own */
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.rd-cast select:focus {
-  outline: none;
-  border-color: var(--rd-accent);
-  box-shadow: 0 0 0 3px var(--rd-accent-lt);
+.rd-output-opt:hover {
+  background: var(--rd-gray-50, #f8fafc);
 }
-.rd-cast-refresh {
-  flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--rd-gray-300);
-  background: var(--rd-gray-50);
-  color: var(--rd-gray-500);
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  transition: background 0.15s, color 0.15s;
-}
-.rd-cast-refresh:hover {
+.rd-output-opt.active {
   background: var(--rd-accent-lt);
+  border-color: var(--rd-accent);
   color: var(--rd-accent-dk);
+}
+.rd-output-opt-icon {
+  flex: 0 0 auto;
+  color: var(--rd-gray-500);
+}
+.rd-output-opt.active .rd-output-opt-icon {
+  color: var(--rd-accent-dk);
+}
+.rd-output-opt-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.rd-output-check {
+  flex: 0 0 auto;
+  color: var(--rd-accent);
+}
+/* let the action buttons wrap on narrow screens instead of overflowing */
+.rd-output-actions {
+  flex-wrap: wrap;
 }
 </style>

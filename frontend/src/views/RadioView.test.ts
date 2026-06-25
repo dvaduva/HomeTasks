@@ -86,12 +86,14 @@ describe('RadioView.vue', () => {
     expect(setVol).toHaveBeenCalledWith(42);
   });
 
-  it('changing the output target calls setTarget', async () => {
+  it('picking a destination from the popup calls setTarget', async () => {
     const { wrapper, radio } = await mountRadio();
     const setTarget = vi.spyOn(radio, 'setTarget').mockImplementation(() => {});
     radio.castDevices = [{ id: 'uuid-1', name: 'Living' }] as any;
-    await wrapper.vm.$nextTick();
-    await wrapper.find('#rd-cast-target').setValue('cast:uuid-1');
+    // open the picker popup, then click the Cast option
+    await wrapper.find('.rd-btn-output').trigger('click');
+    const opt = wrapper.findAll('.rd-output-opt').find((b) => b.text().includes('Living'));
+    await opt!.trigger('click');
     expect(setTarget).toHaveBeenCalledWith('cast:uuid-1');
   });
 
