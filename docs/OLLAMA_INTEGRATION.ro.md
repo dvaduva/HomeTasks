@@ -2,6 +2,11 @@
 
 > [English](OLLAMA_INTEGRATION.md) · **Română**
 
+> **Notă:** Ollama este providerul AI local, implicit. HomeTasks poate folosi și
+> tiere cloud gratuite (OpenRouter, Groq, Mistral, Gemini). Pentru alegerea și
+> configurarea unui provider, vezi [AI_PROVIDERS.ro.md](AI_PROVIDERS.ro.md). Acest
+> document acoperă detaliile specifice Ollama.
+
 ## Arhitectura integrării
 
 HomeTasks communicează cu serverul Ollama prin interfața HTTP REST pe portul 11434 (implicit). Toate cererile sunt efectuate către endpoint-ul `/api/generate` pentru generarea de text sau `/api/chat` pentru conversații structurate.

@@ -7,6 +7,36 @@ Gemini, Mistral) **alongside** the existing local Ollama integration. The user
 picks the active provider in Settings; nothing is sent to the cloud unless a
 cloud provider is explicitly selected.
 
+## Configuring a provider
+
+You can configure a provider two ways — in **Settings** (stored in the DB) or via
+`.env` (the fallback). A DB preference always wins over the matching env var, so
+Settings is the easiest path; `.env` is handy for headless / first-boot setups.
+
+**In the app:** open **Settings → AI**, pick a **provider**, paste its **API key**
+(cloud providers) or set the **Ollama URL** (local), then choose a **model** from
+the dropdown (it re-fetches per provider). A privacy note appears whenever a cloud
+provider is selected, since prompts then leave the device.
+
+**Via `.env`** (see [`.env.example`](../.env.example)): set `AI_PROVIDER` and the
+key for that provider.
+
+| Provider | `AI_PROVIDER` | API key var | Get a free key | Example model |
+|----------|---------------|-------------|----------------|---------------|
+| Ollama (local) | `ollama` | — (none) | — runs locally | `llama3:8b` |
+| OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | <https://openrouter.ai/keys> | `meta-llama/llama-3.3-70b-instruct:free` |
+| Groq | `groq` | `GROQ_API_KEY` | <https://console.groq.com/keys> | `llama-3.3-70b-versatile` |
+| Mistral | `mistral` | `MISTRAL_API_KEY` | <https://console.mistral.ai/api-keys> | `mistral-small-latest` |
+| Gemini | `gemini` | `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> | `gemini-2.0-flash` |
+
+Notes:
+- **Ollama needs no key** — it talks to a local server; set `OLLAMA_HOST` if it is
+  not on `http://localhost:11434`. See [OLLAMA_INTEGRATION.md](OLLAMA_INTEGRATION.md).
+- **OpenRouter** is filtered to its free (`:free`) models.
+- The model list is fetched live per provider, with a curated static fallback if
+  the fetch fails or no key is set.
+- The AI assistant only runs while the master **AI enabled** switch is on.
+
 ## Decisions
 
 | # | Decision |
@@ -186,9 +216,9 @@ later phases depend on earlier ones.
 - `types.ts` + `en.ts` / `ro.ts` additions.
 - **Done when:** switching provider + model in Settings works end-to-end.
 
-### Phase 5 — Docs & config polish
+### Phase 5 — Docs & config polish ✅ Done
 **Goal:** discoverable configuration.
 - `.env.example` keys (`*_API_KEY`, `AI_PROVIDER`).
-- Finalize this doc pair; link it from `OLLAMA_INTEGRATION.md` and the README
-  docs index.
+- Finalize this doc pair (added the **Configuring a provider** section above);
+  linked from `OLLAMA_INTEGRATION.md` and the README docs index.
 - **Done when:** a new user can configure any provider from docs alone.

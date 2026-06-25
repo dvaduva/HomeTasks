@@ -7,6 +7,39 @@ Google Gemini, Mistral) **pe lângă** integrarea locală Ollama existentă.
 Utilizatorul alege providerul activ în Settings; nimic nu pleacă în cloud decât
 dacă este selectat explicit un provider cloud.
 
+## Configurarea unui provider
+
+Poți configura un provider în două moduri — din **Settings** (salvat în DB) sau
+prin `.env` (rezerva). O preferință din DB are mereu prioritate față de variabila
+de mediu corespunzătoare, deci Settings e calea cea mai simplă; `.env` e util
+pentru configurări headless / la prima pornire.
+
+**În aplicație:** deschide **Settings → AI**, alege un **provider**, lipește
+**API key**-ul (provideri cloud) sau setează **URL-ul Ollama** (local), apoi alege
+un **model** din dropdown (se re-fetch-uiește per provider). O notă de privacy
+apare ori de câte ori e selectat un provider cloud, deoarece atunci prompturile
+părăsesc dispozitivul.
+
+**Prin `.env`** (vezi [`.env.example`](../.env.example)): setează `AI_PROVIDER` și
+cheia pentru providerul respectiv.
+
+| Provider | `AI_PROVIDER` | Variabila de cheie | Obține o cheie gratuită | Model exemplu |
+|----------|---------------|--------------------|-------------------------|---------------|
+| Ollama (local) | `ollama` | — (niciuna) | — rulează local | `llama3:8b` |
+| OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | <https://openrouter.ai/keys> | `meta-llama/llama-3.3-70b-instruct:free` |
+| Groq | `groq` | `GROQ_API_KEY` | <https://console.groq.com/keys> | `llama-3.3-70b-versatile` |
+| Mistral | `mistral` | `MISTRAL_API_KEY` | <https://console.mistral.ai/api-keys> | `mistral-small-latest` |
+| Gemini | `gemini` | `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> | `gemini-2.0-flash` |
+
+Note:
+- **Ollama nu are nevoie de cheie** — vorbește cu un server local; setează
+  `OLLAMA_HOST` dacă nu e pe `http://localhost:11434`. Vezi
+  [OLLAMA_INTEGRATION.ro.md](OLLAMA_INTEGRATION.ro.md).
+- **OpenRouter** e filtrat la modelele sale gratuite (`:free`).
+- Lista de modele se ia live per provider, cu un fallback static curat dacă
+  fetch-ul eșuează sau nu e setată o cheie.
+- Asistentul AI rulează doar cât timp switch-ul master **AI enabled** e pornit.
+
 ## Decizii
 
 | # | Decizie |
@@ -196,10 +229,11 @@ schimbare de comportament încă).
 - **Gata când:** schimbarea providerului + modelului din Settings funcționează
   cap-coadă.
 
-### Faza 5 — Documentație și configurare
+### Faza 5 — Documentație și configurare ✅ Gata
 **Scop:** configurare ușor de descoperit.
 - Chei în `.env.example` (`*_API_KEY`, `AI_PROVIDER`).
-- Finalizarea acestei perechi de documente; link din `OLLAMA_INTEGRATION.md` și
-  din indexul de documentație din README.
+- Finalizarea acestei perechi de documente (am adăugat secțiunea
+  **Configurarea unui provider** de mai sus); link din `OLLAMA_INTEGRATION.ro.md`
+  și din indexul de documentație din README.
 - **Gata când:** un utilizator nou poate configura orice provider doar din
   documentație.

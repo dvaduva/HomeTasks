@@ -75,7 +75,8 @@ cd frontend && npm run dev      # start Flask separately: python src/main.py
 | [docs/USAGE.md](docs/USAGE.md) | Usage guide |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Application architecture |
 | [docs/SPA_MIGRATION.md](docs/SPA_MIGRATION.md) | Vue 3 SPA migration details |
-| [docs/OLLAMA_INTEGRATION.md](docs/OLLAMA_INTEGRATION.md) | Ollama integration |
+| [docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md) | AI providers — configure Ollama (local) or a free cloud tier (OpenRouter, Groq, Mistral, Gemini) |
+| [docs/OLLAMA_INTEGRATION.md](docs/OLLAMA_INTEGRATION.md) | Ollama integration (local provider details) |
 | [docs/TECHNICAL_SPECS.md](docs/TECHNICAL_SPECS.md) | Technical specifications |
 | [docs/audio-streaming.md](docs/audio-streaming.md) | Audio streaming (Cast / Bluetooth) |
 | [docs/TESTING.md](docs/TESTING.md) | Running the backend (pytest) and frontend (Vitest) tests |

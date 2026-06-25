@@ -2,6 +2,11 @@
 
 > **English** · [Română](OLLAMA_INTEGRATION.ro.md)
 
+> **Note:** Ollama is the local, default AI provider. HomeTasks can also use free
+> cloud tiers (OpenRouter, Groq, Mistral, Gemini). For choosing and configuring a
+> provider, see [AI_PROVIDERS.md](AI_PROVIDERS.md). This document covers the
+> Ollama-specific details.
+
 ## Integration architecture
 
 HomeTasks communicates with the Ollama server through the HTTP REST interface on port 11434 (default). All requests are made to the `/api/generate` endpoint for text generation or `/api/chat` for structured conversations.

@@ -75,7 +75,8 @@ cd frontend && npm run dev      # pornește Flask separat: python src/main.py
 | [docs/USAGE.ro.md](docs/USAGE.ro.md) | Ghid de utilizare |
 | [docs/ARCHITECTURE.ro.md](docs/ARCHITECTURE.ro.md) | Arhitectura aplicației |
 | [docs/SPA_MIGRATION.ro.md](docs/SPA_MIGRATION.ro.md) | Detalii despre SPA-ul Vue 3 |
-| [docs/OLLAMA_INTEGRATION.ro.md](docs/OLLAMA_INTEGRATION.ro.md) | Integrarea cu Ollama |
+| [docs/AI_PROVIDERS.ro.md](docs/AI_PROVIDERS.ro.md) | Provideri AI — configurare Ollama (local) sau un tier cloud gratuit (OpenRouter, Groq, Mistral, Gemini) |
+| [docs/OLLAMA_INTEGRATION.ro.md](docs/OLLAMA_INTEGRATION.ro.md) | Integrarea cu Ollama (detalii provider local) |
 | [docs/TECHNICAL_SPECS.ro.md](docs/TECHNICAL_SPECS.ro.md) | Specificații tehnice |
 | [docs/audio-streaming.ro.md](docs/audio-streaming.ro.md) | Streaming audio (Cast / Bluetooth) |
 | [docs/TESTING.ro.md](docs/TESTING.ro.md) | Rularea testelor de backend (pytest) și frontend (Vitest) |
