@@ -343,22 +343,146 @@ Cod nou paralel cu `cast/service.py`: un `bt/service.py` (`BluetoothService`).
 
 ### Runbook RPi (o singură dată)
 
-**Pachete (NU `pip`):**
-```sh
-sudo apt install bluez pipewire pipewire-pulse mpv
-```
-User-ul de serviciu (cel din `deploy/hometasks.service`) trebuie să fie în grupul
-`bluetooth` și să aibă o sesiune PipeWire/Pulse activă (Problema 4).
+> Testat pe **Raspberry Pi OS Bullseye** cu **PulseAudio 14 în mod system** (NU
+> PipeWire). Pașii de mai jos sunt cei care chiar funcționează; notele ⚠️ sunt
+> capcanele reale întâlnite la prima instalare.
 
-**Pairing din interfață (recomandat):** în Radio, lângă selectorul de
-destinație, apare butonul „Boxe Bluetooth" (doar dacă `available=true`, adică pe
+**1. Pachete (NU `pip`):**
+```sh
+sudo apt install -y bluez pulseaudio pulseaudio-module-bluetooth mpv
+```
+> ⚠️ Pe Bullseye **nu** există `pipewire-pulse` — stack-ul audio e PulseAudio, nu
+> PipeWire. Dacă un pachet dintr-o comandă `apt install` lipsește, **toată**
+> tranzacția se anulează (deci „lipsesc și celelalte"); instalează separat ce e
+> disponibil.
+> ⚠️ **`mpv` nu pornește fără bibliotecile VideoCore**: pe Raspbian e compilat cu
+> MMAL și dă `error while loading shared libraries: libmmal_core.so.0` dacă
+> lipsește (atunci redarea pe BT eșuează silențios, deși „Acest dispozitiv
+> (browser)" merge). Biblioteca e în `libraspberrypi0`:
+> ```sh
+> sudo apt install --reinstall libraspberrypi0 && sudo ldconfig
+> ```
+
+**2. Controllerul Bluetooth:**
+```sh
+sudo rfkill unblock bluetooth
+sudo systemctl enable --now hciuart bluetooth
+bluetoothctl list        # trebuie să arate "Controller XX:XX:XX:..."
+```
+> ⚠️ Dacă `bluetoothctl list` e gol deși `hciconfig -a` arată `hci0 UP RUNNING`,
+> daemonul nu apucase să înregistreze adaptorul: `sudo systemctl restart bluetooth`.
+
+**3. Acces D-Bus la BlueZ pentru userul de serviciu (non-root):**
+> ⚠️ Politica D-Bus implicită permite des doar root / consola locală, deci `pi`
+> prin SSH sau prin systemd primește „No default controller available" chiar dacă
+> e în grupul `bluetooth`. Adaugă un drop-in care permite grupului `bluetooth`:
+```sh
+sudo tee /etc/dbus-1/system.d/hometasks-bluetooth.conf > /dev/null <<'EOF'
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <policy group="bluetooth">
+    <allow send_destination="org.bluez"/>
+    <allow send_interface="org.bluez.Agent1"/>
+    <allow send_interface="org.freedesktop.DBus.ObjectManager"/>
+    <allow send_interface="org.freedesktop.DBus.Properties"/>
+  </policy>
+</busconfig>
+EOF
+sudo usermod -aG bluetooth pi
+sudo systemctl reload dbus
+```
+
+**4. PulseAudio în mod system (RPi headless, fără sesiune de login):**
+> ⚠️ Un serviciu de sistem n-are sesiune PulseAudio per-user, deci `pactl`/`mpv`
+> n-au unde reda, iar BlueZ n-are endpoint A2DP → `connect` la boxă eșuează cu
+> `org.bluez.Error.Failed`. Soluția: PulseAudio mereu pornit, în mod system.
+```sh
+# serviciul
+sudo tee /etc/systemd/system/pulseaudio.service > /dev/null <<'EOF'
+[Unit]
+Description=PulseAudio system-wide server
+After=bluetooth.service dbus.service
+Wants=bluetooth.service
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/pulseaudio --system --disallow-exit --disable-shm --exit-idle-time=-1
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# încarcă modulele Bluetooth în system.pa (NU default.pa, în mod system)
+sudo tee -a /etc/pulse/system.pa > /dev/null <<'EOF'
+
+### HomeTasks — Bluetooth A2DP
+.ifexists module-bluetooth-policy.so
+load-module module-bluetooth-policy
+.endif
+.ifexists module-bluetooth-discover.so
+load-module module-bluetooth-discover
+.endif
+EOF
+
+# clienții folosesc serverul system, fără autospawn per-user
+sudo tee -a /etc/pulse/client.conf > /dev/null <<'EOF'
+
+### HomeTasks
+autospawn = no
+default-server = unix:/run/pulse/native
+EOF
+
+# grupuri: pulse vede BlueZ + placa de sunet; pi accesează socketul system
+sudo usermod -aG bluetooth,audio pulse
+sudo usermod -aG pulse-access pi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now pulseaudio.service
+```
+> ⚠️ Adaugă `pulse` în grupul `bluetooth` **înainte** de prima pornire a
+> serviciului; altfel nu poate înregistra endpoint-ul A2DP la BlueZ și `connect`
+> eșuează. Dacă rula deja: `sudo systemctl restart pulseaudio`.
+
+Verifică (ca `pi`, sesiune SSH normală — nu `sudo -u`):
+```sh
+pactl info                                  # Server String: unix:/run/pulse/native
+pactl list modules short | grep -i blue     # module-bluetooth-discover/policy
+```
+> ⚠️ **Conflict cu PulseAudio per-user (microfon/TTS):** ghidul de instalare
+> ([INSTALLATION.ro.md](INSTALLATION.ro.md), secțiunea voce/TTS) recomandă
+> `@pulseaudio --start` în `~/.config/lxsession/LXDE-pi/autostart`. Cu PulseAudio
+> în **mod system**, acea linie pornește un al doilea server care se bate pe placa
+> de sunet — **scoate-o**. Aplicațiile desktop (Chromium pentru redarea „browser",
+> microfonul USB) folosesc oricum serverul system prin `default-server` din
+> `client.conf`. Sursa/ieșirea implicită se setează acum pe serverul system:
+> `pactl set-default-source <sursa_USB>` / `pactl set-default-sink <iesire>`.
+
+**5. Serviciul HomeTasks** ([deploy/hometasks.service](../deploy/hometasks.service))
+include deja tot ce trebuie pentru BT/audio:
+- `SupplementaryGroups=bluetooth pulse-access` — acces BlueZ + socket Pulse;
+- `Environment="PULSE_SERVER=unix:/run/pulse/native"` — redare fără sesiune de login;
+- `PATH=...:/usr/bin:/bin` — altfel `shutil.which` nu găsește `bluetoothctl/pactl/mpv` și UI-ul **ascunde** partea de BT (`available=false`);
+- `LogsDirectory=hometasks` — recreează `/var/log/hometasks` la fiecare pornire (altfel gunicorn moare la boot cu „error.log isn't writable").
+> ⚠️ Căile sunt **case-sensitive**: unitul folosește `/home/pi/HomeTasks`. Un `cp`
+> peste unit cu altă literă (ex. `hometasks`) oprește serviciul (gunicorn/.env
+> „dispar").
+
+> **Notă (deja în cod):** numele sink-ului A2DP diferă după stack — PulseAudio 14
+> dă `bluez_sink.<MAC>.a2dp_sink`, PipeWire dă `bluez_output.<MAC>...`.
+> `bt/service.py` le acceptă pe ambele (`SINK_PREFIXES`), nu trebuie nimic.
+
+**6. Împerecherea boxei (din interfață, recomandat):** în Radio, lângă selectorul
+de destinație, apare butonul „Boxe Bluetooth" (doar dacă `available=true`, adică pe
 RPi). Pune boxa în mod împerechere → **Scanează** → **Împerechează**; aplicația
 rulează `pair` + `trust` + `connect`. După aceea se reconectează automat și apare
 în selector. Tot de acolo o poți **Uita** (unpair).
 
-**Pairing manual (fallback prin shell), echivalent:**
+**7. Pairing manual (fallback prin shell), echivalent:**
 ```sh
-bluetoothctl
+sudo bluetoothctl          # sudo dacă userul tău nu are încă acces D-Bus (pasul 3)
   power on
   scan on            # așteaptă să apară MAC-ul boxei, apoi:
   scan off

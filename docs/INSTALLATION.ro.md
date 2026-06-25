@@ -573,6 +573,7 @@ Dacă **YouTube se aude** în Chromium dar **mesajele AI (🔊) nu**, sunetul pe
 
 1. **PulseAudio în sesiune**  
    În `~/.config/lxsession/LXDE-pi/autostart` adăugați linia **`@pulseaudio --start`** (înainte de linia care pornește Chromium), ca PulseAudio să ruleze în sesiunea de desktop.
+   > ⚠️ **NU** faceți acest pas dacă ați configurat PulseAudio în **mod system** pentru boxele Bluetooth (vezi [audio-streaming.ro.md](audio-streaming.ro.md), „Runbook RPi"). Cele două servere se bat pe placa de sunet. Cu modul system, Chromium și microfonul folosesc oricum serverul system (`default-server` din `client.conf`), deci săriți peste `@pulseaudio --start`.
 
 2. **Dependențe proiect**  
    `pip install -r requirements.txt` (include gTTS pentru TTS pe server).

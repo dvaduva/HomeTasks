@@ -351,22 +351,147 @@ apply**. New code parallel to `cast/service.py`: a `bt/service.py`
 
 ### RPi runbook (one-time)
 
-**Packages (NOT `pip`):**
-```sh
-sudo apt install bluez pipewire pipewire-pulse mpv
-```
-The service user (the one in `deploy/hometasks.service`) must be in the
-`bluetooth` group and have an active PipeWire/Pulse session (Issue 4).
+> Tested on **Raspberry Pi OS Bullseye** with **PulseAudio 14 in system mode**
+> (NOT PipeWire). The steps below are the ones that actually work; the ⚠️ notes
+> are the real pitfalls hit on the first install.
 
-**Pairing from the UI (recommended):** in Radio, next to the destination
+**1. Packages (NOT `pip`):**
+```sh
+sudo apt install -y bluez pulseaudio pulseaudio-module-bluetooth mpv
+```
+> ⚠️ On Bullseye there is **no** `pipewire-pulse` — the audio stack is PulseAudio,
+> not PipeWire. If one package in an `apt install` line is missing, the **whole**
+> transaction aborts (so "everything else is missing too"); install the available
+> packages separately.
+> ⚠️ **`mpv` won't start without the VideoCore libraries**: the Raspbian build is
+> linked against MMAL and fails with `error while loading shared libraries:
+> libmmal_core.so.0` if it's missing (BT playback then fails silently while "This
+> device (browser)" still works). The library ships in `libraspberrypi0`:
+> ```sh
+> sudo apt install --reinstall libraspberrypi0 && sudo ldconfig
+> ```
+
+**2. Bluetooth controller:**
+```sh
+sudo rfkill unblock bluetooth
+sudo systemctl enable --now hciuart bluetooth
+bluetoothctl list        # must show "Controller XX:XX:XX:..."
+```
+> ⚠️ If `bluetoothctl list` is empty even though `hciconfig -a` shows `hci0 UP
+> RUNNING`, the daemon hadn't registered the adapter yet: `sudo systemctl restart
+> bluetooth`.
+
+**3. D-Bus access to BlueZ for the service user (non-root):**
+> ⚠️ The default D-Bus policy often allows only root / the local console, so `pi`
+> over SSH or via systemd gets "No default controller available" even when it's in
+> the `bluetooth` group. Add a drop-in granting the `bluetooth` group:
+```sh
+sudo tee /etc/dbus-1/system.d/hometasks-bluetooth.conf > /dev/null <<'EOF'
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <policy group="bluetooth">
+    <allow send_destination="org.bluez"/>
+    <allow send_interface="org.bluez.Agent1"/>
+    <allow send_interface="org.freedesktop.DBus.ObjectManager"/>
+    <allow send_interface="org.freedesktop.DBus.Properties"/>
+  </policy>
+</busconfig>
+EOF
+sudo usermod -aG bluetooth pi
+sudo systemctl reload dbus
+```
+
+**4. PulseAudio in system mode (headless RPi, no login session):**
+> ⚠️ A system service has no per-user PulseAudio session, so `pactl`/`mpv` have
+> nowhere to play and BlueZ has no A2DP endpoint → connecting the speaker fails
+> with `org.bluez.Error.Failed`. Fix: run PulseAudio always-on, in system mode.
+```sh
+# the service
+sudo tee /etc/systemd/system/pulseaudio.service > /dev/null <<'EOF'
+[Unit]
+Description=PulseAudio system-wide server
+After=bluetooth.service dbus.service
+Wants=bluetooth.service
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/pulseaudio --system --disallow-exit --disable-shm --exit-idle-time=-1
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# load the Bluetooth modules in system.pa (NOT default.pa, in system mode)
+sudo tee -a /etc/pulse/system.pa > /dev/null <<'EOF'
+
+### HomeTasks — Bluetooth A2DP
+.ifexists module-bluetooth-policy.so
+load-module module-bluetooth-policy
+.endif
+.ifexists module-bluetooth-discover.so
+load-module module-bluetooth-discover
+.endif
+EOF
+
+# clients use the system server, no per-user autospawn
+sudo tee -a /etc/pulse/client.conf > /dev/null <<'EOF'
+
+### HomeTasks
+autospawn = no
+default-server = unix:/run/pulse/native
+EOF
+
+# groups: pulse sees BlueZ + the sound card; pi reaches the system socket
+sudo usermod -aG bluetooth,audio pulse
+sudo usermod -aG pulse-access pi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now pulseaudio.service
+```
+> ⚠️ Add `pulse` to the `bluetooth` group **before** the service first starts;
+> otherwise it can't register the A2DP endpoint with BlueZ and `connect` fails.
+> If it was already running: `sudo systemctl restart pulseaudio`.
+
+Verify (as `pi`, a normal SSH session — not `sudo -u`):
+```sh
+pactl info                                  # Server String: unix:/run/pulse/native
+pactl list modules short | grep -i blue     # module-bluetooth-discover/policy
+```
+> ⚠️ **Conflict with per-user PulseAudio (microphone/TTS):** the install guide
+> ([INSTALLATION.md](INSTALLATION.md), voice/TTS section) recommends
+> `@pulseaudio --start` in `~/.config/lxsession/LXDE-pi/autostart`. With PulseAudio
+> in **system mode**, that line starts a second server fighting over the sound
+> card — **remove it**. Desktop apps (Chromium for "browser" playback, the USB
+> microphone) use the system server anyway via `default-server` in `client.conf`.
+> Set the default source/sink against the system server now:
+> `pactl set-default-source <USB_source>` / `pactl set-default-sink <output>`.
+
+**5. The HomeTasks service** ([deploy/hometasks.service](../deploy/hometasks.service))
+already carries everything needed for BT/audio:
+- `SupplementaryGroups=bluetooth pulse-access` — BlueZ access + Pulse socket;
+- `Environment="PULSE_SERVER=unix:/run/pulse/native"` — playback without a login session;
+- `PATH=...:/usr/bin:/bin` — otherwise `shutil.which` can't find `bluetoothctl/pactl/mpv` and the UI **hides** Bluetooth (`available=false`);
+- `LogsDirectory=hometasks` — recreates `/var/log/hometasks` on each start (else gunicorn dies at boot with "error.log isn't writable").
+> ⚠️ Paths are **case-sensitive**: the unit uses `/home/pi/HomeTasks`. A `cp` over
+> the unit with different casing (e.g. `hometasks`) stops the service (gunicorn
+> and `.env` "disappear").
+
+> **Note (already in code):** the A2DP sink name differs by stack — PulseAudio 14
+> gives `bluez_sink.<MAC>.a2dp_sink`, PipeWire gives `bluez_output.<MAC>...`.
+> `bt/service.py` matches both (`SINK_PREFIXES`); nothing to do.
+
+**6. Pairing from the UI (recommended):** in Radio, next to the destination
 selector, a "Bluetooth speakers" button appears (only when `available=true`,
 i.e. on the RPi). Put the speaker in pairing mode → **Scan** → **Pair**; the app
 runs `pair` + `trust` + `connect`. It then auto-reconnects and shows up in the
 selector. From the same dialog you can **Forget** (unpair) it.
 
-**Manual pairing (shell fallback), equivalent:**
+**7. Manual pairing (shell fallback), equivalent:**
 ```sh
-bluetoothctl
+sudo bluetoothctl          # sudo if your user doesn't have D-Bus access yet (step 3)
   power on
   scan on            # wait for the speaker's MAC to show up, then:
   scan off

@@ -609,6 +609,7 @@ If **YouTube plays** in Chromium but **AI messages (🔊) do not**, the audio fo
 
 1. **PulseAudio in the session**
    In `~/.config/lxsession/LXDE-pi/autostart` add the line **`@pulseaudio --start`** (before the line that starts Chromium), so PulseAudio runs in the desktop session.
+   > ⚠️ **Skip this step** if you set up PulseAudio in **system mode** for Bluetooth speakers (see [audio-streaming.md](audio-streaming.md), "RPi runbook"). The two servers fight over the sound card. In system mode Chromium and the microphone use the system server anyway (`default-server` in `client.conf`), so don't `@pulseaudio --start`.
 
 2. **Project dependencies**
    `pip install -r requirements.txt` (includes gTTS for server-side TTS).
