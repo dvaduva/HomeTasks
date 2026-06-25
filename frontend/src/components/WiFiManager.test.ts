@@ -111,7 +111,7 @@ describe('WiFiManager.vue', () => {
     // Hidden networks never appear in the scan list — open the manual form.
     await wrapper.find('.wifi-hidden-toggle').trigger('click');
     expect(wrapper.find('.wifi-hidden-form').exists()).toBe(true);
-    await wrapper.find('.wifi-hidden-ssid').setValue('SecretAP');
+    await wrapper.find('.wifi-pw-field--single input').setValue('SecretAP');
     await wrapper.find('.wifi-hidden-form input[type="password"]').setValue('s3cret');
     await wrapper.find('.wifi-hidden-form .btn-primary').trigger('click');
     await flush();
@@ -119,11 +119,25 @@ describe('WiFiManager.vue', () => {
     expect(success).toHaveBeenCalled();
   });
 
+  it('types the hidden SSID with the on-screen keyboard', async () => {
+    const wrapper = mountWithPlugins(WiFiManager, { props: { active: true } });
+    await flush();
+    await wrapper.find('.wifi-hidden-toggle').trigger('click');
+    // The SSID field's ⌨ button is the only button in its field.
+    const ssidField = wrapper.findAll('.wifi-pw-field')[0];
+    await ssidField.find('.wifi-pw-btn').trigger('click');
+    expect(wrapper.find('.osk').exists()).toBe(true);
+    const keys = wrapper.findAll('.osk-key');
+    await keys.find((k) => k.text() === 'a')!.trigger('click');
+    await keys.find((k) => k.text() === 'p')!.trigger('click');
+    expect((ssidField.find('input').element as HTMLInputElement).value).toBe('ap');
+  });
+
   it('omits the password for an open hidden network', async () => {
     const wrapper = mountWithPlugins(WiFiManager, { props: { active: true } });
     await flush();
     await wrapper.find('.wifi-hidden-toggle').trigger('click');
-    await wrapper.find('.wifi-hidden-ssid').setValue('OpenHidden');
+    await wrapper.find('.wifi-pw-field--single input').setValue('OpenHidden');
     await wrapper.find('.wifi-hidden-form .btn-primary').trigger('click');
     await flush();
     expect(wifiApi.connect).toHaveBeenCalledWith('OpenHidden', undefined, true);

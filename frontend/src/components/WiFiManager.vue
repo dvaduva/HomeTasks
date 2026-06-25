@@ -122,6 +122,18 @@ function resetHidden(): void {
   hiddenField.value = 'ssid';
 }
 
+// The OSK is shared between the two hidden-form fields. Tapping a field's ⌨
+// button points the keyboard at that field and toggles it (closes if already
+// open on the same field).
+function toggleHiddenKeyboard(field: 'ssid' | 'password'): void {
+  if (hiddenShowKeyboard.value && hiddenField.value === field) {
+    hiddenShowKeyboard.value = false;
+  } else {
+    hiddenField.value = field;
+    hiddenShowKeyboard.value = true;
+  }
+}
+
 async function connectHidden(): Promise<void> {
   const ssid = hiddenSsid.value.trim();
   if (!ssid || connectingHidden.value) return;
@@ -247,13 +259,28 @@ watch(
 
       <div v-if="showHidden" class="wifi-hidden-form">
         <p class="wifi-hidden-hint">{{ $t('wifi_hidden_hint') }}</p>
-        <input
-          v-model="hiddenSsid"
-          class="wifi-hidden-ssid"
-          :placeholder="$t('wifi_hidden_ssid_placeholder')"
-          autocomplete="off"
-          @focus="hiddenField = 'ssid'"
-        />
+        <div class="wifi-connect-row">
+          <div class="wifi-pw-field wifi-pw-field--single">
+            <input
+              v-model="hiddenSsid"
+              type="text"
+              :placeholder="$t('wifi_hidden_ssid_placeholder')"
+              autocomplete="off"
+              @focus="hiddenField = 'ssid'"
+              @keyup.enter="connectHidden"
+            />
+            <button
+              type="button"
+              class="wifi-pw-btn"
+              :class="{ active: hiddenShowKeyboard && hiddenField === 'ssid' }"
+              :title="$t('wifi_keyboard_toggle')"
+              :aria-pressed="hiddenShowKeyboard && hiddenField === 'ssid'"
+              @click="toggleHiddenKeyboard('ssid')"
+            >
+              ⌨
+            </button>
+          </div>
+        </div>
         <div class="wifi-connect-row">
           <div class="wifi-pw-field">
             <input
@@ -276,10 +303,10 @@ watch(
             <button
               type="button"
               class="wifi-pw-btn"
-              :class="{ active: hiddenShowKeyboard }"
+              :class="{ active: hiddenShowKeyboard && hiddenField === 'password' }"
               :title="$t('wifi_keyboard_toggle')"
-              :aria-pressed="hiddenShowKeyboard"
-              @click="hiddenShowKeyboard = !hiddenShowKeyboard"
+              :aria-pressed="hiddenShowKeyboard && hiddenField === 'password'"
+              @click="toggleHiddenKeyboard('password')"
             >
               ⌨
             </button>
@@ -430,6 +457,13 @@ watch(
 .wifi-pw-field .wifi-pw-btn:nth-of-type(2) {
   right: 4px;
 }
+/* Single-button variant (the hidden-network SSID field has only the ⌨ toggle). */
+.wifi-pw-field--single input {
+  padding-right: 40px;
+}
+.wifi-pw-field--single .wifi-pw-btn:nth-of-type(1) {
+  right: 4px;
+}
 .wifi-empty {
   text-align: center;
   color: var(--rd-gray-500, #64748b);
@@ -466,11 +500,7 @@ watch(
   font-size: 13px;
   color: var(--rd-gray-500, #64748b);
 }
-.wifi-hidden-ssid {
-  width: 100%;
-  margin-bottom: 8px;
-}
 .wifi-hidden-form .wifi-connect-row {
-  padding: 0;
+  padding: 0 0 8px;
 }
 </style>
