@@ -94,29 +94,31 @@ function space(): void {
 .osk {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  margin-top: 8px;
+  gap: 4px;
+  width: 100%;
+  max-width: 380px; /* keep keys finger-sized, not enormous, in wide modals */
+  padding: 6px;
+  margin-top: 6px;
   border: 1px solid var(--rd-gray-200, #e2e8f0);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--rd-gray-100, #f1f5f9);
   user-select: none;
 }
 .osk-row {
   display: flex;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
 }
 .osk-key {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 44px;
-  padding: 0 4px;
+  min-height: 34px;
+  padding: 0 3px;
   border: 1px solid var(--rd-gray-200, #e2e8f0);
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fff;
   font: inherit;
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
 }
 .osk-key:hover {
@@ -127,8 +129,8 @@ function space(): void {
 }
 .osk-key-mod {
   flex: 0 0 auto;
-  min-width: 52px;
-  font-size: 18px;
+  min-width: 38px;
+  font-size: 15px;
 }
 .osk-key-mod.active {
   background: var(--blue, #1d4ed8);
@@ -137,12 +139,12 @@ function space(): void {
 }
 .osk-key-space {
   flex: 1 1 auto;
-  min-width: 120px;
+  min-width: 80px;
 }
 .osk-key-enter {
   flex: 0 0 auto;
-  min-width: 52px;
-  font-size: 18px;
+  min-width: 38px;
+  font-size: 15px;
   background: var(--blue, #1d4ed8);
   color: #fff;
   border-color: var(--blue, #1d4ed8);

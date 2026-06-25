@@ -935,6 +935,7 @@ body {
 }
 
 .form-group input[type="text"],
+.form-group input[type="password"],
 .form-group input[type="number"],
 .form-group input[type="search"],
 .form-group input[type="datetime-local"],

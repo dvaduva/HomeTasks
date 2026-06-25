@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n';
 import type { Preferences } from '@/api/types';
 import { wifiApi } from '@/api/wifi';
 import WiFiManager from '@/components/WiFiManager.vue';
+import KeyboardInput from '@/components/KeyboardInput.vue';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
@@ -36,6 +37,7 @@ watch(
   (open) => {
     if (open && prefs.data) draft.value = { ...prefs.data };
     if (open) {
+      users.fetchAll().catch(() => undefined);
       wifiApi
         .status()
         .then((s) => (wifiAvailable.value = !!s.available))
@@ -155,7 +157,11 @@ async function renameUser(id: number, name: string, color: string): Promise<void
           <p v-if="users.items.length === 0" class="settings-empty">{{ $t('settings_no_users') }}</p>
           <div v-for="u in users.items" :key="u.id" class="settings-user-row">
             <input type="color" :value="u.color" @change="(e) => renameUser(u.id, u.name, (e.target as HTMLInputElement).value)" />
-            <input type="text" :value="u.name" @change="(e) => renameUser(u.id, (e.target as HTMLInputElement).value, u.color)" />
+            <KeyboardInput
+              v-model="u.name"
+              @change="renameUser(u.id, u.name, u.color)"
+              @submit="renameUser(u.id, u.name, u.color)"
+            />
             <div class="settings-user-actions">
               <button type="button" class="btn btn-danger btn-sm" :title="$t('btn_delete')" @click="removeUser(u.id, u.name)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
@@ -164,7 +170,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
           </div>
         </div>
         <div class="settings-add-user">
-          <input v-model="newUserName" type="text" :placeholder="$t('new_user_placeholder')" />
+          <KeyboardInput v-model="newUserName" :placeholder="$t('new_user_placeholder')" @submit="addUser" />
           <input type="color" v-model="newUserColor" :title="$t('color_user_title')" />
           <button type="button" class="btn btn-primary btn-sm" @click="addUser">{{ $t('btn_add_user') }}</button>
         </div>
@@ -173,7 +179,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
       <div v-show="tab === 'weather'" class="tab-content" :class="{ active: tab === 'weather' }">
         <div class="form-group">
           <label for="weather-city">{{ $t('lbl_weather_city') }}</label>
-          <input id="weather-city" type="text" v-model="draft.weather_city" />
+          <KeyboardInput id="weather-city" v-model="draft.weather_city" />
         </div>
         <div class="form-group">
           <label for="weather-units">{{ $t('lbl_weather_units') }}</label>
@@ -184,7 +190,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
         </div>
         <div class="form-group">
           <label for="weather-update">{{ $t('lbl_weather_update') }}</label>
-          <input id="weather-update" type="number" v-model.number="draft.weather_update_interval" min="5" max="1440" />
+          <KeyboardInput id="weather-update" v-model="draft.weather_update_interval" type="number" min="5" max="1440" />
         </div>
       </div>
 
@@ -192,7 +198,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
         <div class="form-group">
           <label for="ollama-url">{{ $t('lbl_ollama_url') }}</label>
           <div class="input-with-btn">
-            <input id="ollama-url" type="text" v-model="draft.ollama_base_url" placeholder="http://localhost:11434" />
+            <KeyboardInput id="ollama-url" v-model="draft.ollama_base_url" placeholder="http://localhost:11434" />
             <button type="button" class="btn btn-secondary btn-sm" :title="$t('title_check_models')" @click="loadModels">{{ $t('models_btn_label') }}</button>
           </div>
         </div>
@@ -209,7 +215,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
         </div>
         <div class="form-group">
           <label for="ai-max-tokens">{{ $t('lbl_ai_tokens') }}</label>
-          <input id="ai-max-tokens" type="number" v-model.number="draft.ai_max_tokens" min="50" max="2000" />
+          <KeyboardInput id="ai-max-tokens" v-model="draft.ai_max_tokens" type="number" min="50" max="2000" />
         </div>
       </div>
 
@@ -236,11 +242,11 @@ async function renameUser(id: number, name: string, color: string): Promise<void
       <div v-show="tab === 'tuya'" class="tab-content" :class="{ active: tab === 'tuya' }">
         <div class="form-group">
           <label for="tuya-access-id">{{ $t('tuya_lbl_access_id') }}</label>
-          <input id="tuya-access-id" type="text" v-model="draft.tuya_access_id" autocomplete="off" />
+          <KeyboardInput id="tuya-access-id" v-model="draft.tuya_access_id" />
         </div>
         <div class="form-group">
           <label for="tuya-access-secret">{{ $t('tuya_lbl_access_secret') }}</label>
-          <input id="tuya-access-secret" type="password" v-model="draft.tuya_access_secret" autocomplete="off" placeholder="••••••••" />
+          <KeyboardInput id="tuya-access-secret" v-model="draft.tuya_access_secret" type="password" />
         </div>
         <div class="form-group">
           <label for="tuya-api-region">{{ $t('tuya_lbl_region') }}</label>
@@ -265,3 +271,13 @@ async function renameUser(id: number, name: string, color: string): Promise<void
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Keep the sibling controls (color picker, action button) at the top of the row
+   so they don't recenter when a KeyboardInput expands its on-screen keyboard. */
+.settings-add-user,
+.settings-user-row,
+.input-with-btn {
+  align-items: flex-start;
+}
+</style>
