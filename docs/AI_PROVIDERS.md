@@ -161,7 +161,7 @@ later phases depend on earlier ones.
 - **Done when:** the package exists and Ollama works through it in isolation;
   routes not yet switched.
 
-### Phase 2 — Route migration to the factory
+### Phase 2 — Route migration to the factory ✅ Done
 **Goal:** routes use the abstraction; behavior identical to today (Ollama only).
 - `ai_chat` and `transport_chat` resolve via `get_provider(prefs)` + history.
 - `/api/ai/models` accepts `?provider=`; `/api/ai/status` reports active provider.

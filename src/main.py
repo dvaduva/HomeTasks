@@ -15,7 +15,8 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import json
 from weather.service import WeatherService
-from ollama.client import ollama_client
+from ai.registry import get_provider, get_models_for, active_provider_id, configured_providers
+from ai.history import conversation_history
 from voice.service import voice_service
 from tuya.service import tuya_service
 from cast.service import cast_service
@@ -617,7 +618,26 @@ def get_weather_forecast():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Ollama AI endpoints
+# AI assistant endpoints (provider-agnostic, resolved per request via the factory)
+def _build_system_prompt(action_context: str = None) -> str:
+    """Build the HomeTasks assistant system prompt, mirroring the prior client.
+
+    ``action_context`` (the result of an executed intent) is appended the same
+    way the old OllamaClient did, so model behavior is unchanged.
+    """
+    system_content = (
+        "You are a helpful assistant for HomeTasks, a family task management application. "
+        "You help users manage tasks, get weather information, and answer questions. "
+        "Keep your responses concise, helpful, and in the same language as the user's message."
+    )
+    if action_context:
+        system_content += (
+            f"\n\nContext from executed action: {action_context}. "
+            "Use this information to formulate your response."
+        )
+    return system_content
+
+
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
     try:
@@ -641,6 +661,10 @@ def ai_chat():
                 temperature = float(prefs.ai_temperature or 0.7)
             if max_tokens is None:
                 max_tokens = int(prefs.ai_max_tokens or 500)
+
+            # Resolve the provider while prefs is loaded; it captures the
+            # base_url/model now and needs no DB access afterwards.
+            provider = get_provider(prefs)
 
             message_lower = message.lower()
 
@@ -693,21 +717,22 @@ def ai_chat():
         finally:
             db.close()
 
-        # If Ollama is unavailable, return the action result directly
-        if not ollama_client.is_server_running():
+        # If the AI provider is unavailable, return the action result directly
+        if not provider.is_available():
             if action_context or action_data:
                 return jsonify({'response': action_context or '', 'action': action_result,
                                 'action_data': action_data, 'model': 'none', 'done': True})
-            return jsonify({'error': 'Ollama server is not running or not accessible'}), 503
+            return jsonify({'error': 'AI provider is not running or not accessible'}), 503
 
-        result = ollama_client.chat(
-            message,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            system_context=action_context
-        )
+        # Providers are stateless: keep context in the shared history manager.
+        conversation_history.add('user', message)
+        messages = [{'role': 'system', 'content': _build_system_prompt(action_context)}]
+        messages.extend(conversation_history.messages())
+
+        result = provider.chat(messages, temperature=temperature, max_tokens=max_tokens)
 
         assistant_message = result.get("message", {}).get("content", "")
+        conversation_history.add('assistant', assistant_message)
 
         return jsonify({
             'response': assistant_message,
@@ -722,41 +747,49 @@ def ai_chat():
 
 @app.route('/api/ai/models', methods=['GET'])
 def get_available_models():
+    db = get_db()
     try:
-        # Check if Ollama server is running
-        if not ollama_client.is_server_running():
-            return jsonify({'error': 'Ollama server is not running or not accessible'}), 503
-        
-        models = ollama_client.get_models()
+        prefs = PreferencesRepository(db).get_or_create()
+        provider_id = request.args.get('provider') or active_provider_id(prefs)
+        # Dynamic fetch with curated static fallback (never 503s on a down backend).
+        models = get_models_for(provider_id, prefs)
         return jsonify({
-            'models': [{'name': model['name'], 'size': model.get('size', 0)} for model in models]
+            'provider': provider_id,
+            'models': [{'name': m['name'], 'size': m.get('size', 0)} for m in models]
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
 
 @app.route('/api/ai/status', methods=['GET'])
 def ai_status():
+    db = get_db()
     try:
-        is_running = ollama_client.is_server_running()
+        prefs = PreferencesRepository(db).get_or_create()
+        provider_id = active_provider_id(prefs)
+        provider = get_provider(prefs)
+        is_running = provider.is_available()
         model_info = {}
         if is_running:
             try:
-                models = ollama_client.get_models()
-                model_info = {
-                    'current_model': ollama_client.model,
-                    'available_models': [m['name'] for m in models]
-                }
-            except:
+                models = provider.get_models()
+                model_info = {'available_models': [m['name'] for m in models]}
+            except Exception:
                 model_info = {'error': 'Could not fetch model info'}
-        
+
         return jsonify({
             'server_running': is_running,
-            'current_model': ollama_client.model,
-            'base_url': ollama_client.base_url,
+            'active_provider': provider_id,
+            'current_model': getattr(provider, 'model', getattr(prefs, 'ai_model', '')),
+            'base_url': getattr(provider, 'base_url', ''),
+            'configured_providers': configured_providers(prefs),
             **model_info
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
 
 # User endpoints
 @app.route('/api/users', methods=['GET'])
@@ -1178,11 +1211,8 @@ def update_preferences():
         
         db.commit()
 
-        # Apply dynamic settings to live services
-        if 'ollama_base_url' in data and data['ollama_base_url']:
-            ollama_client.base_url = data['ollama_base_url']
-        if 'ai_model' in data and data['ai_model']:
-            ollama_client.model = data['ai_model']
+        # Apply dynamic settings to live services. AI provider settings need no
+        # live mutation: get_provider(prefs) reads them fresh on every request.
         if 'language' in data or 'weather_city' in data:
             weather_service.cache.clear()
         if any(k in data for k in ('tuya_access_id', 'tuya_access_secret', 'tuya_api_region')):
@@ -2176,18 +2206,25 @@ def transport_chat():
 
         transport_context = "\n".join(context_parts)
 
-        if not ollama_client.is_server_running():
+        db = get_db()
+        try:
+            prefs = PreferencesRepository(db).get_or_create()
+            provider = get_provider(prefs)
+        finally:
+            db.close()
+
+        if not provider.is_available():
             return jsonify({
                 'response': 'Serviciul AI nu este disponibil momentan. Verificați programul direct în interfață.',
                 'done': True
             })
 
-        result = ollama_client.chat(
-            message,
-            temperature=0.3,
-            max_tokens=500,
-            system_context=transport_context
-        )
+        # Stateless single-shot turn — transport chat keeps no shared history.
+        messages = [
+            {'role': 'system', 'content': _build_system_prompt(transport_context)},
+            {'role': 'user', 'content': message},
+        ]
+        result = provider.chat(messages, temperature=0.3, max_tokens=500)
 
         return jsonify({
             'response': result.get('message', {}).get('content', ''),

@@ -165,7 +165,7 @@ schimbare de comportament încă).
 - **Gata când:** pachetul există și Ollama funcționează prin el izolat; rutele
   încă neschimbate.
 
-### Faza 2 — Migrarea rutelor la factory
+### Faza 2 — Migrarea rutelor la factory ✅ Gata
 **Scop:** rutele folosesc abstracția; comportament identic cu azi (doar Ollama).
 - `ai_chat` și `transport_chat` rezolvă prin `get_provider(prefs)` + istoric.
 - `/api/ai/models` acceptă `?provider=`; `/api/ai/status` raportează providerul

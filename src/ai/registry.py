@@ -32,9 +32,27 @@ PROVIDERS: Dict[str, Dict] = {
 }
 
 
-def _active_provider_id(prefs) -> str:
+def active_provider_id(prefs) -> str:
+    """Resolve the active provider id from prefs / env, clamped to a known one."""
     pid = getattr(prefs, 'ai_provider', None) or os.getenv('AI_PROVIDER', DEFAULT_PROVIDER)
     return pid if pid in PROVIDERS else DEFAULT_PROVIDER
+
+
+def _has_key(prefs, spec) -> bool:
+    """Whether a provider's API key is configured (prefs column or env fallback).
+
+    Local providers (no ``env_key``) need no key and are always configured.
+    """
+    env_key = spec.get('env_key')
+    if not env_key:
+        return True
+    pref_attr = env_key.lower()  # e.g. GROQ_API_KEY -> groq_api_key
+    return bool(getattr(prefs, pref_attr, '') or os.getenv(env_key, ''))
+
+
+def configured_providers(prefs) -> List[str]:
+    """Provider ids that have a usable key (or need none), for status reporting."""
+    return [pid for pid, spec in PROVIDERS.items() if _has_key(prefs, spec)]
 
 
 def _instantiate(provider_id: str, prefs):
@@ -44,7 +62,7 @@ def _instantiate(provider_id: str, prefs):
 
 def get_provider(prefs):
     """Return a configured provider instance for the active provider in prefs."""
-    return _instantiate(_active_provider_id(prefs), prefs)
+    return _instantiate(active_provider_id(prefs), prefs)
 
 
 def get_models_for(provider_id: str, prefs) -> List[Dict]:
