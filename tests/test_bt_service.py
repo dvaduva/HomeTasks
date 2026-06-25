@@ -216,6 +216,44 @@ def test_stop_kills_player(svc):
     assert service.status()['state'] == 'idle'
 
 
+# ── orphan reconciliation (gunicorn worker recycle) ──────────────────────────────
+# A recycled worker loses self._proc but mpv keeps running (start_new_session
+# detaches it). These cover that gap: the new worker must still see, replace and
+# stop a player it never spawned, so stations don't stack up unstoppably.
+def test_play_sweeps_orphaned_player(svc, monkeypatch):
+    service, _, procs = svc
+    killed = []
+    monkeypatch.setattr(service, '_find_player_pids', lambda: [4242])
+    monkeypatch.setattr(service, '_kill_pid', lambda pid: killed.append(pid))
+
+    service.play(MAC, 'http://x')  # fresh worker: self._proc is None at entry
+    assert 4242 in killed          # orphan from the previous worker was swept
+    assert len(procs) == 1         # exactly one new player started
+
+
+def test_status_detects_orphaned_player(svc, monkeypatch, tmp_path):
+    service, _, _ = svc
+    monkeypatch.setattr(bt_mod, 'STATE_FILE', str(tmp_path / 'state.json'))
+    bt_mod.BluetoothService._save_state(
+        {'device_id': MAC, 'station_id': 's9', 'pid': 4242})
+    monkeypatch.setattr(service, '_find_player_pids', lambda: [4242])
+
+    st = service.status()  # self._proc is None, but an orphan is alive
+    assert st['state'] == 'playing'
+    assert st['station_id'] == 's9'
+    assert st['device_id'] == MAC
+
+
+def test_stop_kills_orphaned_player(svc, monkeypatch):
+    service, _, _ = svc
+    killed = []
+    monkeypatch.setattr(service, '_find_player_pids', lambda: [4242])
+    monkeypatch.setattr(service, '_kill_pid', lambda pid: killed.append(pid))
+
+    service.stop(MAC)  # nothing owned by this worker, but an orphan plays
+    assert 4242 in killed
+
+
 # ── status ───────────────────────────────────────────────────────────────────────
 def test_status_playing_then_idle(svc):
     service, _, _ = svc

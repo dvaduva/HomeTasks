@@ -1,6 +1,11 @@
+import os
 import re
+import json
+import time
+import signal
 import shutil
 import logging
+import tempfile
 import threading
 import subprocess
 
@@ -12,6 +17,18 @@ SINK_WAIT = 6.0         # max seconds to wait for the A2DP sink after connect
 
 # mpv flags: headless, quiet, never open a window or TUI, loop nothing.
 MPV_BASE = ['mpv', '--no-video', '--no-terminal', '--really-quiet', '--ao=pulse']
+
+# Substring present in every BT player's command line (the sink starts with
+# bluez_output./bluez_sink.). Used to recognise our mpv processes when sweeping
+# orphans, so the match can't catch unrelated mpv invocations.
+PLAYER_MARKER = '--audio-device=pulse/bluez'
+
+# Where the running player's pid + metadata is persisted. Lives in the temp dir,
+# which Linux clears on reboot — exactly when any orphaned mpv would also die —
+# so a stale file never outlives the process it describes. Surviving gunicorn
+# worker recycles (which orphan the detached mpv) is the whole point: a fresh
+# worker reads this to find and control a player it never spawned.
+STATE_FILE = os.path.join(tempfile.gettempdir(), 'hometasks-bt-player.json')
 
 
 class BluetoothService:
@@ -55,6 +72,80 @@ class BluetoothService:
                 'Lipsesc utilitare necesare pe RPi: ' + ', '.join(missing) +
                 ' (instalează bluez, pipewire/pulseaudio, mpv).'
             )
+
+    # ── persisted player state (survives gunicorn worker recycles) ───────────────
+    @staticmethod
+    def _save_state(data):
+        try:
+            with open(STATE_FILE, 'w') as f:
+                json.dump(data, f)
+        except OSError as e:
+            logger.debug("bt: could not persist player state: %s", e)
+
+    @staticmethod
+    def _load_state():
+        try:
+            with open(STATE_FILE) as f:
+                return json.load(f) or {}
+        except (OSError, ValueError):
+            return {}
+
+    @staticmethod
+    def _clear_state():
+        try:
+            os.remove(STATE_FILE)
+        except OSError:
+            pass
+
+    # ── orphan process reconciliation ────────────────────────────────────────────
+    @staticmethod
+    def _find_player_pids():
+        """PIDs of every BT mpv player currently running, regardless of which
+        gunicorn worker spawned it. Scans /proc directly (no extra CLI deps), so a
+        worker recycled out from under a detached mpv can still find and kill it.
+        Returns [] off Linux (no /proc) — harmless on dev/CI."""
+        pids = []
+        try:
+            entries = os.listdir('/proc')
+        except OSError:
+            return pids
+        for name in entries:
+            if not name.isdigit():
+                continue
+            try:
+                with open(f'/proc/{name}/cmdline', 'rb') as f:
+                    parts = f.read().split(b'\0')
+            except OSError:
+                continue  # process gone or not ours to read
+            if not parts or os.path.basename(parts[0]) != b'mpv':
+                continue
+            if any(p.startswith(PLAYER_MARKER.encode()) for p in parts):
+                pids.append(int(name))
+        return pids
+
+    @staticmethod
+    def _pid_alive(pid):
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+    @classmethod
+    def _kill_pid(cls, pid):
+        """SIGTERM, then SIGKILL if it doesn't exit within ~3s."""
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            return
+        for _ in range(30):
+            if not cls._pid_alive(pid):
+                return
+            time.sleep(0.1)
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
 
     @staticmethod
     def _run(cmd, timeout=CMD_TIMEOUT):
@@ -254,6 +345,9 @@ class BluetoothService:
             self._current = {
                 'device_id': mac, 'station_id': station_id, 'url': url, 'title': title,
             }
+            # Persist pid + metadata so a recycled worker (which loses self._proc)
+            # can still find, report and stop this exact player.
+            self._save_state(dict(self._current, pid=getattr(self._proc, 'pid', None)))
             logger.info("BT play on %s (sink=%s): %s", mac, sink, url)
             return True
 
@@ -266,19 +360,28 @@ class BluetoothService:
             return True
 
     def _kill_locked(self):
-        """Terminate the running mpv. Caller must hold ``self._lock``."""
+        """Stop every BT player and clear persisted state. Caller holds ``self._lock``.
+
+        Kills both the player this worker owns *and* any orphan mpv left behind by
+        a previously recycled worker (mpv is detached via start_new_session, so a
+        gunicorn recycle — see max_requests in gunicorn.conf.py — would otherwise
+        leave an unstoppable player that the next Play stacks a second stream on
+        top of). Sweeping by /proc scan makes Stop reliable across recycles."""
         proc = self._proc
         self._proc = None
-        if proc is None or proc.poll() is not None:
-            return
-        try:
-            proc.terminate()
+        if proc is not None and proc.poll() is None:
             try:
-                proc.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-        except Exception as e:
-            logger.debug("bt: kill failed: %s", e)
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+            except Exception as e:
+                logger.debug("bt: kill failed: %s", e)
+        # Sweep any orphans this worker never held a handle to.
+        for pid in self._find_player_pids():
+            self._kill_pid(pid)
+        self._clear_state()
 
     def set_volume(self, device_id, volume):
         """Set the BT sink volume. ``volume`` is 0.0–1.0 (clamped)."""
@@ -299,6 +402,13 @@ class BluetoothService:
         with self._lock:
             playing = self._proc is not None and self._proc.poll() is None
             cur = dict(self._current) if playing else {}
+            if not playing and self._find_player_pids():
+                # A player is running that this (likely recycled) worker never
+                # spawned. Report it as playing — with metadata recovered from the
+                # state file — so Stop still works and the UI doesn't start a
+                # second, overlapping stream.
+                playing = True
+                cur = self._load_state()
         return {
             'device_id': device_id or cur.get('device_id'),
             'state': 'playing' if playing else 'idle',
