@@ -105,6 +105,30 @@ describe('WiFiManager.vue', () => {
     expect(wrapper.find('input[type="text"]').exists()).toBe(true);
   });
 
+  it('connects to a hidden network typed in by hand', async () => {
+    const wrapper = mountWithPlugins(WiFiManager, { props: { active: true } });
+    await flush();
+    // Hidden networks never appear in the scan list — open the manual form.
+    await wrapper.find('.wifi-hidden-toggle').trigger('click');
+    expect(wrapper.find('.wifi-hidden-form').exists()).toBe(true);
+    await wrapper.find('.wifi-hidden-ssid').setValue('SecretAP');
+    await wrapper.find('.wifi-hidden-form input[type="password"]').setValue('s3cret');
+    await wrapper.find('.wifi-hidden-form .btn-primary').trigger('click');
+    await flush();
+    expect(wifiApi.connect).toHaveBeenCalledWith('SecretAP', 's3cret', true);
+    expect(success).toHaveBeenCalled();
+  });
+
+  it('omits the password for an open hidden network', async () => {
+    const wrapper = mountWithPlugins(WiFiManager, { props: { active: true } });
+    await flush();
+    await wrapper.find('.wifi-hidden-toggle').trigger('click');
+    await wrapper.find('.wifi-hidden-ssid').setValue('OpenHidden');
+    await wrapper.find('.wifi-hidden-form .btn-primary').trigger('click');
+    await flush();
+    expect(wifiApi.connect).toHaveBeenCalledWith('OpenHidden', undefined, true);
+  });
+
   it('surfaces a scan error from the payload', async () => {
     (wifiApi.scan as any).mockResolvedValue({ networks: [], available: true, error: 'nmcli failed' });
     mountWithPlugins(WiFiManager, { props: { active: true } });

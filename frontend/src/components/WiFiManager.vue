@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useNotification } from '@/composables/useNotification';
 import { wifiApi, type WifiNetwork, type WifiStatusInfo } from '@/api/wifi';
@@ -23,6 +23,27 @@ const password = ref('');
 const connecting = ref<string | null>(null); // SSID currently connecting
 const showPassword = ref(false); // reveal the typed characters (useful with the OSK)
 const showKeyboard = ref(false); // on-screen keyboard for kiosks without a hardware keyboard
+
+// Hidden-network form: a hidden AP doesn't broadcast its SSID, so it never shows
+// up in scan() — the operator has to type the name in by hand. We then connect
+// with hidden=true so NetworkManager marks the saved profile as hidden and probes
+// for it on reconnect.
+const showHidden = ref(false);
+const hiddenSsid = ref('');
+const hiddenPassword = ref('');
+const hiddenShowPassword = ref(false);
+const hiddenShowKeyboard = ref(false);
+const hiddenField = ref<'ssid' | 'password'>('ssid'); // which field the OSK types into
+const connectingHidden = ref(false);
+
+// The single OSK drives whichever hidden-form field is focused.
+const hiddenOskValue = computed<string>({
+  get: () => (hiddenField.value === 'ssid' ? hiddenSsid.value : hiddenPassword.value),
+  set: (v) => {
+    if (hiddenField.value === 'ssid') hiddenSsid.value = v;
+    else hiddenPassword.value = v;
+  },
+});
 
 async function loadStatus(): Promise<void> {
   loadingStatus.value = true;
@@ -85,6 +106,36 @@ async function doDisconnect(): Promise<void> {
     await Promise.all([loadStatus(), doScan()]);
   } catch (e) {
     errorToast((e as { message?: string })?.message || t('wifi_disconnect_fail'));
+  }
+}
+
+function toggleHidden(): void {
+  showHidden.value = !showHidden.value;
+  if (!showHidden.value) resetHidden();
+}
+
+function resetHidden(): void {
+  hiddenSsid.value = '';
+  hiddenPassword.value = '';
+  hiddenShowPassword.value = false;
+  hiddenShowKeyboard.value = false;
+  hiddenField.value = 'ssid';
+}
+
+async function connectHidden(): Promise<void> {
+  const ssid = hiddenSsid.value.trim();
+  if (!ssid || connectingHidden.value) return;
+  connectingHidden.value = true;
+  try {
+    await wifiApi.connect(ssid, hiddenPassword.value || undefined, true);
+    success(t('wifi_connect_ok', { ssid }));
+    showHidden.value = false;
+    resetHidden();
+    await Promise.all([loadStatus(), doScan()]);
+  } catch (e) {
+    errorToast((e as { message?: string })?.message || t('wifi_connect_fail'));
+  } finally {
+    connectingHidden.value = false;
   }
 }
 
@@ -187,6 +238,69 @@ watch(
       </li>
     </ul>
     <p v-else-if="!scanning" class="wifi-empty">{{ $t('wifi_empty') }}</p>
+
+    <div class="wifi-hidden">
+      <button type="button" class="wifi-hidden-toggle" :aria-expanded="showHidden" @click="toggleHidden">
+        <span class="wifi-hidden-icon" aria-hidden="true">＋</span>
+        {{ $t('wifi_hidden_add') }}
+      </button>
+
+      <div v-if="showHidden" class="wifi-hidden-form">
+        <p class="wifi-hidden-hint">{{ $t('wifi_hidden_hint') }}</p>
+        <input
+          v-model="hiddenSsid"
+          class="wifi-hidden-ssid"
+          :placeholder="$t('wifi_hidden_ssid_placeholder')"
+          autocomplete="off"
+          @focus="hiddenField = 'ssid'"
+        />
+        <div class="wifi-connect-row">
+          <div class="wifi-pw-field">
+            <input
+              v-model="hiddenPassword"
+              :type="hiddenShowPassword ? 'text' : 'password'"
+              :placeholder="$t('wifi_password_placeholder')"
+              autocomplete="off"
+              @focus="hiddenField = 'password'"
+              @keyup.enter="connectHidden"
+            />
+            <button
+              type="button"
+              class="wifi-pw-btn"
+              :title="hiddenShowPassword ? $t('wifi_password_hide') : $t('wifi_password_show')"
+              :aria-pressed="hiddenShowPassword"
+              @click="hiddenShowPassword = !hiddenShowPassword"
+            >
+              {{ hiddenShowPassword ? '🙈' : '👁' }}
+            </button>
+            <button
+              type="button"
+              class="wifi-pw-btn"
+              :class="{ active: hiddenShowKeyboard }"
+              :title="$t('wifi_keyboard_toggle')"
+              :aria-pressed="hiddenShowKeyboard"
+              @click="hiddenShowKeyboard = !hiddenShowKeyboard"
+            >
+              ⌨
+            </button>
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            :disabled="!hiddenSsid.trim() || connectingHidden"
+            @click="connectHidden"
+          >
+            {{ connectingHidden ? $t('wifi_connecting') : $t('wifi_connect') }}
+          </button>
+        </div>
+        <OnScreenKeyboard
+          v-if="hiddenShowKeyboard"
+          v-model="hiddenOskValue"
+          @submit="connectHidden"
+          @close="hiddenShowKeyboard = false"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -320,5 +434,43 @@ watch(
   text-align: center;
   color: var(--rd-gray-500, #64748b);
   padding: 20px 0;
+}
+.wifi-hidden {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rd-gray-200, #e2e8f0);
+}
+.wifi-hidden-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  color: var(--blue, #1d4ed8);
+}
+.wifi-hidden-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.wifi-hidden-form {
+  padding: 4px 0 8px;
+}
+.wifi-hidden-hint {
+  margin: 0 0 8px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--rd-gray-500, #64748b);
+}
+.wifi-hidden-ssid {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.wifi-hidden-form .wifi-connect-row {
+  padding: 0;
 }
 </style>
