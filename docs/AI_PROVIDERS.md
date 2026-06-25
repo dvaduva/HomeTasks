@@ -150,7 +150,7 @@ later phases depend on earlier ones.
 - **Done when:** preferences read/write the new fields; migration runs on an
   existing DB; nothing else changes.
 
-### Phase 1 — Provider abstraction (`src/ai/`)
+### Phase 1 — Provider abstraction (`src/ai/`) ✅ Done
 **Goal:** a stateless provider layer with Ollama working through it.
 - `base.py` (`ChatProvider` protocol + normalized reply shape).
 - `ollama.py` (move current Ollama logic, stateless).

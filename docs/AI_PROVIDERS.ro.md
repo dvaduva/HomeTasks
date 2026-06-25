@@ -154,7 +154,7 @@ schimbare de comportament încă).
 - **Gata când:** preferences citesc/scriu câmpurile noi; migrarea rulează pe un
   DB existent; nimic altceva nu se schimbă.
 
-### Faza 1 — Abstracția de provideri (`src/ai/`)
+### Faza 1 — Abstracția de provideri (`src/ai/`) ✅ Gata
 **Scop:** un strat de provideri stateless, cu Ollama funcționând prin el.
 - `base.py` (protocolul `ChatProvider` + forma normalizată a răspunsului).
 - `ollama.py` (mutarea logicii Ollama actuale, stateless).
