@@ -131,16 +131,21 @@ watch(
 </template>
 
 <style scoped>
+/* .modal has no horizontal padding of its own — each section supplies it (see
+   .modal-head: 16px). Match that so the hint, toolbar and list aren't flush
+   against the edge. */
 .bt-mgr-hint {
   font-size: 13px;
   color: var(--rd-gray-500, #64748b);
   margin: 0 0 12px;
+  padding: 0 16px;
 }
 .bt-mgr-toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
+  padding: 0 16px;
 }
 .bt-mgr-spin {
   animation: bt-spin 1s linear infinite;
@@ -152,8 +157,9 @@ watch(
 .bt-mgr-list {
   list-style: none;
   margin: 0;
-  /* inner padding so focus rings / borders aren't clipped by the scroll box */
-  padding: 4px;
+  /* 16px sides to align with the hint/toolbar; 4px top/bottom so focus rings
+     and borders aren't clipped by the scroll box */
+  padding: 4px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -209,6 +215,6 @@ watch(
 .bt-mgr-empty {
   text-align: center;
   color: var(--rd-gray-500, #64748b);
-  padding: 20px 0;
+  padding: 20px 16px;
 }
 </style>

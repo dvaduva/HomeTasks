@@ -523,6 +523,34 @@ export const useRadioStore = defineStore('radio', () => {
     stations.value = data.stations || [];
   }
 
+  // Bluetooth playback runs server-side (an mpv process on the RPi) and survives
+  // page reloads and other browser sessions. A fresh session defaults target to
+  // 'local' and is otherwise unaware of it — so pressing Play would start a second,
+  // overlapping local stream. Adopt any in-progress server playback as this
+  // session's target so Stop/Play control it instead of doubling up.
+  async function reconcileRemotePlayback(): Promise<boolean> {
+    try {
+      const s = await btApi.status(''); // empty id → the server's current playback
+      if (s.state !== 'playing' || !s.device_id) return false;
+      target.value = `bt:${s.device_id}`;
+      isPlaying.value = true;
+      npTrack.value = s.title || '';
+      if (s.station_id) {
+        currentId.value = s.station_id;
+        const st = stations.value.find((x) => x.id === s.station_id);
+        if (st) setNameLiteral(st.name);
+        localStorage.setItem(LAST_KEY, s.station_id);
+      }
+      markActive();
+      setStatus('radio_cast_playing', { name: targetName(target.value) });
+      startRemoteStatusPolling();
+      return true;
+    } catch {
+      // BT unavailable (not on the RPi) or nothing playing — fall through.
+      return false;
+    }
+  }
+
   // ── init ───────────────────────────────────────────────────────────────────
   // Idempotent: App.vue and RadioView.vue both call it; only the first runs.
   let initPromise: Promise<void> | null = null;
@@ -537,6 +565,9 @@ export const useRadioStore = defineStore('radio', () => {
         loadFailed.value = true;
         return;
       }
+
+      // Server-side BT playback wins over the per-session local restore below.
+      if (await reconcileRemotePlayback()) return;
 
       const lastId = localStorage.getItem(LAST_KEY);
       if (!lastId) return;

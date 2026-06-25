@@ -232,6 +232,10 @@ onMounted(() => {
 .rd-top-row > :deep(.rd-cast),
 .rd-top-row > :deep(.rd-now-playing) {
   margin-bottom: 0;
+  /* grid items default to min-width:auto, so a long station name / RDS text
+     widens the cell and pushes the controls off-screen instead of letting the
+     name ellipsize. Allow the cell to shrink so the ellipsis kicks in. */
+  min-width: 0;
 }
 @media (max-width: 720px) {
   .rd-top-row {
