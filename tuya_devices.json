@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-05-14T08:12:30.928133+00:00",
+  "generated_at": "2026-06-25T15:55:38.327506+00:00",
   "devices": [
     {
-      "id": "bfa6b3cbe1619cde3fuum7",
-      "name": "Cameră Ana",
+      "id": "bf8423321cc1f58beb6fyy",
+      "name": "Birou",
       "product_name": "Temp-1",
       "model": "",
       "online": true,
@@ -15,11 +15,11 @@
           },
           {
             "code": "temp_set",
-            "value": 205
+            "value": 210
           },
           {
             "code": "temp_current",
-            "value": 226
+            "value": 281
           },
           {
             "code": "mode",
@@ -51,21 +51,62 @@
           }
         ],
         "success": true,
-        "t": 1778746352152,
-        "tid": "a820887b4f6c11f1bcf56a64b78218be"
+        "t": 1782402939005,
+        "tid": "4fbabcf670ae11f1bbd84a2d28116f11"
       }
     },
     {
-      "id": "bfcfd3dac3f3760173hipk",
-      "name": "Irigație grădină",
-      "product_name": "6路智能水阀控制器",
+      "id": "bff64cfd0cf77efbf2ngph",
+      "name": "Bucătărie",
+      "product_name": "Temp-1",
       "model": "",
       "online": true,
       "status": {
-        "result": [],
+        "result": [
+          {
+            "code": "switch",
+            "value": true
+          },
+          {
+            "code": "temp_set",
+            "value": 210
+          },
+          {
+            "code": "temp_current",
+            "value": 266
+          },
+          {
+            "code": "mode",
+            "value": "auto"
+          },
+          {
+            "code": "child_lock",
+            "value": false
+          },
+          {
+            "code": "fault",
+            "value": 0
+          },
+          {
+            "code": "upper_temp",
+            "value": 45
+          },
+          {
+            "code": "temp_correction",
+            "value": -10
+          },
+          {
+            "code": "frost",
+            "value": true
+          },
+          {
+            "code": "sound",
+            "value": true
+          }
+        ],
         "success": true,
-        "t": 1778746353110,
-        "tid": "a8b5f7b04f6c11f1a6ac2e774112580c"
+        "t": 1782402940031,
+        "tid": "5056d55a70ae11f1899e3a8bfca152ad"
       }
     },
     {
@@ -86,7 +127,7 @@
           },
           {
             "code": "temp_current",
-            "value": 205
+            "value": 263
           },
           {
             "code": "mode",
@@ -118,62 +159,8 @@
           }
         ],
         "success": true,
-        "t": 1778746354116,
-        "tid": "a947a9504f6c11f18f256e9984e9d316"
-      }
-    },
-    {
-      "id": "bf8423321cc1f58beb6fyy",
-      "name": "Birou",
-      "product_name": "Temp-1",
-      "model": "",
-      "online": true,
-      "status": {
-        "result": [
-          {
-            "code": "switch",
-            "value": true
-          },
-          {
-            "code": "temp_set",
-            "value": 205
-          },
-          {
-            "code": "temp_current",
-            "value": 226
-          },
-          {
-            "code": "mode",
-            "value": "auto"
-          },
-          {
-            "code": "child_lock",
-            "value": false
-          },
-          {
-            "code": "fault",
-            "value": 0
-          },
-          {
-            "code": "upper_temp",
-            "value": 45
-          },
-          {
-            "code": "temp_correction",
-            "value": -10
-          },
-          {
-            "code": "frost",
-            "value": true
-          },
-          {
-            "code": "sound",
-            "value": true
-          }
-        ],
-        "success": true,
-        "t": 1778746355116,
-        "tid": "a9e5981d4f6c11f1a5282e73ccca7306"
+        "t": 1782402941007,
+        "tid": "50f12f9b70ae11f1899e3a8bfca152ad"
       }
     },
     {
@@ -190,11 +177,11 @@
           },
           {
             "code": "temp_set",
-            "value": 205
+            "value": 210
           },
           {
             "code": "temp_current",
-            "value": 200
+            "value": 255
           },
           {
             "code": "mode",
@@ -226,13 +213,13 @@
           }
         ],
         "success": true,
-        "t": 1778746356135,
-        "tid": "aa8297974f6c11f1a5282e73ccca7306"
+        "t": 1782402942076,
+        "tid": "518f079f70ae11f1a3fc1af992f77835"
       }
     },
     {
-      "id": "bff64cfd0cf77efbf2ngph",
-      "name": "Bucătărie",
+      "id": "bfa6b3cbe1619cde3fuum7",
+      "name": "Cameră Ana",
       "product_name": "Temp-1",
       "model": "",
       "online": true,
@@ -244,11 +231,11 @@
           },
           {
             "code": "temp_set",
-            "value": 205
+            "value": 210
           },
           {
             "code": "temp_current",
-            "value": 207
+            "value": 279
           },
           {
             "code": "mode",
@@ -280,8 +267,21 @@
           }
         ],
         "success": true,
-        "t": 1778746357061,
-        "tid": "ab1240094f6c11f1bcf56a64b78218be"
+        "t": 1782402943032,
+        "tid": "5224e57d70ae11f1bbd84a2d28116f11"
+      }
+    },
+    {
+      "id": "bfcfd3dac3f3760173hipk",
+      "name": "Irigație grădină",
+      "product_name": "6路智能水阀控制器",
+      "model": "",
+      "online": true,
+      "status": {
+        "result": [],
+        "success": true,
+        "t": 1782402944034,
+        "tid": "52b9ffab70ae11f1bbd84a2d28116f11"
       }
     },
     {
@@ -298,11 +298,11 @@
           },
           {
             "code": "temp_set",
-            "value": 205
+            "value": 210
           },
           {
             "code": "temp_current",
-            "value": 222
+            "value": 276
           },
           {
             "code": "mode",
@@ -334,8 +334,8 @@
           }
         ],
         "success": true,
-        "t": 1778746357984,
-        "tid": "ab9e23ed4f6c11f18f256e9984e9d316"
+        "t": 1782402944982,
+        "tid": "534de2da70ae11f1a3fc1af992f77835"
       }
     }
   ]

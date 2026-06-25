@@ -41,6 +41,7 @@ export interface Preferences {
   weather_city: string;
   weather_units: string;
   weather_update_interval: number;
+  ai_enabled: boolean;
   ollama_base_url: string;
   ai_model: string;
   ai_temperature: number;
@@ -50,6 +51,7 @@ export interface Preferences {
   voice_auto_start: boolean;
   voice_activation_word: string;
   voice_debug_log: boolean;
+  tuya_enabled: boolean;
   tuya_access_id: string;
   tuya_access_secret: string;
   tuya_api_region: string;

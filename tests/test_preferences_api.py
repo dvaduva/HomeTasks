@@ -8,6 +8,18 @@ class TestPreferencesAPI:
         data = resp.get_json()
         for field in ('language', 'weather_city', 'weather_units', 'ai_model', 'voice_language'):
             assert field in data
+        # Feature switches are exposed and default to enabled.
+        assert data['ai_enabled'] is True
+        assert data['tuya_enabled'] is True
+
+    def test_toggle_feature_switches(self, client):
+        resp = client.put('/api/preferences',
+            data=json.dumps({'ai_enabled': False, 'tuya_enabled': False}),
+            content_type='application/json')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['ai_enabled'] is False
+        assert data['tuya_enabled'] is False
 
     def test_update_preferences(self, client):
         resp = client.put('/api/preferences',

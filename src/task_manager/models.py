@@ -120,6 +120,7 @@ class Preferences(Base):
     weather_units = Column(String(20), default='metric')  # metric, imperial
     weather_update_interval = Column(Integer, default=30)
     # AI settings
+    ai_enabled = Column(Boolean, default=True)  # Master switch for the AI chat feature
     ollama_base_url = Column(String(200), default='http://localhost:11434')
     ai_model = Column(String(50), default='llama3:8b')
     ai_temperature = Column(Float, default=0.7)
@@ -129,6 +130,7 @@ class Preferences(Base):
     voice_sensitivity = Column(Float, default=0.5)
     voice_auto_start = Column(Boolean, default=False)
     # Tuya Cloud settings
+    tuya_enabled = Column(Boolean, default=True)  # Master switch for the Tuya feature
     tuya_access_id = Column(String(100), default='')
     tuya_access_secret = Column(String(100), default='')
     tuya_api_region = Column(String(10), default='eu')

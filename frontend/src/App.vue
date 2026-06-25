@@ -101,7 +101,7 @@ onMounted(() => {
         <VoiceController />
       </div>
       <div class="footer-right">
-        <button type="button" class="footer-btn btn-tuya" :title="$t('tuya_btn_label')" @click="openTuya" aria-label="Tuya">
+        <button v-if="prefs.tuyaEnabled" type="button" class="footer-btn btn-tuya" :title="$t('tuya_btn_label')" @click="openTuya" aria-label="Tuya">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
         </button>
         <RouterLink class="footer-btn btn-history" to="/history" :title="$t('history_btn_label')">
@@ -116,14 +116,14 @@ onMounted(() => {
         <RouterLink class="footer-btn btn-radio" to="/radio" title="Radio Online">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9-9"/><path d="M4 15a5 5 0 0 1 5-5"/><circle cx="5" cy="19" r="2"/><path d="M14 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/></svg>
         </RouterLink>
-        <button type="button" class="footer-btn btn-ai" @click="toggleAi" title="AI Chat" aria-label="AI Chat">
+        <button v-if="prefs.aiEnabled" type="button" class="footer-btn btn-ai" @click="toggleAi" title="AI Chat" aria-label="AI Chat">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
     </footer>
 
-    <AiChat />
-    <TuyaPanel :open="tuyaOpen" @close="tuyaOpen = false" />
+    <AiChat v-if="prefs.aiEnabled" />
+    <TuyaPanel v-if="prefs.tuyaEnabled" :open="tuyaOpen" @close="tuyaOpen = false" />
     <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
     <RadioMiniPlayer v-if="showMiniPlayer" />
     <ToastHost />

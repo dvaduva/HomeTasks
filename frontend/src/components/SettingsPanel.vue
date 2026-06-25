@@ -28,6 +28,12 @@ const wifiAvailable = ref(false);
 
 const draft = ref<Partial<Preferences>>({});
 
+// Copy prefs into the editable draft, normalizing the feature switches so an
+// absent flag on older payloads reads as enabled (matches the store getters).
+function makeDraft(p: Preferences): Partial<Preferences> {
+  return { ...p, ai_enabled: p.ai_enabled !== false, tuya_enabled: p.tuya_enabled !== false };
+}
+
 const newUserName = ref('');
 const newUserColor = ref('#3498db');
 const saving = ref(false);
@@ -35,7 +41,7 @@ const saving = ref(false);
 watch(
   () => props.open,
   (open) => {
-    if (open && prefs.data) draft.value = { ...prefs.data };
+    if (open && prefs.data) draft.value = makeDraft(prefs.data);
     if (open) {
       users.fetchAll().catch(() => undefined);
       wifiApi
@@ -49,7 +55,7 @@ watch(
 watch(
   () => prefs.data,
   (p) => {
-    if (props.open && p) draft.value = { ...p };
+    if (props.open && p) draft.value = makeDraft(p);
   },
 );
 
@@ -195,6 +201,12 @@ async function renameUser(id: number, name: string, color: string): Promise<void
       </div>
 
       <div v-show="tab === 'ai'" class="tab-content" :class="{ active: tab === 'ai' }">
+        <div class="form-group form-inline">
+          <label for="ai-enabled">{{ $t('lbl_ai_enabled') }}</label>
+          <input id="ai-enabled" type="checkbox" v-model="draft.ai_enabled" />
+        </div>
+        <p class="form-hint form-hint-spaced">{{ $t('hint_ai_enabled') }}</p>
+        <template v-if="draft.ai_enabled">
         <div class="form-group">
           <label for="ollama-url">{{ $t('lbl_ollama_url') }}</label>
           <div class="input-with-btn">
@@ -217,6 +229,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
           <label for="ai-max-tokens">{{ $t('lbl_ai_tokens') }}</label>
           <KeyboardInput id="ai-max-tokens" v-model="draft.ai_max_tokens" type="number" min="50" max="2000" />
         </div>
+        </template>
       </div>
 
       <div v-show="tab === 'voice'" class="tab-content" :class="{ active: tab === 'voice' }">
@@ -240,6 +253,12 @@ async function renameUser(id: number, name: string, color: string): Promise<void
       </div>
 
       <div v-show="tab === 'tuya'" class="tab-content" :class="{ active: tab === 'tuya' }">
+        <div class="form-group form-inline">
+          <label for="tuya-enabled">{{ $t('lbl_tuya_enabled') }}</label>
+          <input id="tuya-enabled" type="checkbox" v-model="draft.tuya_enabled" />
+        </div>
+        <p class="form-hint form-hint-spaced">{{ $t('hint_tuya_enabled') }}</p>
+        <template v-if="draft.tuya_enabled">
         <div class="form-group">
           <label for="tuya-access-id">{{ $t('tuya_lbl_access_id') }}</label>
           <KeyboardInput id="tuya-access-id" v-model="draft.tuya_access_id" />
@@ -257,6 +276,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
             <option value="in">IN (openapi.tuyain.com)</option>
           </select>
         </div>
+        </template>
       </div>
 
       <div v-if="wifiAvailable" v-show="tab === 'network'" class="tab-content" :class="{ active: tab === 'network' }">
