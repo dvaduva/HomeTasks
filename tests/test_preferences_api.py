@@ -55,6 +55,34 @@ class TestPreferencesAPI:
         assert data['ai_temperature'] == 0.9
         assert data['ai_max_tokens'] == 800
 
+    def test_get_preferences_exposes_provider_fields(self, client):
+        data = client.get('/api/preferences').get_json()
+        for field in ('ai_provider', 'openrouter_api_key', 'groq_api_key',
+                      'gemini_api_key', 'mistral_api_key'):
+            assert field in data
+        # Default provider is the local Ollama integration.
+        assert data['ai_provider'] == 'ollama'
+
+    def test_update_ai_provider_and_keys(self, client):
+        resp = client.put('/api/preferences',
+            data=json.dumps({
+                'ai_provider': 'openrouter',
+                'openrouter_api_key': 'or-key',
+                'groq_api_key': 'groq-key',
+                'gemini_api_key': 'gem-key',
+                'mistral_api_key': 'mis-key',
+            }),
+            content_type='application/json')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['ai_provider'] == 'openrouter'
+        assert data['openrouter_api_key'] == 'or-key'
+        assert data['groq_api_key'] == 'groq-key'
+        assert data['gemini_api_key'] == 'gem-key'
+        assert data['mistral_api_key'] == 'mis-key'
+        # Persisted across reads.
+        assert client.get('/api/preferences').get_json()['ai_provider'] == 'openrouter'
+
     def test_update_voice_settings(self, client):
         resp = client.put('/api/preferences',
             data=json.dumps({'voice_language': 'en-US', 'voice_auto_start': True}),

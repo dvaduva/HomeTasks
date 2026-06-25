@@ -143,7 +143,7 @@ timeout, model negăsit), expuse la fel ca wrapping-ul Ollama actual.
 Fiecare fază poate fi livrată independent și lasă aplicația verde. Se livrează în
 ordine — fazele ulterioare depind de cele anterioare.
 
-### Faza 0 — Fundația de persistență
+### Faza 0 — Fundația de persistență ✅ Gata
 **Scop:** DB-ul și API-ul pot transporta datele de provider + chei (fără
 schimbare de comportament încă).
 - Adaugă `ai_provider` + cele patru coloane `*_api_key` în `models.py`.

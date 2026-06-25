@@ -121,10 +121,16 @@ class Preferences(Base):
     weather_update_interval = Column(Integer, default=30)
     # AI settings
     ai_enabled = Column(Boolean, default=True)  # Master switch for the AI chat feature
+    ai_provider = Column(String(20), default='ollama')  # ollama, openrouter, groq, gemini, mistral
     ollama_base_url = Column(String(200), default='http://localhost:11434')
     ai_model = Column(String(50), default='llama3:8b')
     ai_temperature = Column(Float, default=0.7)
     ai_max_tokens = Column(Integer, default=500)
+    # Cloud provider API keys (DB takes precedence over .env fallback)
+    openrouter_api_key = Column(String(200), default='')
+    groq_api_key = Column(String(200), default='')
+    gemini_api_key = Column(String(200), default='')
+    mistral_api_key = Column(String(200), default='')
     # Voice settings
     voice_language = Column(String(10), default='ro-RO')  # ro-RO, en-US, en-GB
     voice_sensitivity = Column(Float, default=0.5)

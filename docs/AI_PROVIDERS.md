@@ -141,7 +141,7 @@ found), surfaced the same way the current Ollama wrapping works.
 Each phase is independently shippable and leaves the app green. Ship in order —
 later phases depend on earlier ones.
 
-### Phase 0 — Persistence groundwork
+### Phase 0 — Persistence groundwork ✅ Done
 **Goal:** the DB and API can carry provider + key data (no behavior change yet).
 - Add `ai_provider` + the four `*_api_key` columns to `models.py`.
 - Add matching `ALTER TABLE` entries in `database.py` `_migrate_preferences`.
