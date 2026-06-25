@@ -242,6 +242,66 @@ If you want to display temperatures from Tuya IoT sensors (thermostats, temperat
    ```
    Alternatively, these credentials can also be configured from the web interface, under Settings → Tuya Cloud.
 
+## Configuring Wi-Fi from the interface (RPi only)
+
+HomeTasks can manage the Raspberry Pi's Wi-Fi connection directly from the web
+interface — handy for a keyboard-less kiosk device: scan nearby networks, type the
+password and connect, all from the touchscreen. The feature lives under
+**Settings → Network**.
+
+### Requirements
+- **NetworkManager** (`nmcli`), the standard on **Raspberry Pi OS Bookworm**.
+  The application uses `nmcli` exclusively; it never touches `wpa_supplicant.conf`.
+  NetworkManager owns the saved profiles and reconnects automatically after a reboot.
+- On systems without `nmcli` (Windows, older Raspberry Pi OS with `dhcpcd`), the
+  feature degrades gracefully: **the "Network" tab is not even shown**, and a scan
+  returns an empty list instead of an error.
+
+Check availability on the RPi:
+```bash
+which nmcli                       # typically /usr/bin/nmcli
+systemctl status NetworkManager   # must be "active (running)"
+```
+If it is missing on an older system: `sudo apt install network-manager`, then
+enable it (`sudo systemctl enable --now NetworkManager`).
+
+### How it works
+The frontend talks to the `/api/wifi/*` REST API, and the backend runs `nmcli`:
+
+| Action | Endpoint | `nmcli` command |
+| --- | --- | --- |
+| Availability / status detection | `GET /api/wifi/status` | `nmcli -t -f IN-USE,SSID,DEVICE device wifi` + `device show <dev>` for the IP |
+| Scan networks | `POST /api/wifi/scan` | `nmcli -t -f IN-USE,SIGNAL,SECURITY,SSID device wifi list --rescan yes` |
+| Connect | `POST /api/wifi/connect` | `nmcli device wifi connect <ssid> [password <password>] [hidden yes]` |
+| Disconnect | `POST /api/wifi/disconnect` | `nmcli device disconnect <dev>` |
+
+- **Showing the tab**: when Settings open, the interface calls `/api/wifi/status`;
+  the "Network" tab appears **only if the response has `available: true`** (i.e.
+  `nmcli` exists on the system).
+- **Starting a scan**: scanning does NOT run at application startup. It is
+  triggered (a) automatically when you open the "Network" tab, (b) manually with
+  the "Scan" button and (c) automatically after a successful connect/disconnect.
+  `--rescan yes` forces a fresh scan (20 s timeout).
+- **Results**: networks are deduplicated by SSID (strongest signal wins), sorted by
+  signal descending; hidden networks (empty SSID) are ignored. Each entry shows the
+  signal strength, a lock 🔒 for secured networks and a marker for the current
+  network.
+- **Connecting**: secured networks show an inline password field; for open networks
+  the connection starts immediately (45 s timeout — DHCP + authentication can take
+  a while). A keyboard-less kiosk can type the password with the on-screen keyboard
+  (the ⌨ button next to the password field).
+
+> **Permissions:** the `hometasks` systemd service runs as `pi` **without a
+> graphical session**, so connecting requires polkit rights to manage
+> NetworkManager (membership in `netdev` plus, on polkit 0.105, a `.pkla` tweak).
+> See [deploy/DEPLOY.md](../deploy/DEPLOY.md) → "Allow the service user to manage
+> the network" if connecting fails with "Not authorized" / "Insufficient
+> privileges".
+
+> **Note:** implementation details are in [src/wifi/service.py](../src/wifi/service.py)
+> (backend) and `frontend/src/components/WiFiManager.vue` (UI). The feature mirrors
+> the Bluetooth panel (`src/bt/service.py`) — the same scan/connect pattern.
+
 ## Running the HomeTasks application
 
 ### First run
@@ -609,6 +669,55 @@ pip install -r requirements.txt
    sudo ufw allow 5000/tcp
    ```
 4. Make sure you use the correct IP address of the device (not localhost from other devices)
+
+### Problem: The "Network" (Wi-Fi) tab doesn't appear in Settings
+**Cause**: The "Network" tab is shown only if the backend responds with
+`available: true` at `/api/wifi/status`, which happens **only when `nmcli`
+(NetworkManager) is found on the system**.
+
+**Diagnosis** (on the RPi, with the application running):
+```bash
+# 1. What does the backend report? Watch the "available" field
+curl -s http://localhost:5000/api/wifi/status
+
+# 2. Does nmcli exist and is NetworkManager running?
+which nmcli
+systemctl status NetworkManager
+```
+
+**Solution depending on the result**:
+1. **`"available": false`** → NetworkManager is missing. It is standard on
+   Raspberry Pi OS Bookworm; on older versions (Bullseye/Buster) install it:
+   ```bash
+   sudo apt install network-manager -y
+   sudo systemctl enable --now NetworkManager
+   ```
+   (Note: it may conflict with `dhcpcd` on old systems — on Bookworm this is not
+   an issue.) Then restart the application and reopen Settings.
+2. **`"available": true` but the tab still doesn't appear** → a stale frontend
+   bundle in the browser. Make sure you ran `npm run build` after `git pull` (see
+   "Rebuilding the SPA frontend"), then do a **hard refresh** in Chromium
+   (Ctrl+Shift+R). In kiosk mode, restart Chromium or clear the cache.
+3. **`nmcli` is missing (`which nmcli` empty)** but you think it is installed →
+   confirm the path; the `hometasks` service finds binaries in `/usr/bin`
+   (included in the systemd unit's PATH).
+
+### Problem: Connecting to Wi-Fi fails with "Not authorized" / "Insufficient privileges"
+**Cause**: The `hometasks` service runs as `pi` through systemd, **without a
+graphical session**. NetworkManager asks polkit for authorization, and the default
+rules require an active session to save a system connection — so a session-less
+service is denied even when `pi` is in the `netdev` group.
+
+**Solution**: Grant the service user polkit rights to manage NetworkManager. The
+exact steps depend on the polkit version (`pkaction --version`) — on polkit 0.105
+the vendor `.pkla` rule has to be relaxed. The full, tested procedure is in
+[deploy/DEPLOY.md](../deploy/DEPLOY.md) → "Allow the service user to manage the
+network". Quick check that it worked:
+```bash
+GPID=$(systemctl show -p MainPID --value hometasks)
+sudo pkcheck --action-id org.freedesktop.NetworkManager.settings.modify.system --process "$GPID"; echo "exit=$?"
+# exit=0 means authorized → the "Connect" button will work
+```
 
 ### Problem: Poor performance or frequent freezes
 **Solution**:

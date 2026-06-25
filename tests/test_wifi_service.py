@@ -164,6 +164,22 @@ def test_connect_failure_raises(svc):
         service.connect('HomeNet', 'badpass')
 
 
+def test_connect_polkit_denial_gives_friendly_hint(svc):
+    service, _ = svc
+
+    def handler(cmd):
+        if cmd[:4] == ['nmcli', 'device', 'wifi', 'connect']:
+            return 1, 'Error: Failed to add/activate new connection: Insufficient privileges'
+        return default_handler(cmd)
+
+    service._handler = handler
+    with pytest.raises(RuntimeError) as exc:
+        service.connect('HomeNet', 'pw')
+    # Raw nmcli text is replaced with an actionable polkit hint.
+    assert 'polkit' in str(exc.value)
+    assert 'Insufficient privileges' not in str(exc.value)
+
+
 def test_connect_requires_tools(monkeypatch):
     monkeypatch.setattr(wifi_mod.shutil, 'which', lambda name: None)
     with pytest.raises(RuntimeError):

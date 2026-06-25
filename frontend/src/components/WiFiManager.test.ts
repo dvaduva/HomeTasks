@@ -79,6 +79,32 @@ describe('WiFiManager.vue', () => {
     expect(wifiApi.connect).toHaveBeenCalledWith('HomeNet', 'hunter2');
   });
 
+  it('types the password with the on-screen keyboard and connects', async () => {
+    const wrapper = mountWithPlugins(WiFiManager, { props: { active: true } });
+    await flush();
+    await wrapper.findAll('.wifi-item')[0].trigger('click'); // secured HomeNet
+    // The second trailing button in the field opens the keyboard.
+    await wrapper.findAll('.wifi-pw-btn')[1].trigger('click');
+    expect(wrapper.find('.osk').exists()).toBe(true);
+    // Tap a few letter keys, then Enter.
+    const keys = wrapper.findAll('.osk-key');
+    await keys.find((k) => k.text() === 'a')!.trigger('click');
+    await keys.find((k) => k.text() === 'b')!.trigger('click');
+    await keys.find((k) => k.text() === 'c')!.trigger('click');
+    await wrapper.find('.osk-key-enter').trigger('click');
+    await flush();
+    expect(wifiApi.connect).toHaveBeenCalledWith('HomeNet', 'abc');
+  });
+
+  it('toggles password visibility', async () => {
+    const wrapper = mountWithPlugins(WiFiManager, { props: { active: true } });
+    await flush();
+    await wrapper.findAll('.wifi-item')[0].trigger('click');
+    expect(wrapper.find('input[type="password"]').exists()).toBe(true);
+    await wrapper.findAll('.wifi-pw-btn')[0].trigger('click');
+    expect(wrapper.find('input[type="text"]').exists()).toBe(true);
+  });
+
   it('surfaces a scan error from the payload', async () => {
     (wifiApi.scan as any).mockResolvedValue({ networks: [], available: true, error: 'nmcli failed' });
     mountWithPlugins(WiFiManager, { props: { active: true } });

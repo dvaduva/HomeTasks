@@ -242,6 +242,66 @@ Dacă doriți să afișați temperaturile de la senzori IoT Tuya (termostate, se
    ```
    Alternativ, aceste credențiale pot fi configurate și din interfața web, la Setări → Tuya Cloud.
 
+## Configurarea Wi-Fi din interfață (doar pe RPi)
+
+HomeTasks poate gestiona conexiunea Wi-Fi a Raspberry Pi-ului direct din interfața
+web — util pentru un dispozitiv kiosk fără tastatură: scanezi rețelele din jur,
+introduci parola și te conectezi, totul de pe ecranul tactil. Funcția este la
+**Setări → Network**.
+
+### Cerințe
+- **NetworkManager** (`nmcli`), standardul pe **Raspberry Pi OS Bookworm**.
+  Aplicația folosește exclusiv `nmcli`; nu atinge niciodată `wpa_supplicant.conf`.
+  NetworkManager deține profilurile salvate și reconectează automat după repornire.
+- Pe sisteme fără `nmcli` (Windows, Raspberry Pi OS mai vechi cu `dhcpcd`),
+  funcția se dezactivează elegant: **tab-ul „Network" nici nu se afișează**, iar
+  scanarea întoarce o listă goală în loc să dea eroare.
+
+Verificați disponibilitatea pe RPi:
+```bash
+which nmcli                       # tipic /usr/bin/nmcli
+systemctl status NetworkManager   # trebuie să fie „active (running)"
+```
+Dacă lipsește pe un sistem mai vechi: `sudo apt install network-manager`, apoi
+activați-l (`sudo systemctl enable --now NetworkManager`).
+
+### Cum funcționează
+Frontend-ul comunică cu API-ul REST `/api/wifi/*`, iar backend-ul rulează `nmcli`:
+
+| Acțiune | Endpoint | Comandă `nmcli` |
+| --- | --- | --- |
+| Detecție disponibilitate / status | `GET /api/wifi/status` | `nmcli -t -f IN-USE,SSID,DEVICE device wifi` + `device show <dev>` pentru IP |
+| Scanare rețele | `POST /api/wifi/scan` | `nmcli -t -f IN-USE,SIGNAL,SECURITY,SSID device wifi list --rescan yes` |
+| Conectare | `POST /api/wifi/connect` | `nmcli device wifi connect <ssid> [password <parola>] [hidden yes]` |
+| Deconectare | `POST /api/wifi/disconnect` | `nmcli device disconnect <dev>` |
+
+- **Afișarea tab-ului**: la deschiderea Setărilor, interfața apelează
+  `/api/wifi/status`; tab-ul „Network" apare **doar dacă răspunsul are
+  `available: true`** (adică `nmcli` există pe sistem).
+- **Pornirea scanării**: scanarea NU rulează la pornirea aplicației. Se
+  declanșează (a) automat când deschideți tab-ul „Network", (b) manual cu butonul
+  „Scanează" și (c) automat după o conectare/deconectare reușită. `--rescan yes`
+  forțează o scanare proaspătă (timeout 20 s).
+- **Rezultate**: rețelele sunt deduplicate după SSID (câștigă semnalul cel mai
+  puternic), sortate descrescător după putere; rețelele ascunse (SSID gol) sunt
+  ignorate. Fiecare intrare arată puterea semnalului, lacăt 🔒 pentru rețele
+  securizate și marcaj pentru rețeaua curentă.
+- **Conectare**: pentru rețele securizate apare un câmp de parolă inline; pentru
+  rețele deschise conectarea pornește imediat (timeout 45 s — DHCP + autentificare
+  pot dura). Pe un kiosk fără tastatură, parola se poate scrie cu tastatura pe
+  ecran (butonul ⌨ de lângă câmpul de parolă).
+
+> **Permisiuni:** serviciul `hometasks` rulează ca `pi` **fără sesiune grafică**,
+> deci conectarea cere drepturi polkit pentru administrarea NetworkManager
+> (apartenență la `netdev` plus, pe polkit 0.105, o ajustare în `.pkla`). Vezi
+> [deploy/DEPLOY.md](../deploy/DEPLOY.md) → „Permite userului serviciului să
+> administreze rețeaua" dacă conectarea eșuează cu „Not authorized" / „Insufficient
+> privileges".
+
+> **Notă:** detaliile de implementare sunt în [src/wifi/service.py](../src/wifi/service.py)
+> (backend) și `frontend/src/components/WiFiManager.vue` (UI). Funcția oglindește
+> panoul Bluetooth (`src/bt/service.py`) — același tipar scanare/conectare.
+
 ## Rularea aplicației HomeTasks
 
 ### Prima rulare
@@ -609,6 +669,55 @@ pip install -r requirements.txt
    sudo ufw allow 5000/tcp
    ```
 4. Asigurați-vă că utilizați adresa IP corectă a dispozitivului (nu localhost de pe alte dispozitive)
+
+### Problema: Tab-ul „Network" (Wi-Fi) nu apare în Setări
+**Cauză**: Tab-ul „Network" se afișează doar dacă backend-ul răspunde
+`available: true` la `/api/wifi/status`, ceea ce se întâmplă **doar când `nmcli`
+(NetworkManager) este găsit pe sistem**.
+
+**Diagnostic** (pe RPi, cu aplicația pornită):
+```bash
+# 1. Ce raportează backend-ul? Urmăriți câmpul "available"
+curl -s http://localhost:5000/api/wifi/status
+
+# 2. Există nmcli și rulează NetworkManager?
+which nmcli
+systemctl status NetworkManager
+```
+
+**Soluție în funcție de rezultat**:
+1. **`"available": false`** → lipsește NetworkManager. Pe Raspberry Pi OS Bookworm
+   e standard; pe versiuni mai vechi (Bullseye/Buster) instalați-l:
+   ```bash
+   sudo apt install network-manager -y
+   sudo systemctl enable --now NetworkManager
+   ```
+   (Notă: poate intra în conflict cu `dhcpcd` pe sisteme vechi — pe Bookworm nu e
+   o problemă.) Apoi reporniți aplicația și redeschideți Setările.
+2. **`"available": true` dar tab-ul tot nu apare** → bundle vechi de frontend în
+   browser. Asigurați-vă că ați rulat `npm run build` după `git pull` (vezi
+   „Rebuild frontend SPA"), apoi faceți **hard refresh** în Chromium
+   (Ctrl+Shift+R). În mod kiosk, reporniți Chromium sau goliți cache-ul.
+3. **`nmcli` lipsește (`which nmcli` gol)** dar credeți că e instalat → confirmați
+   calea; serviciul `hometasks` găsește binarele din `/usr/bin` (inclus în PATH-ul
+   din unit-ul systemd).
+
+### Problema: Conectarea la Wi-Fi eșuează cu „Not authorized" / „Insufficient privileges"
+**Cauză**: Serviciul `hometasks` rulează ca `pi` prin systemd, **fără sesiune
+grafică**. NetworkManager cere autorizare prin polkit, iar regulile implicite cer o
+sesiune activă pentru salvarea unei conexiuni de sistem — deci un serviciu fără
+sesiune e refuzat chiar dacă `pi` e în grupul `netdev`.
+
+**Soluție**: Acordă userului serviciului drepturi polkit pentru NetworkManager.
+Pașii diferă în funcție de versiunea polkit (`pkaction --version`) — pe polkit 0.105
+trebuie relaxată regula vendor din `.pkla`. Procedura completă, testată, e în
+[deploy/DEPLOY.md](../deploy/DEPLOY.md) → „Permite userului serviciului să
+administreze rețeaua". Verificare rapidă că a mers:
+```bash
+GPID=$(systemctl show -p MainPID --value hometasks)
+sudo pkcheck --action-id org.freedesktop.NetworkManager.settings.modify.system --process "$GPID"; echo "exit=$?"
+# exit=0 înseamnă autorizat → butonul „Conectează" va funcționa
+```
 
 ### Problema: Performanța slaba sau blocări frecvente
 **Soluție**:

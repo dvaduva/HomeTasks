@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useNotification } from '@/composables/useNotification';
 import { wifiApi, type WifiNetwork, type WifiStatusInfo } from '@/api/wifi';
+import OnScreenKeyboard from './OnScreenKeyboard.vue';
 
 // Embeddable Wi-Fi panel for the Settings "Network" tab. Only rendered when the
 // host actually has NetworkManager (i.e. we're on the RPi); the parent gates it
@@ -20,6 +21,8 @@ const status = ref<WifiStatusInfo | null>(null);
 const selected = ref<string | null>(null); // SSID with the password field open
 const password = ref('');
 const connecting = ref<string | null>(null); // SSID currently connecting
+const showPassword = ref(false); // reveal the typed characters (useful with the OSK)
+const showKeyboard = ref(false); // on-screen keyboard for kiosks without a hardware keyboard
 
 async function loadStatus(): Promise<void> {
   loadingStatus.value = true;
@@ -51,6 +54,8 @@ function selectNetwork(n: WifiNetwork): void {
     // Toggle the inline password field for secured networks.
     selected.value = selected.value === n.ssid ? null : n.ssid;
     password.value = '';
+    showPassword.value = false;
+    showKeyboard.value = false;
   } else {
     doConnect(n); // open network — connect straight away
   }
@@ -63,6 +68,8 @@ async function doConnect(n: WifiNetwork): Promise<void> {
     success(t('wifi_connect_ok', { ssid: n.ssid }));
     selected.value = null;
     password.value = '';
+    showKeyboard.value = false;
+    showPassword.value = false;
     await Promise.all([loadStatus(), doScan()]);
   } catch (e) {
     errorToast((e as { message?: string })?.message || t('wifi_connect_fail'));
@@ -131,23 +138,52 @@ watch(
           <span v-if="n.in_use" class="wifi-badge connected">{{ $t('wifi_connected') }}</span>
         </button>
 
-        <div v-if="selected === n.ssid && !n.in_use" class="wifi-connect-row">
-          <input
+        <template v-if="selected === n.ssid && !n.in_use">
+          <div class="wifi-connect-row">
+            <div class="wifi-pw-field">
+              <input
+                v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                :placeholder="$t('wifi_password_placeholder')"
+                autocomplete="off"
+                @keyup.enter="doConnect(n)"
+              />
+              <button
+                type="button"
+                class="wifi-pw-btn"
+                :title="showPassword ? $t('wifi_password_hide') : $t('wifi_password_show')"
+                :aria-pressed="showPassword"
+                @click="showPassword = !showPassword"
+              >
+                {{ showPassword ? '🙈' : '👁' }}
+              </button>
+              <button
+                type="button"
+                class="wifi-pw-btn"
+                :class="{ active: showKeyboard }"
+                :title="$t('wifi_keyboard_toggle')"
+                :aria-pressed="showKeyboard"
+                @click="showKeyboard = !showKeyboard"
+              >
+                ⌨
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              :disabled="connecting === n.ssid"
+              @click="doConnect(n)"
+            >
+              {{ connecting === n.ssid ? $t('wifi_connecting') : $t('wifi_connect') }}
+            </button>
+          </div>
+          <OnScreenKeyboard
+            v-if="showKeyboard"
             v-model="password"
-            type="password"
-            :placeholder="$t('wifi_password_placeholder')"
-            autocomplete="off"
-            @keyup.enter="doConnect(n)"
+            @submit="doConnect(n)"
+            @close="showKeyboard = false"
           />
-          <button
-            type="button"
-            class="btn btn-primary btn-sm"
-            :disabled="connecting === n.ssid"
-            @click="doConnect(n)"
-          >
-            {{ connecting === n.ssid ? $t('wifi_connecting') : $t('wifi_connect') }}
-          </button>
-        </div>
+        </template>
       </li>
     </ul>
     <p v-else-if="!scanning" class="wifi-empty">{{ $t('wifi_empty') }}</p>
@@ -243,8 +279,42 @@ watch(
   gap: 8px;
   padding: 8px 12px 4px;
 }
-.wifi-connect-row input {
+.wifi-pw-field {
+  position: relative;
   flex: 1;
+  display: flex;
+  align-items: center;
+}
+.wifi-pw-field input {
+  flex: 1;
+  width: 100%;
+  padding-right: 76px; /* room for the two trailing buttons */
+}
+.wifi-pw-btn {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+.wifi-pw-btn:hover {
+  background: var(--rd-gray-100, #f1f5f9);
+}
+.wifi-pw-btn.active {
+  color: var(--blue, #1d4ed8);
+}
+.wifi-pw-field .wifi-pw-btn:nth-of-type(1) {
+  right: 40px;
+}
+.wifi-pw-field .wifi-pw-btn:nth-of-type(2) {
+  right: 4px;
 }
 .wifi-empty {
   text-align: center;

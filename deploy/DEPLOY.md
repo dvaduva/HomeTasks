@@ -108,15 +108,22 @@ sudo reboot
 
 ### 2. Permite userului serviciului (`pi`) să administreze rețeaua
 
-Aplicația rulează ca user `pi` (vezi `hometasks.service`), iar `nmcli connect` /
-`disconnect` cer drepturi prin polkit. Userul trebuie să fie în grupul `netdev`:
+Aplicația rulează ca user `pi` prin systemd, **fără sesiune grafică** (vezi
+`hometasks.service`), iar `nmcli connect` / `disconnect` cer drepturi prin polkit.
+Userul trebuie să fie în grupul `netdev`:
 
 ```bash
 sudo usermod -aG netdev pi
+sudo systemctl restart hometasks   # ca procesul să prindă noul grup
 ```
 
-Dacă polkit tot refuză acțiunea (eroare „not authorized" la conectare), adaugă o
-regulă care permite membrilor `netdev` controlul rețelei fără parolă:
+Verifică ce versiune de polkit ai — pașii diferă:
+
+```bash
+pkaction --version
+```
+
+#### Polkit ≥ 0.106 (Raspberry Pi OS Bookworm și mai nou) — reguli JavaScript
 
 ```bash
 sudo tee /etc/polkit-1/rules.d/50-hometasks-nm.rules > /dev/null <<'EOF'
@@ -130,22 +137,50 @@ EOF
 sudo systemctl restart polkit
 ```
 
-Apoi repornește aplicația ca să prindă noul grup:
+#### Polkit 0.105 (Bullseye și imagini mai vechi) — fișiere `.pkla`
+
+Aici **nu există** `/etc/polkit-1/rules.d/` (regulile JS nu sunt suportate). Se
+folosesc fișiere `.pkla`. Atenție: pe Debian, pachetul `network-manager` livrează
+o regulă vendor care cere **sesiune activă** pentru salvarea conexiunilor de
+sistem, ceea ce blochează un serviciu systemd fără sesiune:
+
+```
+# /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla
+Action=org.freedesktop.NetworkManager.settings.modify.system
+ResultAny=no          # ← blochează procesele fără sesiune (serviciul nostru)
+ResultInactive=no
+ResultActive=yes
+```
+
+O regulă proprie în `50-local.d/` **nu** suprascrie fiabil această regulă vendor
+în 0.105, așa că trebuie relaxată chiar regula vendor (cu backup):
 
 ```bash
-sudo systemctl restart hometasks
+sudo cp /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla \
+        /root/nm-vendor.pkla.orig
+sudo sed -i 's/^ResultInactive=no/ResultInactive=yes/; s/^ResultAny=no/ResultAny=yes/' \
+        /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla
+sudo systemctl restart polkit
 ```
+
+> ⚠️ Fișierul e deținut de pachetul `network-manager`; **un upgrade al pachetului
+> îl poate suprascrie** și trebuie reaplicat sed-ul de mai sus (backup-ul rămâne
+> în `/root/nm-vendor.pkla.orig`).
 
 ### 3. Testează
 
 ```bash
+# verifică autorizarea procesului real al serviciului (trebuie exit=0):
+GPID=$(systemctl show -p MainPID --value hometasks)
+sudo pkcheck --action-id org.freedesktop.NetworkManager.settings.modify.system --process "$GPID"; echo "exit=$?"
+
 # ca user pi, fără sudo — trebuie să meargă:
 sudo -u pi nmcli device wifi connect "<SSID>" password "<parola>"
 ```
 
-Dacă această comandă reușește fără `sudo`, butonul „Conectează" din interfață va
-funcționa. Endpoint-urile expuse sunt `/api/wifi/status`, `/api/wifi/scan`,
-`/api/wifi/connect`, `/api/wifi/disconnect`.
+Dacă `pkcheck` dă `exit=0` și comanda reușește fără `sudo`, butonul „Conectează"
+din interfață va funcționa. Endpoint-urile expuse sunt `/api/wifi/status`,
+`/api/wifi/scan`, `/api/wifi/connect`, `/api/wifi/disconnect`.
 
 ## Comenzi utile
 

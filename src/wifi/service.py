@@ -188,6 +188,16 @@ class WiFiService:
             rc, out = self._run(cmd, timeout=CONNECT_TIMEOUT)
         if rc != 0:
             msg = out.strip().splitlines()[-1] if out.strip() else 'cauză necunoscută'
+            # polkit refuses the systemd service (no graphical session) unless the
+            # `pi` user has rights to manage NetworkManager. Point the operator at
+            # the deploy fix instead of leaking the raw nmcli text.
+            low = out.lower()
+            if 'not authorized' in low or 'insufficient privileges' in low:
+                raise RuntimeError(
+                    'Conectarea a eșuat: aplicația nu are drepturi să administreze '
+                    'rețeaua (polkit). Vezi deploy/DEPLOY.md → „Permite userului '
+                    'serviciului să administreze rețeaua".'
+                )
             raise RuntimeError(f'Conectarea la „{ssid}" a eșuat: {msg[:200]}')
         logger.info("Wi-Fi connected to %s", ssid)
         return {'ssid': ssid, 'connected': True}
