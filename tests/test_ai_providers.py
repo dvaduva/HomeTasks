@@ -10,9 +10,13 @@ import pytest
 import requests
 
 import ai.ollama as ollama_mod
+import ai.openai_compat as openai_mod
+import ai.gemini as gemini_mod
 from ai.base import ChatProvider, normalize_reply
 from ai.history import ConversationHistory
 from ai.ollama import OllamaProvider
+from ai.openai_compat import OpenAICompatProvider
+from ai.gemini import GeminiProvider
 from ai import registry
 
 
@@ -196,3 +200,204 @@ def test_get_models_for_falls_back_to_static_on_error(monkeypatch):
 
 def test_get_models_for_unknown_provider_returns_empty():
     assert registry.get_models_for('nope', _prefs()) == []
+
+
+# --- OpenAICompatProvider (OpenRouter / Groq / Mistral) -------------------
+
+def test_openai_compat_satisfies_protocol():
+    assert isinstance(OpenAICompatProvider('http://x/v1', 'k', 'm'), ChatProvider)
+
+
+def test_openai_compat_chat_normalizes_and_sends_bearer(monkeypatch):
+    p = OpenAICompatProvider('http://api/v1', 'secret', 'm', name='Groq')
+    captured = {}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        captured['url'] = url
+        captured['json'] = json
+        captured['headers'] = headers
+        return FakeResponse({'model': 'm', 'choices': [
+            {'message': {'role': 'assistant', 'content': 'salut'}}]})
+
+    monkeypatch.setattr(openai_mod.requests, 'post', fake_post)
+    msgs = [{'role': 'user', 'content': 'buna'}]
+    out = p.chat(msgs, temperature=0.2, max_tokens=42)
+
+    assert out == {'message': {'content': 'salut'}, 'model': 'm', 'done': True,
+                   'created_at': ''}
+    assert captured['url'] == 'http://api/v1/chat/completions'
+    assert captured['headers']['Authorization'] == 'Bearer secret'
+    assert captured['json']['messages'] is msgs
+    assert captured['json']['temperature'] == 0.2
+    assert captured['json']['max_tokens'] == 42
+    assert captured['json']['stream'] is False
+
+
+def test_openai_compat_chat_maps_401_to_friendly_error(monkeypatch):
+    p = OpenAICompatProvider('http://api/v1', 'bad', 'm', name='Groq')
+    monkeypatch.setattr(openai_mod.requests, 'post',
+                        lambda *a, **k: FakeResponse({}, status=401))
+    with pytest.raises(Exception, match='Groq: invalid or missing API key'):
+        p.chat([{'role': 'user', 'content': 'hi'}])
+
+
+def test_openai_compat_chat_maps_429_to_friendly_error(monkeypatch):
+    p = OpenAICompatProvider('http://api/v1', 'k', 'm', name='Mistral')
+    monkeypatch.setattr(openai_mod.requests, 'post',
+                        lambda *a, **k: FakeResponse({}, status=429))
+    with pytest.raises(Exception, match='Mistral: rate limit or quota exceeded'):
+        p.chat([{'role': 'user', 'content': 'hi'}])
+
+
+def test_openai_compat_chat_timeout_raises(monkeypatch):
+    p = OpenAICompatProvider('http://api/v1', 'k', 'm', name='Groq')
+
+    def boom(*a, **k):
+        raise requests.exceptions.Timeout('slow')
+
+    monkeypatch.setattr(openai_mod.requests, 'post', boom)
+    with pytest.raises(Exception, match='Groq: request timed out'):
+        p.chat([{'role': 'user', 'content': 'hi'}])
+
+
+def test_openai_compat_get_models_lists_ids(monkeypatch):
+    p = OpenAICompatProvider('http://api/v1', 'k', 'm', name='Groq')
+    monkeypatch.setattr(openai_mod.requests, 'get',
+                        lambda *a, **k: FakeResponse({'data': [
+                            {'id': 'llama-3.3-70b-versatile'}, {'id': 'gemma2-9b-it'}]}))
+    assert p.get_models() == [{'name': 'llama-3.3-70b-versatile', 'size': 0},
+                              {'name': 'gemma2-9b-it', 'size': 0}]
+
+
+def test_openai_compat_get_models_free_only_filters(monkeypatch):
+    p = OpenAICompatProvider('http://api/v1', 'k', 'm', name='OpenRouter', free_only=True)
+    monkeypatch.setattr(openai_mod.requests, 'get',
+                        lambda *a, **k: FakeResponse({'data': [
+                            {'id': 'paid/model'}, {'id': 'free/model:free'}]}))
+    assert p.get_models() == [{'name': 'free/model:free', 'size': 0}]
+
+
+def test_openai_compat_is_available_tracks_key():
+    assert OpenAICompatProvider('http://x/v1', 'k', 'm').is_available() is True
+    assert OpenAICompatProvider('http://x/v1', '', 'm').is_available() is False
+
+
+# --- GeminiProvider -------------------------------------------------------
+
+def test_gemini_satisfies_protocol():
+    assert isinstance(GeminiProvider('k', 'gemini-2.0-flash'), ChatProvider)
+
+
+def test_gemini_chat_translates_roles_and_parses(monkeypatch):
+    p = GeminiProvider('secret', 'gemini-2.0-flash')
+    captured = {}
+
+    def fake_post(url, json=None, params=None, headers=None, timeout=None):
+        captured['url'] = url
+        captured['json'] = json
+        captured['params'] = params
+        return FakeResponse({'candidates': [
+            {'content': {'parts': [{'text': 'sa'}, {'text': 'lut'}]}}]})
+
+    monkeypatch.setattr(gemini_mod.requests, 'post', fake_post)
+    msgs = [{'role': 'system', 'content': 'sys'},
+            {'role': 'user', 'content': 'buna'},
+            {'role': 'assistant', 'content': 'ack'}]
+    out = p.chat(msgs, temperature=0.2, max_tokens=42)
+
+    assert out['message']['content'] == 'salut'
+    assert out['model'] == 'gemini-2.0-flash'
+    assert captured['url'].endswith('/v1beta/models/gemini-2.0-flash:generateContent')
+    assert captured['params'] == {'key': 'secret'}
+    body = captured['json']
+    assert body['systemInstruction'] == {'parts': [{'text': 'sys'}]}
+    assert body['contents'] == [
+        {'role': 'user', 'parts': [{'text': 'buna'}]},
+        {'role': 'model', 'parts': [{'text': 'ack'}]},
+    ]
+    assert body['generationConfig'] == {'temperature': 0.2, 'maxOutputTokens': 42}
+
+
+def test_gemini_chat_maps_429(monkeypatch):
+    p = GeminiProvider('k', 'gemini-2.0-flash')
+    monkeypatch.setattr(gemini_mod.requests, 'post',
+                        lambda *a, **k: FakeResponse({}, status=429))
+    with pytest.raises(Exception, match='Gemini: rate limit or quota exceeded'):
+        p.chat([{'role': 'user', 'content': 'hi'}])
+
+
+def test_gemini_get_models_strips_prefix_and_filters(monkeypatch):
+    p = GeminiProvider('k', 'gemini-2.0-flash')
+    monkeypatch.setattr(gemini_mod.requests, 'get',
+                        lambda *a, **k: FakeResponse({'models': [
+                            {'name': 'models/gemini-2.0-flash',
+                             'supportedGenerationMethods': ['generateContent']},
+                            {'name': 'models/embedding-001',
+                             'supportedGenerationMethods': ['embedContent']}]}))
+    assert p.get_models() == [{'name': 'gemini-2.0-flash', 'size': 0}]
+
+
+def test_gemini_is_available_tracks_key():
+    assert GeminiProvider('k', 'm').is_available() is True
+    assert GeminiProvider('', 'm').is_available() is False
+
+
+# --- registry: cloud providers --------------------------------------------
+
+def test_get_provider_resolves_openrouter_with_prefs_key():
+    prefs = _prefs(ai_provider='openrouter', openrouter_api_key='pk', ai_model='custom:free')
+    p = registry.get_provider(prefs)
+    assert isinstance(p, OpenAICompatProvider)
+    assert p.api_key == 'pk'
+    assert p.model == 'custom:free'
+    assert p.free_only is True
+    assert p.base_url == 'https://openrouter.ai/api/v1'
+
+
+def test_get_provider_resolves_gemini():
+    prefs = _prefs(ai_provider='gemini', gemini_api_key='gk', ai_model='')
+    p = registry.get_provider(prefs)
+    assert isinstance(p, GeminiProvider)
+    assert p.api_key == 'gk'
+    # Empty ai_model falls back to the spec default.
+    assert p.model == 'gemini-2.0-flash'
+
+
+def test_get_provider_key_falls_back_to_env(monkeypatch):
+    monkeypatch.setenv('GROQ_API_KEY', 'env-key')
+    prefs = _prefs(ai_provider='groq', groq_api_key='', ai_model='')
+    p = registry.get_provider(prefs)
+    assert isinstance(p, OpenAICompatProvider)
+    assert p.api_key == 'env-key'
+
+
+def test_configured_providers_reflects_keys(monkeypatch):
+    monkeypatch.delenv('OPENROUTER_API_KEY', raising=False)
+    monkeypatch.delenv('GROQ_API_KEY', raising=False)
+    monkeypatch.delenv('GEMINI_API_KEY', raising=False)
+    monkeypatch.delenv('MISTRAL_API_KEY', raising=False)
+    prefs = _prefs(openrouter_api_key='', groq_api_key='gk', gemini_api_key='',
+                   mistral_api_key='')
+    configured = registry.configured_providers(prefs)
+    assert 'ollama' in configured  # local, always configured
+    assert 'groq' in configured
+    assert 'openrouter' not in configured
+    assert 'gemini' not in configured
+
+
+def test_get_models_for_cloud_uses_dynamic_then_static(monkeypatch):
+    prefs = _prefs(ai_provider='groq', groq_api_key='k')
+    monkeypatch.setattr(openai_mod.requests, 'get',
+                        lambda *a, **k: FakeResponse({'data': [{'id': 'dyn-model'}]}))
+    assert registry.get_models_for('groq', prefs) == [{'name': 'dyn-model', 'size': 0}]
+
+
+def test_get_models_for_cloud_falls_back_to_static_on_error(monkeypatch):
+    prefs = _prefs(ai_provider='mistral', mistral_api_key='k')
+
+    def boom(*a, **k):
+        raise requests.exceptions.ConnectionError('refused')
+
+    monkeypatch.setattr(openai_mod.requests, 'get', boom)
+    assert registry.get_models_for('mistral', prefs) == \
+        registry.PROVIDERS['mistral']['static_models']

@@ -28,6 +28,26 @@ class ChatProvider(Protocol):
         ...
 
 
+def http_error_message(status: int, provider: str) -> str:
+    """Map a provider HTTP status to a short, user-facing message.
+
+    Cloud providers share these failure modes (bad key, quota, missing model);
+    keeping the mapping here lets every provider surface the same wording.
+    """
+    mapping = {
+        400: f"{provider}: bad request (check the selected model)",
+        401: f"{provider}: invalid or missing API key",
+        403: f"{provider}: access forbidden (check API key permissions)",
+        404: f"{provider}: model not found",
+        429: f"{provider}: rate limit or quota exceeded",
+    }
+    if status in mapping:
+        return mapping[status]
+    if status >= 500:
+        return f"{provider}: service unavailable (HTTP {status})"
+    return f"{provider} API error (HTTP {status})"
+
+
 def normalize_reply(raw: Dict, default_model: str = '') -> Dict:
     """Coerce a raw backend response into the shared reply shape.
 

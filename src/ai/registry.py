@@ -8,15 +8,48 @@ providers register additional ``PROVIDERS`` entries in a later phase.
 import os
 from typing import Dict, List
 
+from ai.gemini import GeminiProvider
 from ai.ollama import OllamaProvider
+from ai.openai_compat import OpenAICompatProvider
 
 DEFAULT_PROVIDER = 'ollama'
+
+
+def _resolve_key(prefs, spec) -> str:
+    """Resolve a provider's API key from the prefs column, then the env fallback."""
+    env_key = spec.get('env_key')
+    if not env_key:
+        return ''
+    return getattr(prefs, env_key.lower(), '') or os.getenv(env_key, '')
+
+
+def _model_for(prefs, spec) -> str:
+    """The shared ``ai_model`` pref, interpreted per provider; spec default if unset."""
+    return getattr(prefs, 'ai_model', None) or spec.get('default_model', '')
 
 
 def _build_ollama(prefs, spec) -> OllamaProvider:
     base_url = getattr(prefs, 'ollama_base_url', None) or spec['base_url']
     model = getattr(prefs, 'ai_model', None) or None
     return OllamaProvider(base_url=base_url, model=model)
+
+
+def _build_openai_compat(prefs, spec) -> OpenAICompatProvider:
+    return OpenAICompatProvider(
+        base_url=spec['base_url'],
+        api_key=_resolve_key(prefs, spec),
+        default_model=_model_for(prefs, spec),
+        name=spec['name'],
+        free_only=spec.get('free_only', False),
+    )
+
+
+def _build_gemini(prefs, spec) -> GeminiProvider:
+    return GeminiProvider(
+        api_key=_resolve_key(prefs, spec),
+        default_model=_model_for(prefs, spec),
+        base_url=spec['base_url'],
+    )
 
 
 # id -> spec. ``build`` constructs a configured, stateless instance from prefs.
@@ -28,6 +61,64 @@ PROVIDERS: Dict[str, Dict] = {
         'env_key': None,  # local — no API key
         'static_models': [{'name': 'llama3:8b', 'size': 0}],
         'build': _build_ollama,
+    },
+    'openrouter': {
+        'class': OpenAICompatProvider,
+        'base_url': 'https://openrouter.ai/api/v1',
+        'env_key': 'OPENROUTER_API_KEY',
+        'name': 'OpenRouter',
+        'free_only': True,  # only surface the free tier
+        'default_model': 'meta-llama/llama-3.3-70b-instruct:free',
+        'static_models': [
+            {'name': 'meta-llama/llama-3.3-70b-instruct:free', 'size': 0},
+            {'name': 'deepseek/deepseek-r1:free', 'size': 0},
+            {'name': 'google/gemini-2.0-flash-exp:free', 'size': 0},
+            {'name': 'mistralai/mistral-small-3.2-24b-instruct:free', 'size': 0},
+            {'name': 'qwen/qwen-2.5-72b-instruct:free', 'size': 0},
+        ],
+        'build': _build_openai_compat,
+    },
+    'groq': {
+        'class': OpenAICompatProvider,
+        'base_url': 'https://api.groq.com/openai/v1',
+        'env_key': 'GROQ_API_KEY',
+        'name': 'Groq',
+        'default_model': 'llama-3.3-70b-versatile',
+        'static_models': [
+            {'name': 'llama-3.3-70b-versatile', 'size': 0},
+            {'name': 'llama-3.1-8b-instant', 'size': 0},
+            {'name': 'gemma2-9b-it', 'size': 0},
+            {'name': 'llama3-70b-8192', 'size': 0},
+        ],
+        'build': _build_openai_compat,
+    },
+    'mistral': {
+        'class': OpenAICompatProvider,
+        'base_url': 'https://api.mistral.ai/v1',
+        'env_key': 'MISTRAL_API_KEY',
+        'name': 'Mistral',
+        'default_model': 'mistral-small-latest',
+        'static_models': [
+            {'name': 'mistral-small-latest', 'size': 0},
+            {'name': 'open-mistral-7b', 'size': 0},
+            {'name': 'open-mixtral-8x7b', 'size': 0},
+            {'name': 'mistral-large-latest', 'size': 0},
+        ],
+        'build': _build_openai_compat,
+    },
+    'gemini': {
+        'class': GeminiProvider,
+        'base_url': 'https://generativelanguage.googleapis.com',
+        'env_key': 'GEMINI_API_KEY',
+        'name': 'Gemini',
+        'default_model': 'gemini-2.0-flash',
+        'static_models': [
+            {'name': 'gemini-2.0-flash', 'size': 0},
+            {'name': 'gemini-2.5-flash', 'size': 0},
+            {'name': 'gemini-1.5-flash', 'size': 0},
+            {'name': 'gemini-1.5-pro', 'size': 0},
+        ],
+        'build': _build_gemini,
     },
 }
 

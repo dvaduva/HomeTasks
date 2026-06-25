@@ -170,7 +170,7 @@ later phases depend on earlier ones.
 - **Done when:** full suite green with Ollama as the only provider, routed
   through the factory.
 
-### Phase 3 — Cloud providers
+### Phase 3 — Cloud providers ✅ Done
 **Goal:** OpenRouter, Groq, Mistral, Gemini selectable from the backend.
 - `openai_compat.py` (OpenRouter / Groq / Mistral) + `gemini.py`.
 - Register them in `PROVIDERS` (base URLs, env keys, curated static model lists).

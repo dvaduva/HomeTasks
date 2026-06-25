@@ -175,7 +175,7 @@ schimbare de comportament încă).
 - **Gata când:** întreaga suită verde cu Ollama ca singur provider, rutat prin
   factory.
 
-### Faza 3 — Provideri cloud
+### Faza 3 — Provideri cloud ✅ Gata
 **Scop:** OpenRouter, Groq, Mistral, Gemini selectabili din backend.
 - `openai_compat.py` (OpenRouter / Groq / Mistral) + `gemini.py`.
 - Înregistrarea lor în `PROVIDERS` (base URL-uri, chei env, liste statice curate
