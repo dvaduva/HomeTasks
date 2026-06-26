@@ -1,0 +1,20 @@
+# Normalizează line-endings: în repo totul e stocat cu LF,
+# iar la checkout se lasă LF (inclusiv pe Windows). Asta oprește
+# diff-urile uriașe „tot fișierul" cauzate de CRLF/LF pe RPi vs Windows.
+* text=auto eol=lf
+
+# Scripturi shell — obligatoriu LF
+*.sh text eol=lf
+
+# Fișiere binare — nu le atinge
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.db binary
