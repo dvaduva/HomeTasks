@@ -41,6 +41,7 @@ def _migrate_preferences(engine):
         ("mistral_api_key",         "VARCHAR(200) DEFAULT ''"),
         ("voice_sensitivity",       "REAL DEFAULT 0.5"),
         ("voice_auto_start",        "BOOLEAN DEFAULT 0"),
+        ("voice_mic_device",        "VARCHAR(100) DEFAULT ''"),
         ("tuya_enabled",            "BOOLEAN DEFAULT 1"),
         ("tuya_access_id",          "VARCHAR(100) DEFAULT ''"),
         ("tuya_access_secret",      "VARCHAR(100) DEFAULT ''"),

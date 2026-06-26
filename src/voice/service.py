@@ -208,11 +208,57 @@ class VoiceService:
             'sensitivity': self.sensitivity
         }
 
-    def record_and_recognize_once(self, language: Optional[str] = None, timeout_seconds: int = 5, phrase_time_limit: int = 7):
+    @staticmethod
+    def list_microphones() -> list:
+        """List capture-capable audio devices for the Settings UI.
+
+        Returns a list of {'index': int, 'name': str}, filtered to devices that
+        actually expose input channels (skips output-only cards like HDMI).
         """
-        Record from the default microphone for up to timeout_seconds and return recognized text.
+        devices = []
+        try:
+            import pyaudio
+            pa = pyaudio.PyAudio()
+            try:
+                for i in range(pa.get_device_count()):
+                    info = pa.get_device_info_by_index(i)
+                    if int(info.get('maxInputChannels', 0)) > 0:
+                        devices.append({'index': i, 'name': str(info.get('name', f'device {i}'))})
+            finally:
+                pa.terminate()
+        except Exception as e:
+            logger.warning("list_microphones failed: %s", e)
+        return devices
+
+    def _coerce_device(self, device) -> Optional[int]:
+        """Turn a stored preference (device name or index string) into a PortAudio
+        index. Empty/None falls back to the env-configured default."""
+        if device is None:
+            return self.mic_device_index
+        value = str(device).strip()
+        if not value:
+            return self.mic_device_index
+        if value.lstrip('-').isdigit():
+            return int(value)
+        try:
+            import speech_recognition as sr
+            for i, name in enumerate(sr.Microphone.list_microphone_names()):
+                if value.lower() in name.lower():
+                    return i
+        except Exception as e:
+            logger.warning("Mic device resolution failed: %s", e)
+        logger.warning("Mic device %r not found; using default", device)
+        return self.mic_device_index
+
+    def record_and_recognize_once(self, language: Optional[str] = None, timeout_seconds: int = 5, phrase_time_limit: int = 7, device=None):
+        """
+        Record from the selected microphone for up to timeout_seconds and return recognized text.
         Uses Google Speech Recognition (requires internet on the server).
-        
+
+        Args:
+            device: optional capture device (name or index) overriding the default;
+                    typically the user's choice saved in preferences.
+
         Returns:
             tuple: (text: str or None, error: str or None)
         """
@@ -221,7 +267,8 @@ class VoiceService:
         lang = language or self.language
         try:
             import speech_recognition as sr
-            with self.microphone as source:
+            microphone = sr.Microphone(device_index=self._coerce_device(device))
+            with microphone as source:
                 self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
                 audio = self.recognizer.listen(source, timeout=timeout_seconds, phrase_time_limit=phrase_time_limit)
             text = self.recognizer.recognize_google(audio, language=lang)

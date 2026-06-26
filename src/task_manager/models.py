@@ -135,6 +135,9 @@ class Preferences(Base):
     voice_language = Column(String(10), default='ro-RO')  # ro-RO, en-US, en-GB
     voice_sensitivity = Column(Float, default=0.5)
     voice_auto_start = Column(Boolean, default=False)
+    # Capture device for server-side recognition: PortAudio device name (or index
+    # as string). Empty = system default / VOICE_MIC_DEVICE_* env fallback.
+    voice_mic_device = Column(String(100), default='')
     # Tuya Cloud settings
     tuya_enabled = Column(Boolean, default=True)  # Master switch for the Tuya feature
     tuya_access_id = Column(String(100), default='')

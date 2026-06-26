@@ -11,8 +11,20 @@ export interface VoiceListenResult {
   error?: string | null;
 }
 
+export interface MicrophoneDevice {
+  index: number;
+  name: string;
+}
+
+export interface VoiceMicrophones {
+  available: boolean;
+  devices: MicrophoneDevice[];
+  selected: string;
+}
+
 export const voiceApi = {
   serverAvailable: () => api.get<VoiceServerAvailable>('/api/voice/server-available'),
+  microphones: () => api.get<VoiceMicrophones>('/api/voice/microphones'),
   listen: (language?: string) =>
     api.post<VoiceListenResult>('/api/voice/listen', language ? { language } : {}),
   debugLog: (message: string) =>

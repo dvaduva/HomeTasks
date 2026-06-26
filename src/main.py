@@ -1236,6 +1236,7 @@ def get_preferences():
             'voice_language': prefs.voice_language,
             'voice_sensitivity': prefs.voice_sensitivity,
             'voice_auto_start': prefs.voice_auto_start,
+            'voice_mic_device': prefs.voice_mic_device or '',
             'voice_activation_word': os.getenv('VOICE_ACTIVATION_WORD', 'Hey HomeTasks').strip() or 'Hey HomeTasks',
             'voice_debug_log': os.getenv('VOICE_DEBUG_LOG', '').strip().lower() in ('1', 'true', 'yes'),
             'tuya_enabled': bool(prefs.tuya_enabled),
@@ -1294,6 +1295,7 @@ def update_preferences():
             'voice_language': prefs.voice_language,
             'voice_sensitivity': prefs.voice_sensitivity,
             'voice_auto_start': prefs.voice_auto_start,
+            'voice_mic_device': prefs.voice_mic_device or '',
             'voice_activation_word': os.getenv('VOICE_ACTIVATION_WORD', 'Hey HomeTasks').strip() or 'Hey HomeTasks',
             'voice_debug_log': os.getenv('VOICE_DEBUG_LOG', '').strip().lower() in ('1', 'true', 'yes'),
             'tuya_enabled': bool(prefs.tuya_enabled),
@@ -1383,15 +1385,16 @@ def voice_listen():
             return jsonify({'available': False, 'text': None, 'error': 'Server speech recognition not available (install SpeechRecognition and PyAudio)'}), 200
         data = request.get_json() or {}
         language = (data.get('language') or '').strip() or None
-        if not language:
-            db = get_db()
-            try:
-                prefs_repo = PreferencesRepository(db)
-                prefs = prefs_repo.get_or_create()
+        # The mic device always comes from saved preferences (kiosk has no .env access).
+        db = get_db()
+        try:
+            prefs = PreferencesRepository(db).get_or_create()
+            if not language:
                 language = (prefs.voice_language or 'ro-RO').strip() or 'ro-RO'
-            finally:
-                db.close()
-        text, err = voice_service.record_and_recognize_once(language=language, timeout_seconds=6, phrase_time_limit=8)
+            device = (prefs.voice_mic_device or '').strip() or None
+        finally:
+            db.close()
+        text, err = voice_service.record_and_recognize_once(language=language, timeout_seconds=6, phrase_time_limit=8, device=device)
         return jsonify({'available': True, 'text': text, 'error': err})
     except Exception as e:
         logger.exception("voice/listen failed")
@@ -1412,6 +1415,19 @@ def voice_server_available():
     mic_avail = getattr(voice_service, 'speech_recognition_available', False)
     tts_avail = _server_tts_available()
     return jsonify({'available': mic_avail, 'tts_available': tts_avail})
+
+
+@app.route('/api/voice/microphones', methods=['GET'])
+def voice_microphones():
+    """List capture devices so the kiosk can pick the mic from Settings (no .env)."""
+    available = getattr(voice_service, 'speech_recognition_available', False)
+    devices = voice_service.list_microphones() if available else []
+    db = get_db()
+    try:
+        selected = (PreferencesRepository(db).get_or_create().voice_mic_device or '').strip()
+    finally:
+        db.close()
+    return jsonify({'available': available, 'devices': devices, 'selected': selected})
 
 
 @app.route('/api/voice/speak', methods=['POST'])

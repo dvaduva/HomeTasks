@@ -54,6 +54,7 @@ export interface Preferences {
   voice_language: string;
   voice_sensitivity: number;
   voice_auto_start: boolean;
+  voice_mic_device: string;
   voice_activation_word: string;
   voice_debug_log: boolean;
   tuya_enabled: boolean;

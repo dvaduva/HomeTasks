@@ -8,6 +8,7 @@ import { useTts, voiceMatchesLang } from '@/composables/useTts';
 import { useI18n } from 'vue-i18n';
 import type { Preferences } from '@/api/types';
 import { wifiApi } from '@/api/wifi';
+import { voiceApi, type MicrophoneDevice } from '@/api/voice';
 import WiFiManager from '@/components/WiFiManager.vue';
 import KeyboardInput from '@/components/KeyboardInput.vue';
 
@@ -26,6 +27,10 @@ const tab = ref<Tab>('general');
 // Wi-Fi config is RPi-only: probe nmcli availability when the modal opens and
 // only surface the Network tab where it actually works.
 const wifiAvailable = ref(false);
+
+// Server-side microphone picker (RPi kiosk). Devices are listed only where the
+// server has a capture device; on dev/Windows the list stays empty and hidden.
+const microphones = ref<MicrophoneDevice[]>([]);
 
 const draft = ref<Partial<Preferences>>({});
 
@@ -50,6 +55,10 @@ watch(
         .status()
         .then((s) => (wifiAvailable.value = !!s.available))
         .catch(() => (wifiAvailable.value = false));
+      voiceApi
+        .microphones()
+        .then((m) => (microphones.value = m.available ? m.devices : []))
+        .catch(() => (microphones.value = []));
     }
   },
 );
@@ -307,6 +316,16 @@ async function renameUser(id: number, name: string, color: string): Promise<void
             <option value="en-US">{{ $t('opt_voice_en_us') }}</option>
             <option value="en-GB">{{ $t('opt_voice_en_gb') }}</option>
           </select>
+        </div>
+        <div v-if="microphones.length" class="form-group">
+          <label for="voice-mic">{{ $t('lbl_voice_mic') }}</label>
+          <select id="voice-mic" v-model="draft.voice_mic_device">
+            <option value="">{{ $t('opt_voice_mic_auto') }}</option>
+            <option v-for="m in microphones" :key="m.index" :value="m.name">
+              {{ m.name }}
+            </option>
+          </select>
+          <small class="form-hint">{{ $t('hint_voice_mic') }}</small>
         </div>
         <div class="form-group">
           <label for="tts-voice">{{ $t('lbl_tts_voice') }}</label>
