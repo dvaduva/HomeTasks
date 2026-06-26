@@ -28,11 +28,13 @@ class ChatProvider(Protocol):
         ...
 
 
-def http_error_message(status: int, provider: str) -> str:
+def http_error_message(status: int, provider: str, detail: str = '') -> str:
     """Map a provider HTTP status to a short, user-facing message.
 
     Cloud providers share these failure modes (bad key, quota, missing model);
     keeping the mapping here lets every provider surface the same wording.
+    ``detail`` (the backend's own error text, via :func:`error_detail`) is
+    appended when present so the real cause isn't lost behind a generic label.
     """
     mapping = {
         400: f"{provider}: bad request (check the selected model)",
@@ -42,10 +44,33 @@ def http_error_message(status: int, provider: str) -> str:
         429: f"{provider}: rate limit or quota exceeded",
     }
     if status in mapping:
-        return mapping[status]
-    if status >= 500:
-        return f"{provider}: service unavailable (HTTP {status})"
-    return f"{provider} API error (HTTP {status})"
+        base = mapping[status]
+    elif status >= 500:
+        base = f"{provider}: service unavailable (HTTP {status})"
+    else:
+        base = f"{provider} API error (HTTP {status})"
+    return f"{base} — {detail}" if detail else base
+
+
+def error_detail(response) -> str:
+    """Best-effort extraction of a backend's own error text from a failed response.
+
+    OpenAI-compatible and Gemini errors carry the real reason in the body
+    (``{"error": {"message": ...}}`` or ``{"error": "..."}``); fall back to a
+    trimmed raw-text snippet. Never raises — diagnostics must not mask the error.
+    """
+    try:
+        data = response.json()
+    except Exception:
+        text = (getattr(response, 'text', '') or '').strip()
+        return text[:300]
+    if isinstance(data, dict):
+        err = data.get('error', data.get('message', ''))
+        if isinstance(err, dict):
+            err = err.get('message') or err.get('code') or ''
+        if err:
+            return str(err)[:300]
+    return ''
 
 
 def normalize_reply(raw: Dict, default_model: str = '') -> Dict:

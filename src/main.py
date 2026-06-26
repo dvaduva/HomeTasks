@@ -638,6 +638,22 @@ def _build_system_prompt(action_context: str = None) -> str:
     return system_content
 
 
+def _as_float(value, default: float) -> float:
+    """Best-effort float coercion, falling back to ``default`` on bad input."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_int(value, default: int) -> int:
+    """Best-effort int coercion (tolerates ``\"500\"`` and ``500.0``)."""
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
     try:
@@ -658,9 +674,14 @@ def ai_chat():
             prefs_repo = PreferencesRepository(db)
             prefs = prefs_repo.get_or_create()
             if temperature is None:
-                temperature = float(prefs.ai_temperature or 0.7)
+                temperature = prefs.ai_temperature or 0.7
             if max_tokens is None:
-                max_tokens = int(prefs.ai_max_tokens or 500)
+                max_tokens = prefs.ai_max_tokens or 500
+            # Coerce to real numbers: the request body / prefs may carry strings
+            # (HTML inputs serialize as text), but strict cloud providers reject a
+            # string temperature/max_tokens (Ollama tolerated it).
+            temperature = _as_float(temperature, 0.7)
+            max_tokens = _as_int(max_tokens, 500)
 
             # Resolve the provider while prefs is loaded; it captures the
             # base_url/model now and needs no DB access afterwards.

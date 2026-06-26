@@ -12,7 +12,7 @@ from typing import Dict, List
 
 import requests
 
-from ai.base import http_error_message, normalize_reply
+from ai.base import error_detail, http_error_message, normalize_reply
 
 
 class OpenAICompatProvider:
@@ -44,7 +44,8 @@ class OpenAICompatProvider:
             response = requests.post(url, json=payload, headers=self._headers(),
                                      timeout=self.timeout)
             if response.status_code >= 400:
-                raise Exception(http_error_message(response.status_code, self.name))
+                raise Exception(http_error_message(
+                    response.status_code, self.name, error_detail(response)))
             data = response.json()
         except requests.exceptions.Timeout:
             raise Exception(f"{self.name}: request timed out")
@@ -61,7 +62,8 @@ class OpenAICompatProvider:
         try:
             response = requests.get(url, headers=self._headers(), timeout=self.timeout)
             if response.status_code >= 400:
-                raise Exception(http_error_message(response.status_code, self.name))
+                raise Exception(http_error_message(
+                    response.status_code, self.name, error_detail(response)))
             data = response.json()
         except requests.exceptions.Timeout:
             raise Exception(f"{self.name}: request timed out")
