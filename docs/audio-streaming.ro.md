@@ -462,7 +462,7 @@ pactl list modules short | grep -i blue     # module-bluetooth-discover/policy
 
 **5. Serviciul HomeTasks** ([deploy/hometasks.service](../deploy/hometasks.service))
 include deja tot ce trebuie pentru BT/audio:
-- `SupplementaryGroups=bluetooth pulse-access` — acces BlueZ + socket Pulse;
+- `SupplementaryGroups=bluetooth pulse-access audio` — acces BlueZ + socket Pulse + placa de captură ALSA (microfonul USB pentru recunoaștere vocală);
 - `Environment="PULSE_SERVER=unix:/run/pulse/native"` — redare fără sesiune de login;
 - `PATH=...:/usr/bin:/bin` — altfel `shutil.which` nu găsește `bluetoothctl/pactl/mpv` și UI-ul **ascunde** partea de BT (`available=false`);
 - `LogsDirectory=hometasks` — recreează `/var/log/hometasks` la fiecare pornire (altfel gunicorn moare la boot cu „error.log isn't writable").
@@ -473,6 +473,25 @@ include deja tot ce trebuie pentru BT/audio:
 > **Notă (deja în cod):** numele sink-ului A2DP diferă după stack — PulseAudio 14
 > dă `bluez_sink.<MAC>.a2dp_sink`, PipeWire dă `bluez_output.<MAC>...`.
 > `bt/service.py` le acceptă pe ambele (`SINK_PREFIXES`), nu trebuie nimic.
+
+> **Microfon (recunoaștere vocală pe server):** pe RPi headless dispozitivul ALSA
+> `default` nu e de obicei microfonul USB, iar serviciul trebuie să fie în grupul
+> `audio` (vezi mai sus) pentru acces direct la placa de captură. Lipsa lui se
+> manifestă printr-o eroare derutantă — `'NoneType' object has no attribute 'close'`
+> (PyAudio nu deschide stream-ul, iar `SpeechRecognition` cade la curățare). Alege
+> microfonul în `.env`:
+> ```sh
+> # listează dispozitivele și indexul lor
+> python3 -c "import speech_recognition as sr; [print(i,n) for i,n in enumerate(sr.Microphone.list_microphone_names())]"
+> ```
+> apoi setează `VOICE_MIC_DEVICE_INDEX=<index>` (ex. `1`) sau, mai robust la
+> re-enumerare, `VOICE_MIC_DEVICE_NAME=USB`. Verifică-l ca `pi`:
+> ```sh
+> python3 -c "import speech_recognition as sr; r=sr.Recognizer(); m=sr.Microphone(device_index=1)
+> import sys
+> with m as s: r.adjust_for_ambient_noise(s, duration=0.5)
+> print('MIC OK')" 2>/dev/null
+> ```
 
 **6. Împerecherea boxei (din interfață, recomandat):** în Radio, lângă selectorul
 de destinație, apare butonul „Boxe Bluetooth" (doar dacă `available=true`, adică pe

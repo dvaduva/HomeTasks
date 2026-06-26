@@ -8,8 +8,9 @@ User=pi
 Group=pi
 # bluetooth: D-Bus access to BlueZ (bluetoothctl connect/scan from the UI).
 # pulse-access: connect to the system-mode PulseAudio socket for A2DP playback.
+# audio: direct ALSA access to the USB capture device (voice recognition mic).
 # netdev: polkit grants NetworkManager management to this group (Wi-Fi from the UI).
-SupplementaryGroups=bluetooth pulse-access netdev
+SupplementaryGroups=bluetooth pulse-access audio netdev
 WorkingDirectory=/home/pi/HomeTasks
 # systemd creates/owns /var/log/hometasks on each start (gunicorn writes
 # access.log/error.log there); /var/log can be cleared on reboot otherwise.

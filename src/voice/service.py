@@ -4,12 +4,45 @@ Handles speech recognition and text-to-speech functionality.
 """
 
 import logging
+import os
 import threading
 import queue
 import time
 from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_mic_device_index() -> Optional[int]:
+    """Pick the capture device for SpeechRecognition.
+
+    On a headless RPi the ALSA ``default`` device often isn't the USB mic, so we
+    let the deploy point at the right one via .env:
+      - VOICE_MIC_DEVICE_INDEX — explicit PortAudio index (wins if set);
+      - VOICE_MIC_DEVICE_NAME  — case-insensitive substring matched against the
+        device list (e.g. "USB"), robust to index shuffles across reboots.
+    Returns None (system default) when neither is set — keeps dev/Windows as-is.
+    """
+    idx = os.getenv("VOICE_MIC_DEVICE_INDEX", "").strip()
+    if idx:
+        try:
+            return int(idx)
+        except ValueError:
+            logger.warning("VOICE_MIC_DEVICE_INDEX=%r is not an integer; ignoring", idx)
+
+    name = os.getenv("VOICE_MIC_DEVICE_NAME", "").strip()
+    if not name:
+        return None
+    try:
+        import speech_recognition as sr
+        for i, device_name in enumerate(sr.Microphone.list_microphone_names()):
+            if name.lower() in device_name.lower():
+                logger.info("Mic device matched '%s' -> index %d (%s)", name, i, device_name)
+                return i
+        logger.warning("No mic device matched VOICE_MIC_DEVICE_NAME=%r; using system default", name)
+    except Exception as e:
+        logger.warning("Mic device name resolution failed: %s", e)
+    return None
 
 class VoiceService:
     """Service for handling voice commands and speech synthesis."""
@@ -27,9 +60,10 @@ class VoiceService:
         try:
             import speech_recognition as sr
             self.recognizer = sr.Recognizer()
-            self.microphone = sr.Microphone()
+            self.mic_device_index = _resolve_mic_device_index()
+            self.microphone = sr.Microphone(device_index=self.mic_device_index)
             self.speech_recognition_available = True
-            logger.info("Speech recognition initialized successfully")
+            logger.info("Speech recognition initialized (mic device index: %s)", self.mic_device_index)
         except ImportError:
             logger.warning("SpeechRecognition library not available. Voice input disabled.")
         except Exception as e:
@@ -202,6 +236,16 @@ class VoiceService:
             msg = str(e).lower()
             if "portaudio" in msg or "invalid input device" in msg or "9996" in msg:
                 return None, "Microfon indisponibil (verifică arecord -l și ~/.asoundrc)"
+            logger.exception("record_and_recognize_once failed")
+            return None, str(e)
+        except AttributeError as e:
+            # SpeechRecognition's Microphone.__enter__ swallows a failed
+            # PyAudio open() and leaves stream=None, so cleanup raises
+            # "'NoneType' object has no attribute 'close'". That really means
+            # the capture device couldn't be opened (wrong device / no access).
+            if "nonetype" in str(e).lower():
+                logger.warning("Microphone open failed (stream is None): %s", e)
+                return None, "Microfon indisponibil — nu s-a putut deschide dispozitivul (vezi VOICE_MIC_DEVICE_INDEX/NAME și grupul 'audio')"
             logger.exception("record_and_recognize_once failed")
             return None, str(e)
         except Exception as e:
