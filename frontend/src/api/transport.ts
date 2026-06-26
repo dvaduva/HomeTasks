@@ -9,12 +9,18 @@ export interface TransportRoute {
   departures: Record<string, Record<string, TransportSchedule>>;
 }
 
+export interface ChatHistoryTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface TransportChatRequest {
   message: string;
   route: string;
   station: string;
   dayType: string;
   currentTime: string;
+  history?: ChatHistoryTurn[];
 }
 
 export interface TransportChatResponse {

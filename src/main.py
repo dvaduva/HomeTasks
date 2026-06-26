@@ -654,6 +654,30 @@ def _as_int(value, default: int) -> int:
         return default
 
 
+def _coerce_history(raw, limit: int = 5):
+    """Normalize a client-supplied chat history into provider turns.
+
+    The frontend sends its recent messages so context survives even when the
+    server runs multiple workers or restarts between turns (the in-memory
+    singleton can't be shared across processes). Accepts a list of
+    ``{role, content|text}`` dicts, maps the UI's ``'ai'`` role to
+    ``'assistant'``, keeps only non-empty user/assistant turns, and returns at
+    most the last ``limit``. Anything malformed is dropped so a bad payload
+    can't break the chat route.
+    """
+    if not isinstance(raw, list):
+        return []
+    turns = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        role = 'assistant' if item.get('role') == 'ai' else item.get('role')
+        content = item.get('content') or item.get('text')
+        if role in ('user', 'assistant') and content:
+            turns.append({'role': role, 'content': str(content)})
+    return turns[-limit:]
+
+
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
     try:
@@ -664,6 +688,8 @@ def ai_chat():
         message = data['message']
         temperature = data.get('temperature')
         max_tokens = data.get('max_tokens')
+        # Recent turns supplied by the client (robust to multi-worker / restarts).
+        recent_history = _coerce_history(data.get('history'))
 
         action_result = None
         action_context = None
@@ -745,15 +771,21 @@ def ai_chat():
                                 'action_data': action_data, 'model': 'none', 'done': True})
             return jsonify({'error': 'AI provider is not running or not accessible'}), 503
 
-        # Providers are stateless: keep context in the shared history manager.
-        conversation_history.add('user', message)
+        # Providers are stateless: context comes from the client's recent turns
+        # when supplied, otherwise from the shared in-memory history manager.
         messages = [{'role': 'system', 'content': _build_system_prompt(action_context)}]
-        messages.extend(conversation_history.messages())
+        if recent_history:
+            messages.extend(recent_history)
+            messages.append({'role': 'user', 'content': message})
+        else:
+            conversation_history.add('user', message)
+            messages.extend(conversation_history.messages())
 
         result = provider.chat(messages, temperature=temperature, max_tokens=max_tokens)
 
         assistant_message = result.get("message", {}).get("content", "")
-        conversation_history.add('assistant', assistant_message)
+        if not recent_history:
+            conversation_history.add('assistant', assistant_message)
 
         return jsonify({
             'response': assistant_message,
@@ -2192,13 +2224,26 @@ def transport_chat():
         station = data.get('station', '')
         day_type = data.get('dayType', 'Lucru')
         current_time = data.get('currentTime', '')
+        # Recent turns supplied by the client give the conversation context.
+        recent_history = _coerce_history(data.get('history'))
 
         context_parts = [
-            "Ești un asistent pentru transportul public din zona Popești-Leordeni - București.",
-            f"Ora curentă: {current_time}, Tip zi: {day_type}.",
-            f"Ruta selectată: {route_dir}, Stația selectată: {station}.",
-            "Răspunde concis, în română. Dacă ești întrebat despre ore, afișează-le clar în format HH:MM.",
+            "Ești asistentul oficial pentru transportul public din zona Popești-Leordeni - București.",
+            f"Ora curentă: {current_time}. Tip de zi: {day_type}.",
+            f"Context din interfață - rută selectată: {route_dir or '(niciuna)'}, stație selectată: {station or '(niciuna)'}.",
+            "AI ACCES COMPLET la programul de plecări de mai jos, extras din baza de date a aplicației. "
+            "Răspunde DIRECT folosind aceste date - NU trimite utilizatorul către programul oficial, alte surse sau site-uri externe; tu ești sursa oficială. "
+            "Dacă întrebarea nu menționează explicit linia sau stația, presupune că se referă la ruta și stația selectate din interfață (de mai sus). "
+            "Pentru «primul autobuz» folosește prima oră din program, pentru «ultimul» pe ultima. Afișează orele în format HH:MM. "
+            "Dacă pentru stația/linia cerută nu apar ore mai jos, spune clar că nu ai datele pentru acea stație și cere o stație din liste. "
+            "Răspunde concis, în română.",
         ]
+
+        # Schedules are per-station, so include the selected station plus any
+        # station the user named in the message — otherwise a question about a
+        # station other than the one selected in the UI has no times in context
+        # and the model wrongly deflects to "consult the official schedule".
+        msg_upper = message.upper()
 
         data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'autobus')
         for filename in sorted(os.listdir(data_dir)):
@@ -2210,19 +2255,20 @@ def transport_chat():
                 f"Linia {rd['route']} ({rd['direction']}): stații: {', '.join(rd['stations_order'])}."
             )
             deps = rd.get('departures', {})
-            if station and station in deps:
-                st_sched = deps[station].get(day_type, {})
-                times_summary = []
+            relevant = [s for s in rd['stations_order']
+                        if s in deps and (s == station or s in msg_upper)]
+            for st_name in relevant:
+                st_sched = deps[st_name].get(day_type, {})
                 for key, hours in st_sched.items():
-                    if key in ('first_checkpoint', 'second_checkpoint'):
+                    if key in ('first_checkpoint', 'second_checkpoint') or not isinstance(hours, dict):
                         continue
-                    label = 'SOSIRE' if key == 'arrival_times' else key
-                    if isinstance(hours, dict):
-                        for h, mins in sorted(hours.items(), key=lambda x: int(x[0])):
-                            times_summary.append(f"{h}:{','.join(mins)}")
-                if times_summary:
+                    times = [f"{int(h):02d}:{','.join(mins)}"
+                             for h, mins in sorted(hours.items(), key=lambda x: int(x[0]))]
+                    if not times:
+                        continue
+                    label = 'sosiri' if key == 'arrival_times' else f"plecări spre {key}"
                     context_parts.append(
-                        f"Ore din stația {station} pe linia {rd['route']} ({day_type}): {'; '.join(times_summary[:40])}"
+                        f"Linia {rd['route']} - {label} din stația {st_name} ({day_type}): {'; '.join(times[:40])}"
                     )
 
         transport_context = "\n".join(context_parts)
@@ -2240,11 +2286,14 @@ def transport_chat():
                 'done': True
             })
 
-        # Stateless single-shot turn — transport chat keeps no shared history.
-        messages = [
-            {'role': 'system', 'content': _build_system_prompt(transport_context)},
-            {'role': 'user', 'content': message},
-        ]
+        # Use the transport context directly as the system prompt: wrapping it in
+        # the generic HomeTasks prompt framed the schedule as secondary "action
+        # context", which made the model deflect instead of answering from it.
+        # Conversation context comes from the client's recent turns (providers
+        # are stateless).
+        messages = [{'role': 'system', 'content': transport_context}]
+        messages.extend(recent_history)
+        messages.append({'role': 'user', 'content': message})
         result = provider.chat(messages, temperature=0.3, max_tokens=500)
 
         return jsonify({

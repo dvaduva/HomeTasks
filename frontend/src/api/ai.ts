@@ -32,9 +32,16 @@ export interface AiModel {
   size?: number;
 }
 
+export interface ChatHistoryTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export const aiApi = {
-  chat: (message: string, opts?: { temperature?: number; max_tokens?: number }) =>
-    api.post<AiChatResponse>('/api/ai/chat', { message, ...opts }),
+  chat: (
+    message: string,
+    opts?: { temperature?: number; max_tokens?: number; history?: ChatHistoryTurn[] },
+  ) => api.post<AiChatResponse>('/api/ai/chat', { message, ...opts }),
   models: (provider?: string) =>
     api.get<{ provider?: string; models: AiModel[] }>('/api/ai/models', {
       query: provider ? { provider } : undefined,

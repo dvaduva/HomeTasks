@@ -16,6 +16,7 @@ vi.mock('@/api/preferences', () => ({
 import { mountWithPlugins } from '@/test/mountWithPlugins';
 import TransportView from './TransportView.vue';
 import { transportApi } from '@/api/transport';
+import { useVoiceTargetStore } from '@/stores/voiceTarget';
 
 const ROUTE = {
   route: '101',
@@ -100,9 +101,10 @@ describe('TransportView.vue', () => {
     await flush();
 
     expect(transportApi.chat).toHaveBeenCalled();
+    // Assistant bubbles carry a trailing 🔊 TTS icon, so match by substring.
     const bubbles = wrapper.findAll('.tp-ai-bubble').map((b) => b.text());
-    expect(bubbles).toContain('Când vine?');
-    expect(bubbles).toContain('Următorul la 09:15.');
+    expect(bubbles.some((t) => t.includes('Când vine?'))).toBe(true);
+    expect(bubbles.some((t) => t.includes('Următorul la 09:15.'))).toBe(true);
   });
 
   it('shows an error when route loading fails', async () => {
@@ -112,10 +114,48 @@ describe('TransportView.vue', () => {
     expect(wrapper.find('.tp-error').text()).toContain('offline');
   });
 
-  it('disables the voice button when no mic is available', async () => {
+  it('routes a global voice command to the transport chat while mounted', async () => {
     const wrapper = mountWithPlugins(TransportView);
     await flush();
-    // No browser SR in jsdom and serverAvailable=false → disabled.
-    expect(wrapper.find('.tp-voice-btn').attributes('disabled')).toBeDefined();
+    // The unified mic lives in the global VoiceController; the view claims voice
+    // by registering a handler on the shared store. There is no in-page mic.
+    expect(wrapper.find('.tp-voice-btn').exists()).toBe(false);
+
+    const voiceTarget = useVoiceTargetStore();
+    expect(voiceTarget.dispatch('Când vine?')).toBe(true);
+    await flush();
+
+    expect(transportApi.chat).toHaveBeenCalled();
+    expect(wrapper.find('.tp-ai-panel').classes()).toContain('open');
+
+    // Handler is released when the view unmounts, falling back to general AI.
+    wrapper.unmount();
+    expect(voiceTarget.dispatch('orice')).toBe(false);
+  });
+
+  it('reads the assistant reply aloud after a voice command', async () => {
+    const speak = vi.fn();
+    (window as any).speechSynthesis = { cancel: vi.fn(), speak };
+    (window as any).SpeechSynthesisUtterance = class {
+      text: string;
+      lang = '';
+      constructor(t: string) { this.text = t; }
+    };
+    try {
+      const wrapper = mountWithPlugins(TransportView);
+      await flush();
+
+      useVoiceTargetStore().dispatch('Când vine?');
+      await flush();
+
+      // serverTtsAvailable is false in tests, so it falls back to the browser
+      // SpeechSynthesis path with the reply text.
+      expect(speak).toHaveBeenCalledTimes(1);
+      expect(speak.mock.calls[0][0].text).toBe('Următorul la 09:15.');
+      wrapper.unmount();
+    } finally {
+      delete (window as any).speechSynthesis;
+      delete (window as any).SpeechSynthesisUtterance;
+    }
   });
 });

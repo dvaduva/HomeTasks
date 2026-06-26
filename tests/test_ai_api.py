@@ -90,6 +90,38 @@ def test_chat_builds_messages_with_system_and_history(client, monkeypatch):
     assert messages[-1] == {'role': 'user', 'content': 'salut'}
 
 
+def test_chat_uses_client_history_for_context(client, monkeypatch):
+    captured = {}
+    _use_provider(monkeypatch, FakeProvider(capture=captured))
+    body = {
+        'message': 'și mâine?',
+        'history': [
+            {'role': 'user', 'text': 'ce vreme e azi?'},
+            {'role': 'ai', 'text': 'E însorit.'},  # UI role gets mapped to assistant
+        ],
+    }
+    resp = _post(client, '/api/ai/chat', body)
+    assert resp.status_code == 200
+    messages = captured['messages']
+    assert messages[0]['role'] == 'system'
+    assert messages[1] == {'role': 'user', 'content': 'ce vreme e azi?'}
+    assert messages[2] == {'role': 'assistant', 'content': 'E însorit.'}
+    assert messages[-1] == {'role': 'user', 'content': 'și mâine?'}
+    # Client-driven turns must not also accumulate in the shared singleton.
+    assert main.conversation_history.messages() == []
+
+
+def test_chat_history_is_capped_at_five_turns(client, monkeypatch):
+    captured = {}
+    _use_provider(monkeypatch, FakeProvider(capture=captured))
+    history = [{'role': 'user', 'text': f'm{i}'} for i in range(8)]
+    resp = _post(client, '/api/ai/chat', {'message': 'acum', 'history': history})
+    assert resp.status_code == 200
+    # system + 5 history turns + current message
+    contents = [m['content'] for m in captured['messages']]
+    assert contents[1:] == ['m3', 'm4', 'm5', 'm6', 'm7', 'acum']
+
+
 def test_chat_passes_explicit_temperature_and_max_tokens(client, monkeypatch):
     captured = {}
     _use_provider(monkeypatch, FakeProvider(capture=captured))

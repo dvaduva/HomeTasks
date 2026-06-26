@@ -71,3 +71,39 @@ def test_chat_ok(client, monkeypatch):
     assert system_msg['role'] == 'system'
     assert 'transportul public' in system_msg['content']
     assert captured['temperature'] == 0.3
+
+
+def test_chat_includes_schedule_for_station_named_in_message(client, monkeypatch):
+    # No station selected in the UI, but the message names one — its departure
+    # times must still land in the system context so the model can answer.
+    captured = {}
+    monkeypatch.setattr(main, 'get_provider',
+                        lambda prefs: FakeProvider(reply='05:00.', capture=captured))
+    resp = _post(client, '/api/transport/chat',
+                 {'message': 'Când pleacă primul 440 din stația Leordeni?',
+                  'station': '', 'dayType': 'Lucru', 'currentTime': '04:30'})
+    assert resp.status_code == 200
+    system = captured['messages'][0]['content']
+    assert 'LEORDENI' in system
+    assert 'din stația LEORDENI' in system  # a schedule block, not just the stop list
+
+
+def test_chat_uses_client_history_for_context(client, monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, 'get_provider',
+                        lambda prefs: FakeProvider(reply='La 08:30.', capture=captured))
+    body = {
+        'message': 'și următorul?',
+        'route': '101', 'station': 'Centru', 'dayType': 'Lucru', 'currentTime': '08:00',
+        'history': [
+            {'role': 'user', 'content': 'când vine?'},
+            {'role': 'assistant', 'content': 'La 08:15.'},
+        ],
+    }
+    resp = _post(client, '/api/transport/chat', body)
+    assert resp.status_code == 200
+    messages = captured['messages']
+    assert messages[0]['role'] == 'system'
+    assert messages[1] == {'role': 'user', 'content': 'când vine?'}
+    assert messages[2] == {'role': 'assistant', 'content': 'La 08:15.'}
+    assert messages[-1] == {'role': 'user', 'content': 'și următorul?'}

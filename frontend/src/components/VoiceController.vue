@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { voiceApi } from '@/api/voice';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useAiStore } from '@/stores/ai';
+import { useVoiceTargetStore } from '@/stores/voiceTarget';
 import { useNotification } from '@/composables/useNotification';
 import { useTts } from '@/composables/useTts';
 import { useI18n } from 'vue-i18n';
@@ -28,6 +29,7 @@ const SRCtor: (new () => SpeechRecognitionLike) | undefined =
 
 const prefs = usePreferencesStore();
 const ai = useAiStore();
+const voiceTarget = useVoiceTargetStore();
 const { error: errorToast, toast } = useNotification();
 const { speak: speakReply } = useTts();
 const { t } = useI18n();
@@ -124,6 +126,10 @@ async function runOneShot(): Promise<void> {
       r.lang = language.value;
       r.onresult = (ev: any) => {
         const transcript = ev.results[0][0].transcript.trim();
+        // A mounted view (e.g. Transport) can claim voice commands and handle
+        // them with its own contextual assistant; otherwise fall back to the
+        // general AI chat.
+        if (voiceTarget.dispatch(transcript)) return;
         ai.setOpen(true);
         // Voice-triggered replies are read back aloud (legacy parity); skip on
         // error so we don't speak the failure text.
@@ -171,9 +177,13 @@ async function toggleListen(): Promise<void> {
     try {
       const res = await voiceApi.listen(language.value);
       if (res.text) {
-        ai.setOpen(true);
-        const reply = await ai.send(res.text);
-        if (!ai.error) void speakReply(reply);
+        // Route to the active view's assistant when one is mounted (Transport),
+        // else the general AI chat.
+        if (!voiceTarget.dispatch(res.text)) {
+          ai.setOpen(true);
+          const reply = await ai.send(res.text);
+          if (!ai.error) void speakReply(reply);
+        }
       } else if (res.error) {
         errorToast(res.error);
       }

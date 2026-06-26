@@ -66,38 +66,6 @@
     letter-spacing: .3px;
 }
 
-.tp-voice-btn {
-    background: rgba(255,255,255,.15);
-    border: none;
-    border-radius: 6px;
-    color: white;
-    cursor: pointer;
-    padding: 6px 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background .15s;
-}
-.tp-voice-btn:hover { background: rgba(255,255,255,.25); }
-.tp-voice-btn.listening {
-    background: var(--green);
-    animation: tp-voice-pulse 1.2s ease-in-out infinite;
-}
-@keyframes tp-voice-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: .85; }
-}
-.tp-voice-btn:disabled,
-.tp-voice-btn[aria-disabled="true"] {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-.tp-voice-status {
-    font-size: 11px;
-    opacity: .85;
-    white-space: nowrap;
-}
-
 .tp-voice-feedback {
     position: fixed;
     top: 68px;
@@ -733,6 +701,16 @@
 .tp-ai-assistant .tp-ai-bubble:hover {
     background: var(--gray-200);
     transform: translateY(-1px);
+}
+
+.tp-ai-tts-icon {
+    font-size: 11px;
+    opacity: 0.45;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+.tp-ai-assistant .tp-ai-bubble:hover .tp-ai-tts-icon {
+    opacity: 1;
 }
 
 .tp-ai-thinking .tp-ai-bubble {

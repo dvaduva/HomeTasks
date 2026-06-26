@@ -4,6 +4,7 @@ import { transportApi } from '@/api/transport';
 import type { TransportRoute } from '@/api/transport';
 import { voiceApi } from '@/api/voice';
 import { usePreferencesStore } from '@/stores/preferences';
+import { useVoiceTargetStore } from '@/stores/voiceTarget';
 import { useNow } from '@/composables/useDateTime';
 import '@/assets/css/transport.css';
 
@@ -16,6 +17,7 @@ const DAY_BADGE_LABELS: Record<DayType, string> = {
 };
 
 const prefs = usePreferencesStore();
+const voiceTarget = useVoiceTargetStore();
 const now = useNow(1000);
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -262,12 +264,20 @@ function scrollAiToBottom(): void {
   });
 }
 
-async function sendMessage(): Promise<void> {
+// Returns the assistant's reply text (empty on error/no-op) so voice-triggered
+// sends can read it back aloud.
+async function sendMessage(): Promise<string> {
   const message = aiInput.value.trim();
-  if (!message || aiSending.value) return;
+  if (!message || aiSending.value) return '';
 
   aiInput.value = '';
   aiSending.value = true;
+  // Last 5 real turns (excluding the transient "thinking" placeholder) give the
+  // backend conversational context — providers are stateless.
+  const history = aiMessages.value
+    .filter((m) => !m.thinking)
+    .slice(-5)
+    .map((m) => ({ role: m.role, content: m.text }));
   aiMessages.value.push({ id: ++aiMsgId, role: 'user', text: message });
   const thinkingId = ++aiMsgId;
   aiMessages.value.push({ id: thinkingId, role: 'assistant', text: 'Se gândește…', thinking: true });
@@ -276,6 +286,7 @@ async function sendMessage(): Promise<void> {
   const route = activeRoute.value;
   const currentTime = `${pad2(now.value.getHours())}:${pad2(now.value.getMinutes())}`;
 
+  let reply = '';
   try {
     const data = await transportApi.chat({
       message,
@@ -283,15 +294,17 @@ async function sendMessage(): Promise<void> {
       station: activeStation.value || '',
       dayType: dayType.value,
       currentTime,
+      history,
     });
     aiMessages.value = aiMessages.value.filter((m) => m.id !== thinkingId);
     if (data.error) {
       aiMessages.value.push({ id: ++aiMsgId, role: 'assistant', text: `Eroare: ${data.error}` });
     } else {
+      reply = data.response || '';
       aiMessages.value.push({
         id: ++aiMsgId,
         role: 'assistant',
-        text: data.response || '(fără răspuns)',
+        text: reply || '(fără răspuns)',
       });
     }
   } catch (e) {
@@ -303,30 +316,20 @@ async function sendMessage(): Promise<void> {
     scrollAiToBottom();
     nextTick(() => aiInputEl.value?.focus());
   }
+  return reply;
 }
 
 // ── Voice ────────────────────────────────────────────────────────────────────
-const VOICE_STRINGS = {
-  inactive: 'Inactiv',
-  available: 'Disponibil',
-  listening: 'Ascult...',
-  mic_unavailable: 'Microfon indisponibil',
-  mic_denied: 'Acces refuzat',
-  heard: 'Am auzit: ',
-  error: 'Eroare recunoaștere',
-};
+// Speech recognition lives in the single global VoiceController (footer mic);
+// this view only registers a handler so spoken commands reach the transport
+// assistant, plus TTS for reading replies aloud.
+const HEARD_PREFIX = 'Am auzit: ';
 
-const voiceStatus = ref(VOICE_STRINGS.inactive);
-const voiceListening = ref(false);
-const voiceDisabled = ref(false);
 const voiceFeedback = ref<{ message: string; error: boolean } | null>(null);
 
 let voiceLanguage = 'ro-RO';
-let serverMicAvailable = false;
 let serverTtsAvailable = false;
 let currentServerTtsAudio: HTMLAudioElement | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let currentRecognition: any = null;
 let feedbackTimer: number | null = null;
 
 function showVoiceFeedback(message: string, error: boolean): void {
@@ -382,113 +385,17 @@ function speakTransportText(text: string): void {
   window.speechSynthesis.speak(utter);
 }
 
-function processVoiceCommand(text: string): void {
+// Handler the global mic dispatches to while this view is mounted: drop the
+// spoken text into the transport chat, send it, and read the reply back aloud
+// (parity with the general AI voice flow).
+async function processVoiceCommand(text: string): Promise<void> {
   const clean = (text || '').trim();
   if (!clean) return;
   openAiPanel();
   aiInput.value = clean;
-  sendMessage();
-  showVoiceFeedback(VOICE_STRINGS.heard + clean, false);
-}
-
-function stopRecognition(): void {
-  if (currentRecognition) {
-    try {
-      currentRecognition.stop();
-    } catch {
-      /* ignore */
-    }
-    currentRecognition = null;
-  }
-}
-
-function getSpeechRecognition(): (new () => unknown) | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any;
-  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
-}
-
-function onVoiceClick(): void {
-  if (voiceDisabled.value) return;
-
-  if (voiceListening.value) {
-    stopRecognition();
-    voiceListening.value = false;
-    voiceStatus.value = VOICE_STRINGS.available;
-    return;
-  }
-
-  if (serverMicAvailable) {
-    voiceListening.value = true;
-    voiceStatus.value = VOICE_STRINGS.listening;
-    showVoiceFeedback(VOICE_STRINGS.listening, false);
-    voiceApi
-      .listen(voiceLanguage)
-      .then((data) => {
-        voiceListening.value = false;
-        voiceStatus.value = VOICE_STRINGS.available;
-        if (data.text && data.text.trim()) {
-          processVoiceCommand(data.text);
-        } else {
-          showVoiceFeedback(data.error || VOICE_STRINGS.error, true);
-        }
-      })
-      .catch((err) => {
-        voiceListening.value = false;
-        voiceStatus.value = VOICE_STRINGS.available;
-        showVoiceFeedback(VOICE_STRINGS.error + (err?.message || ''), true);
-      });
-    return;
-  }
-
-  const SpeechRecognition = getSpeechRecognition();
-  if (!SpeechRecognition) {
-    showVoiceFeedback(VOICE_STRINGS.mic_unavailable, true);
-    return;
-  }
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rec: any = new SpeechRecognition();
-    currentRecognition = rec;
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.lang = voiceLanguage;
-
-    rec.onresult = (event: { results: { [k: number]: { [k: number]: { transcript: string } } } }) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim() || '';
-      if (transcript) processVoiceCommand(transcript);
-      voiceListening.value = false;
-      voiceStatus.value = VOICE_STRINGS.available;
-      currentRecognition = null;
-    };
-    rec.onerror = (event: { error: string }) => {
-      voiceListening.value = false;
-      voiceStatus.value = VOICE_STRINGS.available;
-      currentRecognition = null;
-      if (event.error === 'not-allowed') voiceStatus.value = VOICE_STRINGS.mic_denied;
-      if (event.error !== 'aborted' && event.error !== 'no-speech') {
-        showVoiceFeedback(VOICE_STRINGS.error + (event.error || ''), true);
-      }
-    };
-    rec.onend = () => {
-      if (currentRecognition) {
-        voiceListening.value = false;
-        voiceStatus.value = VOICE_STRINGS.available;
-        currentRecognition = null;
-      }
-    };
-
-    rec.start();
-    voiceListening.value = true;
-    voiceStatus.value = VOICE_STRINGS.listening;
-    showVoiceFeedback(VOICE_STRINGS.listening, false);
-  } catch {
-    showVoiceFeedback(VOICE_STRINGS.error, true);
-    voiceListening.value = false;
-    voiceStatus.value = VOICE_STRINGS.available;
-    currentRecognition = null;
-  }
+  showVoiceFeedback(HEARD_PREFIX + clean, false);
+  const reply = await sendMessage();
+  if (reply) speakTransportText(reply);
 }
 
 async function initVoice(): Promise<void> {
@@ -500,19 +407,10 @@ async function initVoice(): Promise<void> {
   }
   try {
     const serverData = await voiceApi.serverAvailable();
-    serverMicAvailable = serverData.available === true;
     serverTtsAvailable = serverData.tts_available === true;
   } catch {
-    serverMicAvailable = false;
     serverTtsAvailable = false;
   }
-
-  if (!getSpeechRecognition() && !serverMicAvailable) {
-    voiceDisabled.value = true;
-    voiceStatus.value = VOICE_STRINGS.mic_unavailable;
-    return;
-  }
-  voiceStatus.value = VOICE_STRINGS.available;
 }
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
@@ -535,12 +433,14 @@ function onKeydown(e: KeyboardEvent): void {
 onMounted(() => {
   loadRoutes();
   initVoice();
+  // Claim the global mic so spoken commands reach the transport assistant.
+  voiceTarget.setHandler(processVoiceCommand);
   window.addEventListener('keydown', onKeydown);
 });
 
 onUnmounted(() => {
+  voiceTarget.clearHandler(processVoiceCommand);
   window.removeEventListener('keydown', onKeydown);
-  stopRecognition();
   if (feedbackTimer !== null) clearTimeout(feedbackTimer);
   if (currentServerTtsAudio) {
     try {
@@ -562,19 +462,6 @@ onUnmounted(() => {
       </div>
       <div class="tp-day-badge">{{ DAY_BADGE_LABELS[dayType] }}</div>
       <div class="tp-clock">{{ clock }}</div>
-      <button
-        type="button"
-        class="tp-voice-btn"
-        :class="{ listening: voiceListening }"
-        :disabled="voiceDisabled"
-        :aria-disabled="voiceDisabled"
-        :title="voiceListening ? 'Oprește ascultarea' : 'Comandă vocală'"
-        aria-label="Comandă vocală"
-        @click="onVoiceClick"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-      </button>
-      <span class="tp-voice-status" aria-live="polite">{{ voiceStatus }}</span>
       <button
         type="button"
         class="tp-ai-toggle"
@@ -763,7 +650,10 @@ onUnmounted(() => {
               class="tp-ai-bubble"
               :title="msg.role === 'assistant' && !msg.thinking ? 'Click pentru a asculta mesajul' : ''"
               @click="msg.role === 'assistant' && !msg.thinking && speakTransportText(msg.text)"
-            >{{ msg.text }}</div>
+            >{{ msg.text }}<span
+                v-if="msg.role === 'assistant' && !msg.thinking"
+                class="tp-ai-tts-icon"
+              >🔊</span></div>
           </div>
         </div>
         <div class="tp-ai-input-row">

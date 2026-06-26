@@ -44,6 +44,20 @@ describe('ai store', () => {
     expect(store.typing).toBe(false);
   });
 
+  it('send forwards the prior turns as history for context', async () => {
+    (aiApi.chat as any).mockResolvedValue({ response: 'azi e însorit' });
+    const store = useAiStore();
+    await store.send('ce vreme e azi?');
+    (aiApi.chat as any).mockResolvedValue({ response: 'mâine la fel' });
+    await store.send('și mâine?');
+    expect((aiApi.chat as any).mock.calls[1][1]).toMatchObject({
+      history: [
+        { role: 'user', content: 'ce vreme e azi?' },
+        { role: 'assistant', content: 'azi e însorit' },
+      ],
+    });
+  });
+
   it('send records an error and echoes it as an AI message', async () => {
     (aiApi.chat as any).mockRejectedValue(new Error('503 down'));
     const store = useAiStore();

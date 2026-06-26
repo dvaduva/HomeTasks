@@ -69,11 +69,18 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   async function send(text: string, opts?: { temperature?: number; max_tokens?: number }): Promise<string> {
+    // Last 5 turns before this message give the backend conversational context
+    // (providers are stateless and the server-side history isn't shared across
+    // workers/restarts).
+    const history = messages.value.slice(-5).map((m) => ({
+      role: m.role === 'ai' ? ('assistant' as const) : ('user' as const),
+      content: m.text,
+    }));
     push('user', text);
     typing.value = true;
     error.value = null;
     try {
-      const res = await aiApi.chat(text, opts);
+      const res = await aiApi.chat(text, { ...opts, history });
       if (res.action_data) void dispatchRadioAction(res.action_data);
       const reply = res.response || '';
       push('ai', reply);
