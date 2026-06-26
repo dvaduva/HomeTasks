@@ -4,6 +4,18 @@ vi.mock('@/api/ai', () => ({
   aiApi: { chat: vi.fn(), models: vi.fn() },
 }));
 
+const speakMock = vi.fn().mockResolvedValue(undefined);
+const stopMock = vi.fn();
+vi.mock('@/composables/useTts', () => ({
+  useTts: () => ({
+    serverTtsAvailable: { value: false },
+    speaking: { value: false },
+    speak: speakMock,
+    stop: stopMock,
+    ensureReady: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
 import { mountWithPlugins } from '@/test/mountWithPlugins';
 import AiChat from './AiChat.vue';
 import { aiApi } from '@/api/ai';
@@ -38,9 +50,24 @@ describe('AiChat.vue', () => {
     expect(aiApi.chat).toHaveBeenCalled();
     const bubbles = wrapper.findAll('.message p').map((p) => p.text());
     expect(bubbles).toContain('buna');
-    expect(bubbles).toContain('Salut!');
+    // AI bubbles carry a trailing 🔊 click-to-speak cue, so match on inclusion.
+    expect(bubbles.some((b) => b.includes('Salut!'))).toBe(true);
     // Input is cleared after sending.
     expect((wrapper.find('#chat-input').element as HTMLInputElement).value).toBe('');
+  });
+
+  it('reads an AI bubble aloud when clicked', async () => {
+    (aiApi.chat as any).mockResolvedValue({ response: 'Salut!' });
+    const wrapper = mountWithPlugins(AiChat);
+
+    await wrapper.find('#chat-input').setValue('buna');
+    await wrapper.find('form').trigger('submit');
+    await flush();
+
+    const aiBubbles = wrapper.findAll('.ai-message');
+    const aiBubble = aiBubbles[aiBubbles.length - 1];
+    await aiBubble.trigger('click');
+    expect(speakMock).toHaveBeenCalledWith('Salut!');
   });
 
   it('does not send an empty/whitespace message', async () => {

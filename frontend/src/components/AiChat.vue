@@ -1,17 +1,39 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue';
+import { nextTick, onMounted, ref, watch } from 'vue';
 import { useAiStore } from '@/stores/ai';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useNotification } from '@/composables/useNotification';
+import { useTts } from '@/composables/useTts';
 import { useI18n } from 'vue-i18n';
 
 const ai = useAiStore();
 const prefs = usePreferencesStore();
 const { error: errorToast } = useNotification();
+const { speak, stop, ensureReady } = useTts();
 const { t } = useI18n();
 
 const input = ref('');
 const messagesEl = ref<HTMLElement | null>(null);
+// Id of the assistant message currently being read aloud (drives the
+// "speaking" highlight and lets a second click stop playback).
+const speakingId = ref<number | null>(null);
+
+onMounted(() => { void ensureReady(); });
+
+// Click an assistant bubble to read it aloud; click again to stop.
+async function speakMessage(m: { id: number; text: string }): Promise<void> {
+  if (speakingId.value === m.id) {
+    stop();
+    speakingId.value = null;
+    return;
+  }
+  speakingId.value = m.id;
+  try {
+    await speak(m.text);
+  } finally {
+    if (speakingId.value === m.id) speakingId.value = null;
+  }
+}
 
 async function scrollToEnd(): Promise<void> {
   await nextTick();
@@ -61,9 +83,14 @@ function close(): void {
         v-for="m in ai.messages"
         :key="m.id"
         class="message"
-        :class="m.role === 'user' ? 'user-message' : 'ai-message'"
+        :class="[
+          m.role === 'user' ? 'user-message' : 'ai-message',
+          { speaking: m.role === 'ai' && speakingId === m.id },
+        ]"
+        :title="m.role === 'ai' ? t('tts_click_hint') : ''"
+        @click="m.role === 'ai' && speakMessage(m)"
       >
-        <p>{{ m.text }}</p>
+        <p>{{ m.text }}<span v-if="m.role === 'ai'" class="tts-icon">🔊</span></p>
       </div>
       <div v-if="ai.typing" class="message typing-indicator">
         <div class="ai-message"><p>{{ $t('ai_typing') }}</p></div>

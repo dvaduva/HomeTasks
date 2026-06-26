@@ -173,6 +173,7 @@ export default {
   opt_voice_en_us: 'Engleză (SUA)',
   opt_voice_en_gb: 'Engleză (UK)',
   lbl_tts_voice: 'Voce răspuns AI',
+  tts_voice_search: 'Caută voce...',
   opt_tts_auto: '— automat (limbă curentă) —',
   hint_tts_voices: 'Vocile disponibile depind de browser și sistemul de operare.',
   tts_no_voices_browser: 'Nicio voce în browser (pe acest dispozitiv se folosește TTS server).',

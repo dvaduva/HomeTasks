@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-25T15:55:38.327506+00:00",
+  "generated_at": "2026-06-26T05:21:48.852498+00:00",
   "devices": [
     {
       "id": "bf8423321cc1f58beb6fyy",
@@ -15,11 +15,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 281
+            "value": 280
           },
           {
             "code": "mode",
@@ -51,8 +51,8 @@
           }
         ],
         "success": true,
-        "t": 1782402939005,
-        "tid": "4fbabcf670ae11f1bbd84a2d28116f11"
+        "t": 1782451309939,
+        "tid": "ef0cb4ef711e11f1899e3a8bfca152ad"
       }
     },
     {
@@ -69,11 +69,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 266
+            "value": 253
           },
           {
             "code": "mode",
@@ -105,8 +105,8 @@
           }
         ],
         "success": true,
-        "t": 1782402940031,
-        "tid": "5056d55a70ae11f1899e3a8bfca152ad"
+        "t": 1782451310894,
+        "tid": "efa2c12b711e11f1899e3a8bfca152ad"
       }
     },
     {
@@ -127,7 +127,7 @@
           },
           {
             "code": "temp_current",
-            "value": 263
+            "value": 261
           },
           {
             "code": "mode",
@@ -159,8 +159,8 @@
           }
         ],
         "success": true,
-        "t": 1782402941007,
-        "tid": "50f12f9b70ae11f1899e3a8bfca152ad"
+        "t": 1782451311863,
+        "tid": "f037d792711e11f1899e3a8bfca152ad"
       }
     },
     {
@@ -177,11 +177,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 255
+            "value": 251
           },
           {
             "code": "mode",
@@ -213,8 +213,8 @@
           }
         ],
         "success": true,
-        "t": 1782402942076,
-        "tid": "518f079f70ae11f1a3fc1af992f77835"
+        "t": 1782451312846,
+        "tid": "f0cc17d8711e11f1bbd84a2d28116f11"
       }
     },
     {
@@ -231,11 +231,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 279
+            "value": 276
           },
           {
             "code": "mode",
@@ -267,8 +267,8 @@
           }
         ],
         "success": true,
-        "t": 1782402943032,
-        "tid": "5224e57d70ae11f1bbd84a2d28116f11"
+        "t": 1782451313782,
+        "tid": "f15c0f58711e11f1bbd84a2d28116f11"
       }
     },
     {
@@ -280,8 +280,8 @@
       "status": {
         "result": [],
         "success": true,
-        "t": 1782402944034,
-        "tid": "52b9ffab70ae11f1bbd84a2d28116f11"
+        "t": 1782451314793,
+        "tid": "f1f29ac6711e11f1831cf27409f1726b"
       }
     },
     {
@@ -298,11 +298,11 @@
           },
           {
             "code": "temp_set",
-            "value": 210
+            "value": 215
           },
           {
             "code": "temp_current",
-            "value": 276
+            "value": 274
           },
           {
             "code": "mode",
@@ -334,8 +334,8 @@
           }
         ],
         "success": true,
-        "t": 1782402944982,
-        "tid": "534de2da70ae11f1a3fc1af992f77835"
+        "t": 1782451315768,
+        "tid": "f28b983c711e11f1bbd84a2d28116f11"
       }
     }
   ]

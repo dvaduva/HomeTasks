@@ -4,6 +4,7 @@ import { voiceApi } from '@/api/voice';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useAiStore } from '@/stores/ai';
 import { useNotification } from '@/composables/useNotification';
+import { useTts } from '@/composables/useTts';
 import { useI18n } from 'vue-i18n';
 
 // Lightweight Vue port of the legacy voice subsystem.
@@ -28,6 +29,7 @@ const SRCtor: (new () => SpeechRecognitionLike) | undefined =
 const prefs = usePreferencesStore();
 const ai = useAiStore();
 const { error: errorToast, toast } = useNotification();
+const { speak: speakReply } = useTts();
 const { t } = useI18n();
 
 const serverMicAvailable = ref(false);
@@ -123,7 +125,9 @@ async function runOneShot(): Promise<void> {
       r.onresult = (ev: any) => {
         const transcript = ev.results[0][0].transcript.trim();
         ai.setOpen(true);
-        ai.send(transcript).catch(() => {/* error toast already in store */});
+        // Voice-triggered replies are read back aloud (legacy parity); skip on
+        // error so we don't speak the failure text.
+        ai.send(transcript).then((reply) => { if (!ai.error) void speakReply(reply); }).catch(() => {/* error toast already in store */});
       };
       r.onerror = (ev: any) => {
         if (ev.error === 'audio-capture') errorToast(t('voice_error_audio_capture'));
@@ -168,7 +172,8 @@ async function toggleListen(): Promise<void> {
       const res = await voiceApi.listen(language.value);
       if (res.text) {
         ai.setOpen(true);
-        await ai.send(res.text);
+        const reply = await ai.send(res.text);
+        if (!ai.error) void speakReply(reply);
       } else if (res.error) {
         errorToast(res.error);
       }

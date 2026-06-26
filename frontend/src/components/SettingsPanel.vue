@@ -4,6 +4,7 @@ import { useAiStore } from '@/stores/ai';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useUsersStore } from '@/stores/users';
 import { useNotification } from '@/composables/useNotification';
+import { useTts, voiceMatchesLang } from '@/composables/useTts';
 import { useI18n } from 'vue-i18n';
 import type { Preferences } from '@/api/types';
 import { wifiApi } from '@/api/wifi';
@@ -90,6 +91,27 @@ const voiceSens = computed({
   get: () => Number(draft.value.voice_sensitivity ?? 0.5),
   set: (v: number) => (draft.value.voice_sensitivity = v),
 });
+
+// Browser TTS voice picker (per-device, persisted in localStorage by useTts).
+const { voiceName: ttsVoiceName, voices: ttsVoices, loadVoices, setVoice } = useTts();
+const voiceSearch = ref('');
+const filteredVoices = computed(() => {
+  // Only voices for the selected language, then narrowed by the search box.
+  const lang = draft.value.voice_language || 'ro-RO';
+  const q = voiceSearch.value.trim().toLowerCase();
+  return ttsVoices.value.filter(
+    (v) =>
+      voiceMatchesLang(v.lang, lang) &&
+      (!q || `${v.name} ${v.lang}`.toLowerCase().includes(q)),
+  );
+});
+
+// Populate the voice list when the Voice tab is opened (getVoices() may be empty
+// until the first call wakes the engine).
+watch(
+  () => [props.open, tab.value] as const,
+  ([open, t]) => { if (open && t === 'voice') loadVoices(); },
+);
 
 async function loadModels(): Promise<void> {
   await ai.loadModels(draft.value.ai_provider);
@@ -285,6 +307,29 @@ async function renameUser(id: number, name: string, color: string): Promise<void
             <option value="en-US">{{ $t('opt_voice_en_us') }}</option>
             <option value="en-GB">{{ $t('opt_voice_en_gb') }}</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label for="tts-voice">{{ $t('lbl_tts_voice') }}</label>
+          <input
+            id="tts-voice-search"
+            v-model="voiceSearch"
+            type="search"
+            :placeholder="$t('tts_voice_search')"
+            autocomplete="off"
+          />
+          <select
+            id="tts-voice"
+            size="5"
+            :value="ttsVoiceName"
+            @change="setVoice(($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">{{ $t('opt_tts_auto') }}</option>
+            <option v-if="ttsVoices.length === 0" disabled>{{ $t('tts_no_voices_browser') }}</option>
+            <option v-for="v in filteredVoices" :key="v.name" :value="v.name">
+              {{ v.name }} ({{ v.lang }}){{ v.localService ? '' : ' ☁' }}
+            </option>
+          </select>
+          <small class="form-hint">{{ $t('hint_tts_voices') }}</small>
         </div>
         <div class="form-group">
           <label for="voice-sensitivity">{{ $t('lbl_sensitivity') }} <span>{{ voiceSens.toFixed(1) }}</span></label>

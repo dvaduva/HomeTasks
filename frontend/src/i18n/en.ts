@@ -169,6 +169,7 @@ export default {
   opt_voice_en_us: 'English (US)',
   opt_voice_en_gb: 'English (UK)',
   lbl_tts_voice: 'AI response voice',
+  tts_voice_search: 'Search voice...',
   opt_tts_auto: '— automatic (current language) —',
   hint_tts_voices: 'Available voices depend on browser and operating system.',
   tts_no_voices_browser: 'No browser voices (this device uses server TTS).',
