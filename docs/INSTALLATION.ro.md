@@ -89,7 +89,12 @@ python3 --version  # Trebuie să fie 3.9 sau mai nou
 Dacă nu aveți Python 3.9+:
 ```bash
 # Pe Raspberry Pi OS / Ubuntu/Debian
-sudo apt install python3 python3-pip -y
+sudo apt install python3 python3-pip python3-dev -y
+
+# Biblioteci de sistem necesare compilării PyAudio (microfon/comenzi vocale).
+# Fără ele, `pip install` eșuează cu „fatal error: portaudio.h: No such file or directory”,
+# deoarece pe RPi (aarch64) PyAudio se compilează din sursă.
+sudo apt install portaudio19-dev -y
 
 # Pe macOS (folosind Homebrew)
 # brew install python3
@@ -126,6 +131,12 @@ pip install -r requirements.txt
 ```
 
 Dependințele includ: Flask, SQLAlchemy, requests, python-dotenv, tinytuya (pentru integrare IoT Tuya), gunicorn (server producție), pytest, gTTS (TTS pe server pentru RPi kiosk).
+
+> **Notă (Raspberry Pi):** PyAudio nu are wheel precompilat pentru `aarch64`, deci
+> se compilează din sursă și are nevoie de header-ele PortAudio. Dacă `pip install`
+> eșuează cu `fatal error: portaudio.h: No such file or directory`, instalați întâi
+> pachetele de sistem `python3-dev` și `portaudio19-dev` (vezi mai sus), apoi reluați
+> `pip install -r requirements.txt`.
 
 ## Descărcarea și configurarea aplicației HomeTasks
 
@@ -435,8 +446,13 @@ Dacă aveți un ecran conectat la Raspberry Pi și doriți ca aplicația să se 
 
 1. Instalați Chromium dacă nu este deja instalat:
    ```bash
-   sudo apt install chromium-browser -y
+   sudo apt install chromium -y
    ```
+   > **Numele binarului diferă între versiuni:** pe Raspberry Pi OS **Bookworm/Trixie**
+   > pachetul și comanda sunt `chromium`. Pe **Bullseye** (și mai vechi) erau
+   > `chromium-browser`. Verificați ce aveți cu `which chromium` / `which chromium-browser`
+   > și folosiți numele corect în comanda `Exec=` de mai jos — dacă e greșit, autostart-ul
+   > eșuează în tăcere (browserul nu se deschide la pornire).
 
 2. Creați directorul autostart dacă nu există:
    ```bash
@@ -453,10 +469,15 @@ Dacă aveți un ecran conectat la Raspberry Pi și doriți ca aplicația să se 
    [Desktop Entry]
    Type=Application
    Name=HomeTasks Kiosk
-   Exec=bash -c "sleep 5 && chromium-browser --kiosk --alsa-output-device=plughw:CARD=Headphones,DEV=0 --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble http://localhost:5000/"
+   Exec=bash -c "sleep 5 && chromium --kiosk --touch-events=enabled --alsa-output-device=plughw:CARD=Headphones,DEV=0 --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble http://localhost:5000/"
    X-GNOME-Autostart-enabled=true
    ```
    > `sleep 5` asigură că serviciul `hometasks` pornește înainte de a deschide browserul.
+   >
+   > `--touch-events=enabled` este **esențial pe ecranele tactile**: fără el, Chromium
+   > adesea nu recunoaște touchscreen-ul RPi și tratează atingerea ca pe un click de
+   > mouse — butoanele funcționează, dar **nu poți derula listele cu degetul** (ex. lista
+   > de posturi radio). Flag-ul forțează procesarea corectă a gesturilor de touch (drag-scroll).
 
 5. Salvați și ieșiți (Ctrl+O, Enter, Ctrl+X în nano)
 

@@ -89,7 +89,12 @@ python3 --version  # Must be 3.9 or newer
 If you don't have Python 3.9+:
 ```bash
 # On Raspberry Pi OS / Ubuntu/Debian
-sudo apt install python3 python3-pip -y
+sudo apt install python3 python3-pip python3-dev -y
+
+# System libraries required to build PyAudio (microphone / voice commands).
+# Without them, `pip install` fails with "fatal error: portaudio.h: No such file or directory",
+# because on the RPi (aarch64) PyAudio is compiled from source.
+sudo apt install portaudio19-dev -y
 
 # On macOS (using Homebrew)
 # brew install python3
@@ -126,6 +131,12 @@ pip install -r requirements.txt
 ```
 
 The dependencies include: Flask, SQLAlchemy, requests, python-dotenv, tinytuya (for Tuya IoT integration), gunicorn (production server), pytest, gTTS (server-side TTS for the RPi kiosk).
+
+> **Note (Raspberry Pi):** PyAudio has no prebuilt wheel for `aarch64`, so it is
+> compiled from source and needs the PortAudio headers. If `pip install` fails with
+> `fatal error: portaudio.h: No such file or directory`, first install the system
+> packages `python3-dev` and `portaudio19-dev` (see above), then re-run
+> `pip install -r requirements.txt`.
 
 ## Downloading and configuring the HomeTasks application
 
@@ -435,8 +446,13 @@ If you have a screen connected to the Raspberry Pi and want the application to o
 
 1. Install Chromium if it is not already installed:
    ```bash
-   sudo apt install chromium-browser -y
+   sudo apt install chromium -y
    ```
+   > **The binary name differs between versions:** on Raspberry Pi OS **Bookworm/Trixie**
+   > the package and command are `chromium`. On **Bullseye** (and older) they were
+   > `chromium-browser`. Check what you have with `which chromium` / `which chromium-browser`
+   > and use the correct name in the `Exec=` command below — if it's wrong, autostart
+   > fails silently (the browser doesn't open at boot).
 
 2. Create the autostart directory if it doesn't exist:
    ```bash
@@ -453,10 +469,15 @@ If you have a screen connected to the Raspberry Pi and want the application to o
    [Desktop Entry]
    Type=Application
    Name=HomeTasks Kiosk
-   Exec=bash -c "sleep 5 && chromium-browser --kiosk --alsa-output-device=plughw:CARD=Headphones,DEV=0 --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble http://localhost:5000/"
+   Exec=bash -c "sleep 5 && chromium --kiosk --touch-events=enabled --alsa-output-device=plughw:CARD=Headphones,DEV=0 --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble http://localhost:5000/"
    X-GNOME-Autostart-enabled=true
    ```
    > `sleep 5` ensures the `hometasks` service starts before the browser opens.
+   >
+   > `--touch-events=enabled` is **essential on touchscreens**: without it, Chromium
+   > often fails to recognize the RPi touch panel and treats a tap as a mouse click —
+   > buttons work, but you **cannot drag-scroll lists with your finger** (e.g. the radio
+   > station list). The flag forces proper touch gesture handling (drag-scroll).
 
 5. Save and exit (Ctrl+O, Enter, Ctrl+X in nano)
 
