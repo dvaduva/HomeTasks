@@ -187,7 +187,16 @@ class CastService:
 
             from pychromecast import get_chromecast_from_cast_info
             cast = get_chromecast_from_cast_info(info, self._zconf)
-            cast.wait(timeout=CONNECT_TIMEOUT)
+            try:
+                cast.wait(timeout=CONNECT_TIMEOUT)
+            except Exception as e:
+                # wait() failed (device off / wrong IP / SSL handshake refused —
+                # common with Mi Smart Speakers). The socket_client keeps retrying
+                # in a background thread, spamming the log and leaking the thread,
+                # so tear it down before propagating.
+                logger.warning("Cast connect to %s failed, dropping: %s", device_id, e)
+                self._drop(device_id, cast)
+                raise RuntimeError('Nu m-am putut conecta la difuzor (verifică dacă e pornit și pe aceeași rețea).')
             self._connections[device_id] = cast
             return cast
 
