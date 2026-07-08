@@ -22,6 +22,7 @@ from tuya.service import tuya_service
 from cast.service import cast_service
 from bt.service import bluetooth_service
 from wifi.service import wifi_service
+import logbuf
 
 # Load environment variables
 load_dotenv()
@@ -29,6 +30,11 @@ load_dotenv()
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 # Built SPA bundle (frontend/dist) — produced by `npm run build` in frontend/.
 FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
+
+# Start capturing logs to daily files (viewable at /logs on the kiosk, which has
+# no terminal). Done at import so gunicorn workers install it too, not just the
+# dev server's __main__.
+logbuf.install(os.path.join(BASE_DIR, 'logs'))
 
 # Flask serves only the SPA bundle now (frontend/dist) and the JSON API. The
 # legacy Jinja templates and vanilla-JS assets have been archived under legacy/.
@@ -2477,6 +2483,125 @@ def calendar_year():
         })
     finally:
         db.close()
+
+
+# ── In-app logs (kiosk has no terminal) ─────────────────────────────────────────
+
+@app.route('/api/logs')
+def api_logs():
+    """Return one day's server log records as JSON. Query: date=YYYY-MM-DD
+    (default today), level=WARNING|INFO|... (default all), limit (default 500)."""
+    import logging as _logging
+    date = (request.args.get('date') or '').strip() or None
+    level_name = (request.args.get('level') or '').strip().upper()
+    level = _logging.getLevelName(level_name) if level_name else _logging.NOTSET
+    if not isinstance(level, int):
+        level = _logging.NOTSET
+    try:
+        limit = min(max(int(request.args.get('limit', 500)), 1), 5000)
+    except (TypeError, ValueError):
+        limit = 500
+    days = logbuf.available_days()
+    return jsonify({
+        'date': date or (days[0] if days else None),
+        'days': days,
+        'retention_days': logbuf.RETENTION_DAYS,
+        'records': logbuf.read_records(date, level=level, limit=limit),
+    })
+
+
+@app.route('/logs')
+def logs_page():
+    """Plain, self-contained log viewer served directly by Flask (no SPA rebuild
+    needed). Registered as a real route so it wins over the SPA 404 fallback."""
+    return Response(_LOGS_HTML, mimetype='text/html')
+
+
+_LOGS_HTML = """<!doctype html>
+<html lang="ro"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HomeTasks — Loguri</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 -apple-system, Segoe UI, Roboto, sans-serif;
+         background: #0f172a; color: #e2e8f0; }
+  header { position: sticky; top: 0; background: #1e293b; padding: 10px 12px;
+           display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+           border-bottom: 1px solid #334155; }
+  h1 { font-size: 15px; margin: 0 8px 0 0; }
+  select, button { font: inherit; padding: 8px 10px; border-radius: 8px;
+                   border: 1px solid #475569; background: #334155; color: #e2e8f0; cursor: pointer; }
+  button.on { background: #6d28d9; border-color: #6d28d9; }
+  .lvl { display: inline-flex; gap: 4px; }
+  .spacer { flex: 1; }
+  main { padding: 8px 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 4px 8px; vertical-align: top; border-bottom: 1px solid #1e293b;
+       font-family: ui-monospace, Consolas, monospace; white-space: pre-wrap;
+       word-break: break-word; }
+  td.t { color: #64748b; white-space: nowrap; }
+  td.g { color: #38bdf8; white-space: nowrap; }
+  tr.ERROR td.l, tr.CRITICAL td.l { color: #f87171; font-weight: 700; }
+  tr.WARNING td.l { color: #fbbf24; font-weight: 700; }
+  tr.INFO td.l { color: #34d399; }
+  tr.DEBUG td.l { color: #94a3b8; }
+  td.l { white-space: nowrap; }
+  .empty { color: #64748b; padding: 24px; text-align: center; }
+</style></head><body>
+<header>
+  <h1>Loguri</h1>
+  <select id="day"></select>
+  <span class="lvl">
+    <button data-lvl="" class="on">Toate</button>
+    <button data-lvl="INFO">Info+</button>
+    <button data-lvl="WARNING">Avert+</button>
+    <button data-lvl="ERROR">Erori</button>
+  </span>
+  <div class="spacer"></div>
+  <button id="auto" class="on">Auto ⟳</button>
+  <button id="refresh">Reîmprospătează</button>
+</header>
+<main><table id="tbl"><tbody></tbody></table><div id="empty" class="empty" hidden></div></main>
+<script>
+  let level = '', auto = true, timer = null;
+  const daySel = document.getElementById('day');
+  const tbody = document.querySelector('#tbl tbody');
+  const empty = document.getElementById('empty');
+  function esc(s){ return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+  async function load(){
+    const params = new URLSearchParams();
+    if (daySel.value) params.set('date', daySel.value);
+    if (level) params.set('level', level);
+    let data;
+    try { data = await (await fetch('/api/logs?' + params)).json(); }
+    catch(e){ return; }
+    if (!daySel.options.length && data.days){
+      for (const d of data.days){ const o=document.createElement('option'); o.value=o.textContent=d; daySel.appendChild(o); }
+    }
+    const atBottom = Math.abs(window.innerHeight + window.scrollY - document.body.scrollHeight) < 40;
+    tbody.innerHTML = (data.records || []).map(r =>
+      `<tr class="${esc(r.level)}"><td class="t">${esc(r.time)}</td>`+
+      `<td class="l">${esc(r.level)}</td><td class="g">${esc(r.logger)}</td>`+
+      `<td>${esc(r.message)}</td></tr>`).join('');
+    const n = (data.records || []).length;
+    empty.hidden = n > 0; empty.textContent = n ? '' : 'Niciun log pentru filtrul curent.';
+    if (atBottom) window.scrollTo(0, document.body.scrollHeight);
+  }
+  function schedule(){ clearInterval(timer); if (auto) timer = setInterval(load, 3000); }
+  document.querySelectorAll('[data-lvl]').forEach(b => b.onclick = () => {
+    level = b.dataset.lvl;
+    document.querySelectorAll('[data-lvl]').forEach(x => x.classList.toggle('on', x === b));
+    load();
+  });
+  daySel.onchange = load;
+  document.getElementById('refresh').onclick = load;
+  document.getElementById('auto').onclick = e => {
+    auto = !auto; e.target.classList.toggle('on', auto); schedule();
+  };
+  load(); schedule();
+</script>
+</body></html>"""
 
 
 if __name__ == '__main__':
