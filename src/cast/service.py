@@ -1,12 +1,25 @@
+import os
 import time
 import logging
 import threading
 
 logger = logging.getLogger(__name__)
 
-CONNECT_TIMEOUT = 10        # seconds to wait for a device connection / media session
-PLAY_CONFIRM_TIMEOUT = 12   # tolerant window for routes that legitimately flap (proxy)
-PLAY_CONFIRM_DIRECT = 4     # short window for the direct attempt: fail fast → fall back
+
+def _env_int(name, default):
+    """Read a positive int from the environment, falling back on any bad value."""
+    try:
+        v = int(os.getenv(name, ''))
+        return v if v > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+# Tunable via env for slow devices/networks (e.g. RPi3 proxying an HTTPS stream to
+# a Mi Smart Speaker, where the receiver needs longer to buffer and reach PLAYING).
+CONNECT_TIMEOUT = _env_int('CAST_CONNECT_TIMEOUT', 10)        # device connection / media session
+PLAY_CONFIRM_TIMEOUT = _env_int('CAST_PLAY_CONFIRM_TIMEOUT', 20)  # tolerant window (proxy route)
+PLAY_CONFIRM_DIRECT = _env_int('CAST_PLAY_CONFIRM_DIRECT', 4)     # short window: fail fast → fall back
 
 
 class CastService:

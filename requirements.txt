@@ -5,7 +5,10 @@ SQLAlchemy>=1.4.0
 tinytuya>=1.13.0
 
 # Google Cast control (cast radio to Chromecast / Google Home / Mi Smart Speaker)
-pychromecast>=13.0.0
+# Pinned to the 13.x series: pychromecast 14.x (on Python 3.13) breaks the TLS
+# handshake with Mi Smart Speakers — "[SSL: BAD_LENGTH]" / "wait timed out" on
+# connect. 13.x connects fine.
+pychromecast>=13.0.0,<14
 
 # Production server
 gunicorn>=20.1.0

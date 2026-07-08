@@ -2548,6 +2548,8 @@ _LOGS_HTML = """<!doctype html>
   tr.DEBUG td.l { color: #94a3b8; }
   td.l { white-space: nowrap; }
   .empty { color: #64748b; padding: 24px; text-align: center; }
+  td, #tbl { user-select: text; -webkit-user-select: text; }
+  #copy.ok { background: #16a34a; border-color: #16a34a; }
 </style></head><body>
 <header>
   <h1>Loguri</h1>
@@ -2559,34 +2561,44 @@ _LOGS_HTML = """<!doctype html>
     <button data-lvl="ERROR">Erori</button>
   </span>
   <div class="spacer"></div>
+  <button id="copy">Copiază</button>
   <button id="auto" class="on">Auto ⟳</button>
   <button id="refresh">Reîmprospătează</button>
 </header>
 <main><table id="tbl"><tbody></tbody></table><div id="empty" class="empty" hidden></div></main>
 <script>
-  let level = '', auto = true, timer = null;
+  let level = '', auto = true, timer = null, lastRecords = [];
   const daySel = document.getElementById('day');
   const tbody = document.querySelector('#tbl tbody');
   const empty = document.getElementById('empty');
   function esc(s){ return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+  function hasSelection(){ const s = window.getSelection(); return s && s.toString().trim().length > 0; }
   async function load(){
+    // Never wipe the table while the user is selecting text — that's what made
+    // copying impossible under the 3s auto-refresh.
+    if (hasSelection()) return;
     const params = new URLSearchParams();
     if (daySel.value) params.set('date', daySel.value);
     if (level) params.set('level', level);
     let data;
     try { data = await (await fetch('/api/logs?' + params)).json(); }
     catch(e){ return; }
+    if (hasSelection()) return;  // selection may have started during the await
     if (!daySel.options.length && data.days){
       for (const d of data.days){ const o=document.createElement('option'); o.value=o.textContent=d; daySel.appendChild(o); }
     }
+    lastRecords = data.records || [];
     const atBottom = Math.abs(window.innerHeight + window.scrollY - document.body.scrollHeight) < 40;
-    tbody.innerHTML = (data.records || []).map(r =>
+    tbody.innerHTML = lastRecords.map(r =>
       `<tr class="${esc(r.level)}"><td class="t">${esc(r.time)}</td>`+
       `<td class="l">${esc(r.level)}</td><td class="g">${esc(r.logger)}</td>`+
       `<td>${esc(r.message)}</td></tr>`).join('');
-    const n = (data.records || []).length;
-    empty.hidden = n > 0; empty.textContent = n ? '' : 'Niciun log pentru filtrul curent.';
+    empty.hidden = lastRecords.length > 0;
+    empty.textContent = lastRecords.length ? '' : 'Niciun log pentru filtrul curent.';
     if (atBottom) window.scrollTo(0, document.body.scrollHeight);
+  }
+  function asText(){
+    return lastRecords.map(r => `${r.time}\\t${r.level}\\t${r.logger}\\t${r.message}`).join('\\n');
   }
   function schedule(){ clearInterval(timer); if (auto) timer = setInterval(load, 3000); }
   document.querySelectorAll('[data-lvl]').forEach(b => b.onclick = () => {
@@ -2598,6 +2610,20 @@ _LOGS_HTML = """<!doctype html>
   document.getElementById('refresh').onclick = load;
   document.getElementById('auto').onclick = e => {
     auto = !auto; e.target.classList.toggle('on', auto); schedule();
+  };
+  document.getElementById('copy').onclick = async e => {
+    const text = asText();
+    try { await navigator.clipboard.writeText(text); }
+    catch(_){
+      // clipboard API needs HTTPS/localhost; fall back to a hidden textarea + execCommand.
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch(__){}
+      ta.remove();
+    }
+    const b = e.target; const label = b.textContent;
+    b.textContent = 'Copiat ✓'; b.classList.add('ok');
+    setTimeout(() => { b.textContent = label; b.classList.remove('ok'); }, 1200);
   };
   load(); schedule();
 </script>
