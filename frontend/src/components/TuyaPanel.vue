@@ -34,16 +34,25 @@ function tempClass(current: number | null | undefined, target: number | null | u
     <div class="modal tuya-modal">
       <div class="modal-head">
         <h2>{{ $t('tuya_modal_title') }}</h2>
-        <button type="button" class="icon-btn" :title="$t('btn_close')" @click="emit('close')">✕</button>
+        <div class="tuya-head-actions">
+          <button
+            type="button"
+            class="icon-btn tuya-refresh-btn"
+            :class="{ 'tuya-refreshing': tuya.loading }"
+            :disabled="tuya.loading"
+            :title="$t('tuya_refresh_title')"
+            @click="refresh"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button type="button" class="icon-btn" :title="$t('btn_close')" @click="emit('close')">✕</button>
+        </div>
       </div>
 
       <div class="tuya-actions">
         <span class="tuya-updated">
           <template v-if="updatedLabel">{{ $t('tuya_updated_prefix') }}{{ updatedLabel }}</template>
         </span>
-        <button type="button" class="btn btn-secondary btn-sm" :disabled="tuya.loading" @click="refresh" :title="$t('tuya_refresh_title')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        </button>
       </div>
 
       <div class="tuya-grid" :class="{ 'tuya-refreshing': tuya.loading }">

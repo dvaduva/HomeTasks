@@ -59,7 +59,7 @@ describe('TuyaPanel.vue', () => {
       tuya.error = 'cloud down';
     });
     await wrapper.vm.$nextTick();
-    await wrapper.find('.tuya-actions .btn-secondary').trigger('click');
+    await wrapper.find('.tuya-refresh-btn').trigger('click');
     await Promise.resolve();
     await Promise.resolve();
     expect(refresh).toHaveBeenCalled();
@@ -69,7 +69,8 @@ describe('TuyaPanel.vue', () => {
   it('emits close from the header button', async () => {
     const wrapper = mountWithPlugins(TuyaPanel, { props: { open: true } });
     await wrapper.vm.$nextTick();
-    await wrapper.find('.modal-head .icon-btn').trigger('click');
+    const closeBtn = wrapper.findAll('.modal-head .icon-btn').at(-1);
+    await closeBtn!.trigger('click');
     expect(wrapper.emitted('close')).toHaveLength(1);
   });
 });

@@ -36,11 +36,14 @@ class TuyaService:
                 elif item.get('code') == 'temp_set':
                     temp_set = item.get('value')
 
+            if temp_current is None:
+                continue
+
             devices.append({
                 'id': dev.get('id'),
                 'name': dev.get('name'),
                 'online': dev.get('online', False),
-                'temp_current': round(temp_current / 10, 1) if temp_current is not None else None,
+                'temp_current': round(temp_current / 10, 1),
                 'temp_set': round(temp_set / 10, 1) if temp_set is not None else None,
             })
 

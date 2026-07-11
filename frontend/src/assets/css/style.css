@@ -1713,12 +1713,17 @@ body {
     flex-direction: column;
 }
 
+.tuya-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
 .tuya-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     padding: 12px 16px 0;
-    gap: 10px;
 }
 
 .tuya-updated {

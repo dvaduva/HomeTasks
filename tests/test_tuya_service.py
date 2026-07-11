@@ -45,12 +45,19 @@ def test_get_temperatures_parses_and_scales(tmp_path):
     assert out['generated_at'] == '2026-06-17T10:00:00Z'
 
 
-def test_get_temperatures_missing_codes_yield_none(tmp_path):
+def test_get_temperatures_skips_devices_without_current_temp(tmp_path):
     svc = _service(tmp_path)
     with open(svc.json_path, 'w', encoding='utf-8') as f:
-        json.dump({'devices': [{'id': 'd', 'name': 'N', 'status': {'result': []}}]}, f)
-    dev = svc.get_temperatures()['devices'][0]
-    assert dev['temp_current'] is None and dev['temp_set'] is None
+        json.dump({'devices': [
+            {'id': 'd', 'name': 'N', 'status': {'result': []}},
+            {'id': 't', 'name': 'Living', 'online': True, 'status': {'result': [
+                {'code': 'temp_current', 'value': 220},
+            ]}},
+        ]}, f)
+    devices = svc.get_temperatures()['devices']
+    assert len(devices) == 1
+    assert devices[0]['name'] == 'Living'
+    assert devices[0]['temp_current'] == 22.0
 
 
 def test_get_temperatures_invalid_json(tmp_path):
