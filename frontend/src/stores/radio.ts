@@ -203,11 +203,38 @@ export const useRadioStore = defineStore('radio', () => {
 
   // ── remote status polling (Cast + Bluetooth) ─────────────────────────────────
   let remoteTimer: number | null = null;
+  let castRecoveryCooldown = 0;
+  let castRecoveryInFlight = false;
   function stopRemoteStatusPolling(): void {
     if (remoteTimer !== null) {
       clearInterval(remoteTimer);
       remoteTimer = null;
     }
+    castRecoveryCooldown = 0;
+    castRecoveryInFlight = false;
+  }
+  function maybeRecoverCastPlayback(): void {
+    const st = currentStation.value;
+    if (!st || localStorage.getItem(PLAY_KEY) !== '1' || castRecoveryInFlight) return;
+    const now = Date.now();
+    if (now < castRecoveryCooldown) return;
+    castRecoveryInFlight = true;
+    castRecoveryCooldown = now + 30000;
+    const name = targetName(target.value);
+    const dev = bareDeviceId.value;
+    setStatus('radio_cast_sending', { name });
+    npStatusClass.value = 'loading';
+    castApi
+      .play(dev, st.id)
+      .then(() => {
+        isPlaying.value = true;
+        setStatus('radio_cast_playing', { name });
+        npStatusClass.value = '';
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        castRecoveryInFlight = false;
+      });
   }
   function fetchRemoteStatus(): void {
     if (!isRemote.value) return;
@@ -232,9 +259,14 @@ export const useRadioStore = defineStore('radio', () => {
         const state = (s.player_state || '').toUpperCase();
         if (state === 'PLAYING' || state === 'BUFFERING') {
           isPlaying.value = true;
+          castRecoveryCooldown = 0;
         } else if (state) {
-          // Device stopped/idle (e.g. someone cast something else to it).
+          // Device stopped/idle (upstream drop, Cast socket flap, another app).
           isPlaying.value = false;
+          const reason = (s.idle_reason || '').toUpperCase();
+          if (reason !== 'CANCELLED') {
+            maybeRecoverCastPlayback();
+          }
         }
       })
       .catch(() => undefined);

@@ -16,12 +16,15 @@ bind = "0.0.0.0:5000"
 workers = 1
 worker_class = "gthread"
 threads = 8
-timeout = 120
+# 0 = disabled. A Cast proxy stream can run for hours; killing a quiet worker
+# mid-stream stops audio on the speaker even though bytes are flowing again.
+timeout = 0
 keepalive = 5
 
-# Restart workers after this many requests to prevent memory leaks
-max_requests = 500
-max_requests_jitter = 50
+# 0 = disabled. Recycling the worker tears down any in-flight /api/radio/proxy
+# connections the Cast speaker is still reading from.
+max_requests = 0
+max_requests_jitter = 0
 
 # Preload the app to save RAM on Raspberry Pi
 preload_app = True

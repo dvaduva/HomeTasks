@@ -18,6 +18,7 @@ export interface CastStatusInfo {
   muted: boolean | null;
   app?: string | null;
   player_state?: string | null;  // PLAYING | PAUSED | IDLE | BUFFERING | ...
+  idle_reason?: string | null;   // ERROR | FINISHED | CANCELLED | INTERRUPTED | ...
   title?: string | null;
   content_id?: string | null;
 }

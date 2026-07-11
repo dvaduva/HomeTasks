@@ -112,6 +112,7 @@ def test_status_shape(monkeypatch):
     assert st['volume'] == 0.5
     assert st['player_state'] == 'PLAYING'
     assert st['title'] == 'T'
+    assert 'idle_reason' in st
 
 
 def test_get_devices_without_browser_returns_empty():

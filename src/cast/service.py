@@ -178,6 +178,7 @@ class CastService:
             'muted': getattr(cs, 'volume_muted', None),
             'app': getattr(cs, 'display_name', None),
             'player_state': getattr(ms, 'player_state', None),
+            'idle_reason': getattr(ms, 'idle_reason', None),
             'title': getattr(ms, 'title', None),
             'content_id': getattr(ms, 'content_id', None),
         }

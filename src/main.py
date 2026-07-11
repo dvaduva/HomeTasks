@@ -1720,12 +1720,32 @@ def _fetch_icy_metadata(stream_url: str, timeout: float = 5.0):
         return None
 
 
+def _radio_proxy_upstream_timeout():
+    """(connect, read) timeouts for the radio proxy upstream.
+
+    Icecast/Shoutcast servers often drop idle clients or rotate connections; the
+    proxy reconnects inside ``generate()`` so the Cast speaker keeps receiving
+    audio. A generous read timeout avoids killing a healthy stream on a brief
+    upstream stall."""
+    try:
+        connect = int(os.getenv('RADIO_PROXY_CONNECT_TIMEOUT', '10'))
+        read = int(os.getenv('RADIO_PROXY_READ_TIMEOUT', '90'))
+        return (max(connect, 1), max(read, 30))
+    except (TypeError, ValueError):
+        return (10, 90)
+
+
 @app.route('/api/radio/proxy/<station_id>')
 def radio_proxy(station_id):
     """Server-side proxy for stations that browsers can't reach directly
     (CORS, non-standard ports, mixed-content, SSL quirks). Pipes the upstream
-    audio bytes to the client."""
+    audio bytes to the client.
+
+    For Cast playback the speaker holds this HTTP connection open for hours.
+    When the upstream radio server closes or stalls, we reconnect in-place so
+    the speaker does not have to be told to play again."""
     import requests as _requests
+    import time as _time
 
     db = get_db()
     try:
@@ -1738,13 +1758,18 @@ def radio_proxy(station_id):
         return jsonify({'error': 'station not found'}), 404
 
     upstream_url = station['url']
-    try:
-        upstream = _requests.get(
+    timeout = _radio_proxy_upstream_timeout()
+
+    def _open_upstream():
+        return _requests.get(
             upstream_url,
             stream=True,
-            timeout=10,
+            timeout=timeout,
             headers={'User-Agent': 'HomeTasks/1.0', 'Icy-MetaData': '0'},
         )
+
+    try:
+        upstream = _open_upstream()
     except Exception as e:
         logger.error(f"Radio proxy upstream failed for {station_id}: {e}")
         return jsonify({'error': 'upstream unreachable'}), 502
@@ -1752,18 +1777,35 @@ def radio_proxy(station_id):
     # Hand the Cast receiver a MIME it understands: Shoutcast's audio/aacp would
     # otherwise make it error and recover only after a long retry.
     content_type = _normalize_audio_mime(upstream.headers.get('Content-Type')) or 'audio/mpeg'
+    upstream.close()
 
     def generate():
-        try:
-            for chunk in upstream.iter_content(chunk_size=8192):
-                if chunk:
-                    yield chunk
-        except GeneratorExit:
-            pass
-        except Exception as e:
-            logger.debug(f"Radio proxy stream interrupted for {station_id}: {e}")
-        finally:
-            upstream.close()
+        reconnect_delay = 1.0
+        max_reconnect_delay = 15.0
+        while True:
+            upstream = None
+            try:
+                upstream = _open_upstream()
+                reconnect_delay = 1.0
+                for chunk in upstream.iter_content(chunk_size=8192):
+                    if chunk:
+                        yield chunk
+                logger.info("Radio proxy upstream ended for %s, reconnecting", station_id)
+            except GeneratorExit:
+                break
+            except Exception as e:
+                logger.warning(
+                    "Radio proxy stream error for %s: %s; reconnecting in %.0fs",
+                    station_id, e, reconnect_delay,
+                )
+            finally:
+                if upstream is not None:
+                    upstream.close()
+            try:
+                _time.sleep(reconnect_delay)
+            except GeneratorExit:
+                break
+            reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
 
     headers = {
         'Cache-Control': 'no-cache, no-store',
@@ -1915,6 +1957,14 @@ def _cast_base_url():
     real LAN IP — the speaker would never reach a loopback address."""
     env = os.getenv('CAST_PUBLIC_BASE_URL', '').strip()
     if env:
+        parsed = urlparse(env if '://' in env else f'http://{env}')
+        host = (parsed.hostname or '').lower()
+        if host in ('localhost', '127.0.0.1', '0.0.0.0', '::1'):
+            ip = _detect_lan_ip()
+            if ip:
+                scheme = parsed.scheme or 'http'
+                port = parsed.port or 5000
+                return f'{scheme}://{ip}:{port}'
         return env.rstrip('/')
 
     parsed = urlparse(request.host_url)
