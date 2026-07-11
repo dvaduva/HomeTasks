@@ -16,6 +16,18 @@ export function useNow(intervalMs = 1000) {
   return now;
 }
 
+export function formatHeaderDateTime(date: Date, locale: 'ro' | 'en'): string {
+  const loc = locale === 'ro' ? 'ro-RO' : 'en-US';
+  const dateStr = date.toLocaleDateString(loc, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const timeStr = date.toLocaleTimeString(loc);
+  return `${dateStr}, ${timeStr}`;
+}
+
 export function formatDate(d: Date | string, format: 'short' | 'long' | 'full' = 'short', locale = 'ro-RO'): string {
   const date = typeof d === 'string' ? new Date(d) : d;
   if (isNaN(date.getTime())) return '';

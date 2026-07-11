@@ -1249,6 +1249,8 @@ def get_preferences():
             'tuya_access_id': prefs.tuya_access_id or os.getenv('TUYA_ACCESS_ID', ''),
             'tuya_access_secret': prefs.tuya_access_secret or os.getenv('TUYA_ACCESS_SECRET', ''),
             'tuya_api_region': prefs.tuya_api_region or os.getenv('TUYA_API_REGION', 'eu'),
+            'standby_enabled': bool(prefs.standby_enabled if prefs.standby_enabled is not None else True),
+            'standby_timeout_minutes': prefs.standby_timeout_minutes or 5,
         })
     finally:
         db.close()
@@ -1308,6 +1310,8 @@ def update_preferences():
             'tuya_access_id': prefs.tuya_access_id or os.getenv('TUYA_ACCESS_ID', ''),
             'tuya_access_secret': prefs.tuya_access_secret or os.getenv('TUYA_ACCESS_SECRET', ''),
             'tuya_api_region': prefs.tuya_api_region or os.getenv('TUYA_API_REGION', 'eu'),
+            'standby_enabled': bool(prefs.standby_enabled if prefs.standby_enabled is not None else True),
+            'standby_timeout_minutes': prefs.standby_timeout_minutes or 5,
         })
     except Exception as e:
         db.rollback()

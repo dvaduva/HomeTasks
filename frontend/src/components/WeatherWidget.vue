@@ -5,7 +5,7 @@ import { useWeatherStore } from '@/stores/weather';
 import { usePreferencesStore } from '@/stores/preferences';
 import { usePolling } from '@/composables/usePolling';
 import type { WeatherHourly } from '@/api/weather';
-import { dateKey, isTodayDate, todayKey, weekdayIndexLocal } from '@/utils/localDate';
+import { dateKey, isTodayDate, weekdayIndexLocal } from '@/utils/localDate';
 
 const POS_KEY = 'weather-popup-pos';
 const SLOT_HOURS = [0, 3, 6, 9, 12, 15, 18, 21] as const;

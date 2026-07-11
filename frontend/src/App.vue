@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { setLocale, type Locale } from '@/i18n';
-import { useNow } from '@/composables/useDateTime';
+import { useNow, formatHeaderDateTime } from '@/composables/useDateTime';
+import { useIdleTimeout } from '@/composables/useIdleTimeout';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useAiStore } from '@/stores/ai';
 import { useTuyaStore } from '@/stores/tuya';
@@ -15,6 +16,7 @@ import TuyaPanel from '@/components/TuyaPanel.vue';
 import SettingsPanel from '@/components/SettingsPanel.vue';
 import RadioMiniPlayer from '@/components/RadioMiniPlayer.vue';
 import ToastHost from '@/components/ToastHost.vue';
+import StandbyOverlay from '@/components/StandbyOverlay.vue';
 
 const { locale } = useI18n();
 const route = useRoute();
@@ -36,21 +38,15 @@ const settingsOpen = ref(false);
 const tuyaOpen = ref(false);
 const now = useNow(1000);
 
-const isRo = computed(() => locale.value === 'ro');
-// Mirrors the legacy updateDateTime(): full weekday date + time-with-seconds,
-// separated by a comma, locale-aware. The date_format preference only affects
-// task dates, not the header clock.
-const dateTimeLabel = computed(() => {
-  const loc = isRo.value ? 'ro-RO' : 'en-US';
-  const dateStr = now.value.toLocaleDateString(loc, {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  const timeStr = now.value.toLocaleTimeString(loc);
-  return `${dateStr}, ${timeStr}`;
+const standbyPaused = computed(() => settingsOpen.value || tuyaOpen.value || ai.open);
+const { isIdle: standbyActive, reset: wakeStandby } = useIdleTimeout({
+  timeoutMs: () => prefs.standbyTimeoutMs,
+  enabled: () => prefs.standbyEnabled,
+  paused: () => standbyPaused.value,
 });
+
+const isRo = computed(() => locale.value === 'ro');
+const dateTimeLabel = computed(() => formatHeaderDateTime(now.value, isRo.value ? 'ro' : 'en'));
 
 function switchLocale(): void {
   const next: Locale = isRo.value ? 'en' : 'ro';
@@ -127,6 +123,7 @@ onMounted(() => {
     <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
     <RadioMiniPlayer v-if="showMiniPlayer" />
     <ToastHost />
+    <StandbyOverlay v-if="standbyActive" @wake="wakeStandby" />
   </div>
 </template>
 

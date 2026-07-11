@@ -37,7 +37,12 @@ const draft = ref<Partial<Preferences>>({});
 // Copy prefs into the editable draft, normalizing the feature switches so an
 // absent flag on older payloads reads as enabled (matches the store getters).
 function makeDraft(p: Preferences): Partial<Preferences> {
-  return { ...p, ai_enabled: p.ai_enabled !== false, tuya_enabled: p.tuya_enabled !== false };
+  return {
+    ...p,
+    ai_enabled: p.ai_enabled !== false,
+    tuya_enabled: p.tuya_enabled !== false,
+    standby_enabled: p.standby_enabled !== false,
+  };
 }
 
 const newUserName = ref('');
@@ -216,6 +221,24 @@ async function renameUser(id: number, name: string, color: string): Promise<void
           <select id="time-format" v-model="draft.time_format">
             <option value="24">24h</option>
             <option value="12">12h AM/PM</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="draft.standby_enabled" />
+            {{ $t('lbl_standby_enabled') }}
+          </label>
+          <p class="form-hint">{{ $t('hint_standby_enabled') }}</p>
+        </div>
+        <div v-if="draft.standby_enabled !== false" class="form-group">
+          <label for="standby-timeout">{{ $t('lbl_standby_timeout') }}</label>
+          <select id="standby-timeout" v-model.number="draft.standby_timeout_minutes">
+            <option :value="1">{{ $t('opt_standby_1min') }}</option>
+            <option :value="3">{{ $t('opt_standby_3min') }}</option>
+            <option :value="5">{{ $t('opt_standby_5min') }}</option>
+            <option :value="10">{{ $t('opt_standby_10min') }}</option>
+            <option :value="15">{{ $t('opt_standby_15min') }}</option>
+            <option :value="30">{{ $t('opt_standby_30min') }}</option>
           </select>
         </div>
       </div>

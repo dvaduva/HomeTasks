@@ -13,6 +13,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
   // the field is absent on older payloads) so the features stay backward-compatible.
   const aiEnabled = computed(() => data.value?.ai_enabled !== false);
   const tuyaEnabled = computed(() => data.value?.tuya_enabled !== false);
+  const standbyEnabled = computed(() => data.value?.standby_enabled !== false);
+  const standbyTimeoutMs = computed(() => {
+    const minutes = data.value?.standby_timeout_minutes;
+    const safe = typeof minutes === 'number' && minutes > 0 ? minutes : 5;
+    return safe * 60_000;
+  });
 
   async function fetch(): Promise<void> {
     loading.value = true;
@@ -39,5 +45,5 @@ export const usePreferencesStore = defineStore('preferences', () => {
     return updated;
   }
 
-  return { data, loading, error, aiEnabled, tuyaEnabled, fetch, update };
+  return { data, loading, error, aiEnabled, tuyaEnabled, standbyEnabled, standbyTimeoutMs, fetch, update };
 });

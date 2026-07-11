@@ -46,6 +46,8 @@ def _migrate_preferences(engine):
         ("tuya_access_id",          "VARCHAR(100) DEFAULT ''"),
         ("tuya_access_secret",      "VARCHAR(100) DEFAULT ''"),
         ("tuya_api_region",         "VARCHAR(10) DEFAULT 'eu'"),
+        ("standby_enabled",         "BOOLEAN DEFAULT 1"),
+        ("standby_timeout_minutes", "INTEGER DEFAULT 5"),
     ]
     with engine.connect() as conn:
         existing = {row[1] for row in conn.execute(text("PRAGMA table_info(preferences)"))}

@@ -143,6 +143,9 @@ class Preferences(Base):
     tuya_access_id = Column(String(100), default='')
     tuya_access_secret = Column(String(100), default='')
     tuya_api_region = Column(String(10), default='eu')
+    # Standby / screensaver (burn-in prevention on kiosk displays)
+    standby_enabled = Column(Boolean, default=True)
+    standby_timeout_minutes = Column(Integer, default=5)
     # Updated timestamp
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

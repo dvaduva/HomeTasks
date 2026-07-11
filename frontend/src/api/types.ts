@@ -61,6 +61,8 @@ export interface Preferences {
   tuya_access_id: string;
   tuya_access_secret: string;
   tuya_api_region: string;
+  standby_enabled: boolean;
+  standby_timeout_minutes: number;
 }
 
 export interface TaskQuery {

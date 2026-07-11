@@ -69,7 +69,8 @@ describe('TuyaPanel.vue', () => {
   it('emits close from the header button', async () => {
     const wrapper = mountWithPlugins(TuyaPanel, { props: { open: true } });
     await wrapper.vm.$nextTick();
-    const closeBtn = wrapper.findAll('.modal-head .icon-btn').at(-1);
+    const headerBtns = wrapper.findAll('.modal-head .icon-btn');
+    const closeBtn = headerBtns[headerBtns.length - 1];
     await closeBtn!.trigger('click');
     expect(wrapper.emitted('close')).toHaveLength(1);
   });
