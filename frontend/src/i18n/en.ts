@@ -80,7 +80,7 @@ export default {
 
   // Weather
   weather_hourly_prefix: 'Hourly forecast — ',
-  day_names_short: 'Sun|Mon|Tue|Wed|Thu|Fri|Sat',
+  day_names_short: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   today_label: 'Today',
 
   // AI Chat
@@ -128,6 +128,11 @@ export default {
   voice_status_inactive: 'Inactive',
   voice_status_wake_word: 'Say «{phrase}»',
   weather_popup_title: 'Weather Forecast',
+  weather_popup_drag: 'Drag to move',
+  weather_select_day: 'Hourly forecast for {day}',
+  weather_no_hourly: 'No hourly data for this day.',
+  weather_now: 'Now',
+  weather_today_hint: 'Past hours are unavailable; forecast shows from now in 3-hour steps.',
   chat_assistant_name: 'Assistant',
   chat_online_status: '● online',
   chat_placeholder: 'Type a message...',

@@ -118,6 +118,24 @@ def test_get_forecast_groups_into_daily_and_hourly(monkeypatch):
     assert len(data['hourly']) == 2
 
 
+def test_get_forecast_returns_all_hourly_slots(monkeypatch):
+    svc = _service()
+    base = int(datetime(2026, 6, 17, 0, 0, 0).timestamp())
+    items = []
+    for i in range(10):
+        items.append({
+            'dt': base + i * 3 * 3600,
+            'main': {'temp': 10 + i, 'feels_like': 9 + i, 'humidity': 50, 'pressure': 1000},
+            'weather': [{'description': 'soare', 'icon': '01d'}],
+            'wind': {'speed': 2.0, 'deg': 180}, 'pop': 0.2,
+        })
+    payload = {'city': {'name': 'București', 'country': 'RO'}, 'list': items}
+    monkeypatch.setattr(weather_mod.requests, 'get', lambda url, params=None: FakeResponse(payload))
+
+    data = svc.get_forecast('București', days=2)
+    assert len(data['hourly']) == 10
+
+
 def test_get_forecast_caps_days_at_seven(monkeypatch):
     svc = _service()
     captured = {}

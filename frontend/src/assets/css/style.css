@@ -117,6 +117,7 @@ body {
 /* =====================================================
    POPUP VREME ORARĂ
    ===================================================== */
+/* Default: full-width overlay for 7" RPi kiosk (800×480 / 1024×600). */
 .weather-popup {
     position: fixed;
     top: calc(var(--fh) + 12px);
@@ -126,44 +127,82 @@ body {
     max-width: none;
     background: var(--white);
     border: 1px solid var(--gray-200);
-    border-radius: 16px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14);
     z-index: 900;
     overflow: hidden;
-    animation: popup-in 0.18s ease;
+    animation: popup-in 0.16s ease;
 }
 @keyframes popup-in {
-    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 .weather-popup-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 20px 12px;
+    gap: 12px;
+    padding: 16px 18px 14px;
     border-bottom: 1px solid var(--gray-100);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+.weather-popup.dragging .weather-popup-head {
+    cursor: grabbing;
+}
+.weather-popup.dragging {
+    animation: none;
+}
+.weather-popup-drag {
+    flex-shrink: 0;
+    color: var(--gray-400);
+    display: flex;
+    align-items: center;
+    padding-right: 2px;
+}
+.weather-popup-head-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 .weather-popup-title {
     font-size: 15px;
     font-weight: 700;
-    color: var(--gray-700);
+    color: var(--gray-900);
+    letter-spacing: -0.01em;
+}
+.weather-popup-city {
+    font-size: 13px;
+    color: var(--gray-500);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .weather-popup-close {
-    background: none;
-    border: none;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
     cursor: pointer;
     color: var(--gray-500);
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1;
-    padding: 2px 4px;
-    border-radius: 4px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, transform 0.1s ease-out;
 }
 .weather-popup-close:hover { background: var(--gray-100); color: var(--gray-900); }
+.weather-popup-close:active { transform: scale(0.92); }
 
 .weather-popup-chart-wrap {
-    padding: 12px 20px 0;
-    height: 140px;
+    padding: 4px 18px 0;
+    height: 96px;
     position: relative;
 }
 .weather-chart {
@@ -174,39 +213,232 @@ body {
 }
 
 .weather-popup-forecast {
-    display: flex;
-    gap: 6px;
-    padding: 8px 16px;
-    overflow-x: auto;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--gray-100);
-    scrollbar-width: none;
-    flex-shrink: 0;
 }
-.weather-popup-forecast::-webkit-scrollbar { display: none; }
+
+.weather-popup .forecast-day {
+    flex: initial;
+    min-width: 0;
+    max-width: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 10px 6px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    white-space: normal;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+
+.weather-popup .forecast-day:hover {
+    background: var(--gray-50);
+}
+
+.weather-popup .forecast-day.selected {
+    background: var(--gray-50);
+    border-color: var(--gray-200);
+    box-shadow: inset 0 -2px 0 var(--blue);
+}
+
+.weather-popup .forecast-day.today .forecast-day-name { color: var(--blue); }
+
+.weather-popup .forecast-day-name {
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.weather-popup .forecast-emoji {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}
+
+.weather-popup .forecast-temps {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 4px;
+    line-height: 1.2;
+}
+
+.weather-popup .forecast-temp-high {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gray-900);
+}
+
+.weather-popup .forecast-temp-sep {
+    font-size: 12px;
+    color: var(--gray-400);
+    font-weight: 500;
+}
+
+.weather-popup .forecast-temp-low {
+    font-size: 13px;
+    color: var(--gray-500);
+}
+
+.weather-popup .forecast-pop {
+    font-size: 11px;
+    font-weight: 600;
+    color: #2563eb;
+    margin-left: 0;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.08);
+}
+
+.weather-popup .forecast-skeleton {
+    min-width: 0;
+    max-width: none;
+    height: 108px;
+}
+
+.weather-popup-empty {
+    margin: 0;
+    padding: 12px 18px 4px;
+    font-size: 13px;
+    color: var(--gray-500);
+    text-align: center;
+    font-style: italic;
+}
+
+.weather-popup-hint {
+    margin: 0;
+    padding: 8px 18px 0;
+    font-size: 12px;
+    color: var(--gray-500);
+    text-align: center;
+}
 
 .weather-popup-hours {
-    position: relative;
-    height: 88px;
-    margin: 4px 0 8px;
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px 14px;
+    position: static;
+    height: auto;
+    margin: 0;
 }
 
-.weather-hour-item {
-    position: absolute;
-    transform: translateX(-50%);
+.weather-popup .weather-hour-item {
+    position: static;
+    transform: none;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    padding: 3px 4px;
-    border-radius: 8px;
+    gap: 3px;
+    padding: 8px 4px;
+    border-radius: 10px;
     transition: background 0.12s;
+    min-width: 0;
 }
-.weather-hour-item:hover { background: var(--gray-100); }
-.weather-hour-item.current-hour { background: var(--blue-lt); }
 
-.wh-time   { font-size: 11px; color: var(--gray-500); font-weight: 600; }
-.wh-temp   { font-size: 12px; font-weight: 700; color: var(--gray-900); }
-.wh-pop    { font-size: 10px; color: #3b82f6; font-weight: 600; }
+.weather-popup .weather-hour-item:hover { background: var(--gray-50); }
+.weather-popup .weather-hour-item.current-hour {
+    background: rgba(29, 78, 216, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.18);
+}
+
+.weather-popup .weather-hour-item.wh-slot-empty {
+    opacity: 0.45;
+}
+
+.weather-popup .wh-missing {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-400);
+    line-height: 26px;
+}
+
+.weather-popup .wh-time {
+    font-size: 11px;
+    color: var(--gray-500);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.weather-popup .wh-icon {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+}
+
+.weather-popup .wh-temp {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gray-900);
+    font-variant-numeric: tabular-nums;
+}
+
+.weather-popup .wh-pop {
+    font-size: 10px;
+    color: #2563eb;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.08);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Tighter layout on small kiosk screens (7" RPi). */
+@media (max-width: 900px) {
+    .weather-popup-head {
+        padding: 12px 14px 10px;
+    }
+    .weather-popup-forecast {
+        padding: 10px 12px;
+        gap: 6px;
+    }
+    .weather-popup .forecast-day {
+        padding: 8px 4px;
+        gap: 4px;
+    }
+    .weather-popup .forecast-emoji {
+        width: 28px;
+        height: 28px;
+    }
+    .weather-popup .forecast-temp-high { font-size: 14px; }
+    .weather-popup .forecast-temp-low  { font-size: 12px; }
+    .weather-popup-chart-wrap {
+        height: 84px;
+        padding: 2px 12px 0;
+    }
+    .weather-popup-hours {
+        padding: 8px 8px 10px;
+        gap: 2px;
+    }
+    .weather-popup .weather-hour-item {
+        padding: 6px 2px;
+        gap: 2px;
+    }
+    .weather-popup .wh-icon {
+        width: 22px;
+        height: 22px;
+    }
+    .weather-popup .wh-time { font-size: 10px; }
+    .weather-popup .wh-temp { font-size: 12px; }
+}
+
+/* Compact anchored popup on wider desktops only. */
+@media (min-width: 960px) {
+    .weather-popup {
+        left: auto;
+        right: 16px;
+        width: min(680px, calc(100vw - 32px));
+    }
+}
 
 .icon-btn {
     background: none;

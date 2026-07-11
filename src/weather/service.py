@@ -204,7 +204,7 @@ class WeatherService:
                 'city': data['city']['name'],
                 'country': data['city']['country'],
                 'daily': daily_summary,
-                'hourly': forecast_list[:24],  # Next 24 hours
+                'hourly': forecast_list,
                 'timestamp': datetime.now()
             }
             

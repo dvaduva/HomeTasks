@@ -84,7 +84,7 @@ export default {
 
   // Weather
   weather_hourly_prefix: 'Prognoză orară — ',
-  day_names_short: 'Dum|Lun|Mar|Mie|Joi|Vin|Sâm',
+  day_names_short: ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm'],
   today_label: 'Azi',
 
   // AI Chat
@@ -132,6 +132,11 @@ export default {
   voice_status_inactive: 'Inactiv',
   voice_status_wake_word: 'Spune «{phrase}»',
   weather_popup_title: 'Prognoză vreme',
+  weather_popup_drag: 'Trage pentru a muta',
+  weather_select_day: 'Prognoză orară pentru {day}',
+  weather_no_hourly: 'Nu există date orare pentru această zi.',
+  weather_now: 'Acum',
+  weather_today_hint: 'Orele trecute nu sunt disponibile; prognoza arată de acum în intervale de 3 ore.',
   chat_assistant_name: 'Asistent',
   chat_online_status: '● online',
   chat_placeholder: 'Scrieți un mesaj...',
