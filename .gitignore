@@ -15,11 +15,9 @@ frontend/.vite/
 frontend/*.log
 /frontend/coverage
 
-src/__pycache__/
-src/bt/__pycache__/
-src/cast/__pycache__/
-src/wifi/__pycache__/
-tests/__pycache__/
+# Python bytecode (oriunde în repo)
+__pycache__/
+*.py[cod]
 
 # Daily server log files (written by src/logbuf.py)
 logs/
