@@ -2,10 +2,14 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { formatDate } from '@/composables/useDateTime';
+import { useWeatherStore } from '@/stores/weather';
+import { usePreferencesStore } from '@/stores/preferences';
 
 const emit = defineEmits<{ (e: 'wake'): void }>();
 
 const { locale } = useI18n();
+const weather = useWeatherStore();
+const prefs = usePreferencesStore();
 const now = ref(new Date());
 const clockRef = ref<HTMLElement | null>(null);
 const skipMinuteAnim = ref(true);
@@ -19,7 +23,20 @@ const timeParts = computed(() => {
 });
 const timeLabel = computed(() => `${timeParts.value.hours}:${timeParts.value.minutes}`);
 const dateLabel = computed(() => formatDate(now.value, 'full', localeTag.value));
-
+const tempDisplay = computed(() => {
+  const t = weather.current?.temperature;
+  if (t === undefined || t === null) return null;
+  return `${Math.round(t)}°`;
+});
+const weatherIcon = computed(() => {
+  const icon = weather.current?.icon;
+  return icon ? `https://openweathermap.org/img/wn/${icon}@2x.png` : '';
+});
+const clockAriaLabel = computed(() => {
+  const parts = [timeLabel.value, dateLabel.value];
+  if (tempDisplay.value) parts.push(tempDisplay.value);
+  return parts.join(', ');
+});
 const pos = ref({ x: 50, y: 50 });
 let moveTimer: number | null = null;
 let minuteTimer: number | null = null;
@@ -73,13 +90,14 @@ function onResize(): void {
 onMounted(async () => {
   now.value = new Date();
   scheduleMinuteUpdate();
+  if (!prefs.data) await prefs.fetch().catch(() => undefined);
+  await weather.fetchCurrent(prefs.data?.weather_city).catch(() => undefined);
   void randomPos();
   moveTimer = window.setInterval(() => void randomPos(), 45_000);
   window.addEventListener('resize', onResize);
   await nextTick();
   skipMinuteAnim.value = false;
 });
-
 onUnmounted(() => {
   if (moveTimer !== null) clearInterval(moveTimer);
   if (minuteTimer !== null) clearTimeout(minuteTimer);
@@ -100,7 +118,7 @@ onUnmounted(() => {
       class="standby-clock"
       :style="{ left: `${pos.x}%`, top: `${pos.y}%` }"
       role="timer"
-      :aria-label="timeLabel"
+      :aria-label="clockAriaLabel"
     >
       <div class="standby-time">
         <span class="standby-hours">{{ timeParts.hours }}</span><span class="standby-colon">:</span><span
@@ -109,10 +127,16 @@ onUnmounted(() => {
           :class="{ 'standby-minutes--turn': !skipMinuteAnim }"
         >{{ timeParts.minutes }}</span>
       </div>
-      <div class="standby-date">{{ dateLabel }}</div>
+      <div class="standby-meta">
+        <div class="standby-date">{{ dateLabel }}</div>
+        <div v-if="tempDisplay" class="standby-weather">
+          <span>|</span>
+          <img v-if="weatherIcon" class="standby-weather-icon" :src="weatherIcon" alt="" />
+          <span class="standby-weather-temp">{{ tempDisplay }}</span>
+        </div>
+      </div>
       <div class="standby-hint">{{ $t('standby_tap_to_wake') }}</div>
-    </div>
-  </div>
+    </div>  </div>
 </template>
 
 <style src="@/assets/css/standby.css"></style>
