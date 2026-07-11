@@ -194,10 +194,15 @@ const scheduleRows = computed<HourRow[]>(() => {
 const currentDateStr = computed(() => formatCurrentDate());
 
 // ── Route / station selection ────────────────────────────────────────────────
+function selectFirstStation(): void {
+  const first = stations.value.find((name) => stationHasData(name));
+  activeStation.value = first ?? null;
+}
+
 function selectRoute(idx: number): void {
   activeRouteIdx.value = idx;
-  activeStation.value = null;
   routePickerOpen.value = false;
+  selectFirstStation();
 }
 function toggleRoutePicker(): void {
   routePickerOpen.value = !routePickerOpen.value;

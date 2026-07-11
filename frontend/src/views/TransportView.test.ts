@@ -48,10 +48,12 @@ describe('TransportView.vue', () => {
     expect(wrapper.findAll('.tp-station-item')).toHaveLength(3);
   });
 
-  it('shows the placeholder until a station is picked', async () => {
+  it('auto-selects the first station with data on load', async () => {
     const wrapper = mountWithPlugins(TransportView);
     await flush();
-    expect(wrapper.find('.tp-placeholder').exists()).toBe(true);
+    expect(wrapper.find('.tp-placeholder').exists()).toBe(false);
+    expect(wrapper.find('.tp-station-header-name').text()).toBe('Centru');
+    expect(wrapper.find('.tp-station-item.active .tp-station-name').text()).toBe('Centru');
   });
 
   it('selecting a station with data shows its schedule', async () => {
@@ -72,7 +74,8 @@ describe('TransportView.vue', () => {
     expect(piata.classes()).toContain('no-data');
     await piata.trigger('click');
     await flush();
-    expect(wrapper.find('.tp-placeholder').exists()).toBe(true); // nothing selected
+    // Centru stays selected (auto-selected on load); no-data stations are ignored.
+    expect(wrapper.find('.tp-station-header-name').text()).toBe('Centru');
   });
 
   it('switches the day type', async () => {
