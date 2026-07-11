@@ -103,4 +103,13 @@ describe('RadioView.vue', () => {
     await wrapper.find('.rd-manage-btn').trigger('click');
     expect(wrapper.find('.mgr-stub').attributes('data-open')).toBe('true');
   });
+
+  it('toggles the on-screen keyboard for station search', async () => {
+    const { wrapper } = await mountRadio();
+    expect(wrapper.find('.osk').exists()).toBe(false);
+    await wrapper.find('.rd-search-osk').trigger('click');
+    expect(wrapper.find('.osk').exists()).toBe(true);
+    await wrapper.find('.rd-search-osk').trigger('click');
+    expect(wrapper.find('.osk').exists()).toBe(false);
+  });
 });

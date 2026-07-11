@@ -405,8 +405,7 @@ async function renameUser(id: number, name: string, color: string): Promise<void
 /* Keep the sibling controls (color picker, action button) at the top of the row
    so they don't recenter when a KeyboardInput expands its on-screen keyboard. */
 .settings-add-user,
-.settings-user-row,
-.input-with-btn {
+.settings-user-row {
   align-items: flex-start;
 }
 </style>

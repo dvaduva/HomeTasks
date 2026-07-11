@@ -3,12 +3,14 @@ import { computed, onMounted, ref } from 'vue';
 import { useRadioStore } from '@/stores/radio';
 import RadioStationsManager from '@/components/RadioStationsManager.vue';
 import BluetoothManager from '@/components/BluetoothManager.vue';
+import OnScreenKeyboard from '@/components/OnScreenKeyboard.vue';
 import '@/assets/css/radio.css';
 
 const managerOpen = ref(false);
 const btManagerOpen = ref(false);
 const targetPickerOpen = ref(false);
 const query = ref('');
+const showSearchKeyboard = ref(false);
 
 // Full radio page. All playback state and the <audio> element now live in the
 // radio store, so this view and the floating RadioMiniPlayer stay in sync and
@@ -124,23 +126,35 @@ onMounted(() => {
       </div>
 
       <!-- Stations list -->
-      <div class="rd-stations-head">
-        <h2 class="rd-stations-title">{{ $t('radio_stations_title') }}</h2>
+      <div v-if="radio.stations.length" class="rd-search-row">
+        <div class="rd-search" :class="{ 'has-clear': query }">
+          <svg class="rd-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" v-model="query" :placeholder="$t('radio_search_ph')" :aria-label="$t('radio_search_ph')">
+          <button
+            v-if="query"
+            type="button"
+            class="rd-search-clear"
+            :aria-label="$t('radio_search_clear')"
+            :title="$t('radio_search_clear')"
+            @click="query = ''"
+          >✕</button>
+          <button
+            type="button"
+            class="rd-search-osk"
+            :class="{ active: showSearchKeyboard }"
+            :title="$t('wifi_keyboard_toggle')"
+            :aria-pressed="showSearchKeyboard"
+            @click="showSearchKeyboard = !showSearchKeyboard"
+          >⌨</button>
+          <OnScreenKeyboard
+            v-if="showSearchKeyboard"
+            v-model="query"
+            @close="showSearchKeyboard = false"
+          />
+        </div>
         <button type="button" class="rd-manage-btn" :title="$t('radio_manage_title')" @click="managerOpen = true">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
-      </div>
-      <div v-if="radio.stations.length" class="rd-search">
-        <svg class="rd-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" v-model="query" :placeholder="$t('radio_search_ph')" :aria-label="$t('radio_search_ph')">
-        <button
-          v-if="query"
-          type="button"
-          class="rd-search-clear"
-          :aria-label="$t('radio_search_clear')"
-          :title="$t('radio_search_clear')"
-          @click="query = ''"
-        >✕</button>
       </div>
       <section class="rd-stations">
         <p v-if="radio.loadFailed" class="rd-empty">{{ $t('radio_load_failed') }}</p>
@@ -245,14 +259,33 @@ onMounted(() => {
         </ul>
 
         <div class="modal-actions rd-output-actions">
-          <button type="button" class="btn btn-secondary btn-sm" @click="radio.loadOutputDevices()">
-            ⟳
+          <button
+            type="button"
+            class="btn btn-secondary rd-output-btn"
+            :title="$t('radio_refresh_cast')"
+            :aria-label="$t('radio_refresh_cast')"
+            @click="radio.loadOutputDevices()"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
-          <button v-if="radio.btAvailable" type="button" class="btn btn-secondary btn-sm" @click="openBtManager">
-             {{ $t('radio_bt_manage_title') }}
+          <button
+            v-if="radio.btAvailable"
+            type="button"
+            class="btn btn-secondary rd-output-btn"
+            :title="$t('radio_bt_manage_title')"
+            :aria-label="$t('radio_bt_manage_title')"
+            @click="openBtManager"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
           </button>
-          <button type="button" class="btn btn-primary btn-sm" @click="targetPickerOpen = false">
-            X {{ $t('radio_bt_close') }}
+          <button
+            type="button"
+            class="btn btn-primary rd-output-btn"
+            :title="$t('radio_bt_close')"
+            :aria-label="$t('radio_bt_close')"
+            @click="targetPickerOpen = false"
+          >
+            ✕
           </button>
         </div>
       </div>
@@ -278,12 +311,16 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s ease-out, filter 0.1s;
 }
 .rd-btn-output:hover {
   background: var(--rd-accent-lt);
   color: var(--rd-accent-dk);
   border-color: var(--rd-accent);
+}
+.rd-btn-output:active {
+  transform: scale(0.9);
+  filter: brightness(0.92);
 }
 /* Highlighted when playing somewhere other than this browser (Cast / Bluetooth). */
 .rd-btn-output.active {
@@ -292,43 +329,44 @@ onMounted(() => {
   border-color: var(--rd-accent);
 }
 
-.rd-stations-head {
+.rd-search-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 4px 2px 10px;
-}
-.rd-stations-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--rd-gray-700);
-  margin: 0;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 2px 12px;
 }
 .rd-manage-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+  width: 41px;
+  height: 41px;
+  padding: 0;
   border-radius: 8px;
   border: 1px solid var(--rd-gray-300);
   background: var(--rd-white);
   color: var(--rd-gray-700);
-  font-size: 13px;
-  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s ease-out, filter 0.1s;
 }
 .rd-manage-btn:hover {
   background: var(--rd-accent-lt);
   color: var(--rd-accent-dk);
   border-color: var(--rd-accent);
 }
+.rd-manage-btn:active {
+  transform: scale(0.9);
+  filter: brightness(0.92);
+}
 .rd-manage-btn svg { flex: 0 0 auto; }
 
 .rd-search {
   position: relative;
-  margin: 0 2px 12px;
+  flex: 1;
+  min-width: 0;
 }
 .rd-search-icon {
   position: absolute;
@@ -349,14 +387,46 @@ onMounted(() => {
   font-size: 14px;
   font-family: inherit;
 }
+.rd-search.has-clear input {
+  padding-right: 72px;
+}
 .rd-search input:focus {
   outline: none;
   border-color: var(--rd-accent);
   box-shadow: 0 0 0 3px var(--rd-accent-lt);
 }
+.rd-search-osk {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--rd-gray-700);
+  transition: background 0.15s, color 0.15s, transform 0.1s ease-out, filter 0.1s;
+}
+.rd-search-osk:hover {
+  background: var(--rd-gray-100, #f1f5f9);
+}
+.rd-search-osk.active {
+  color: var(--rd-accent-dk);
+}
+.rd-search-osk:active {
+  transform: translateY(-50%) scale(0.88);
+  filter: brightness(0.92);
+}
 .rd-search-clear {
   position: absolute;
-  right: 8px;
+  right: 40px;
   top: 50%;
   transform: translateY(-50%);
   width: 24px;
@@ -371,11 +441,15 @@ onMounted(() => {
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.1s ease-out, filter 0.1s;
 }
 .rd-search-clear:hover {
   background: var(--rd-accent-lt);
   color: var(--rd-accent-dk);
+}
+.rd-search-clear:active {
+  transform: translateY(-50%) scale(0.85);
+  filter: brightness(0.92);
 }
 
 /* Destination picker popup (reuses the global .modal / .modal-head / .modal-actions). */
@@ -411,10 +485,14 @@ onMounted(() => {
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s ease-out, filter 0.1s;
 }
 .rd-output-opt:hover {
   background: var(--rd-gray-50, #f8fafc);
+}
+.rd-output-opt:active {
+  transform: scale(0.98);
+  filter: brightness(0.96);
 }
 .rd-output-opt.active {
   background: var(--rd-accent-lt);
@@ -443,5 +521,23 @@ onMounted(() => {
 /* let the action buttons wrap on narrow screens instead of overflowing */
 .rd-output-actions {
   flex-wrap: wrap;
+  gap: 10px;
+}
+.rd-output-btn {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 8px;
+  transition: opacity 0.12s, background 0.12s, transform 0.1s ease-out, filter 0.1s;
+}
+.rd-output-btn:active {
+  transform: scale(0.88);
+  filter: brightness(0.9);
+}
+.rd-output-btn svg {
+  flex: 0 0 auto;
 }
 </style>

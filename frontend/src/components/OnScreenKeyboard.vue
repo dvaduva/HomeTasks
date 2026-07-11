@@ -120,12 +120,15 @@ function space(): void {
   font: inherit;
   font-size: 14px;
   cursor: pointer;
+  transition: background 0.12s, transform 0.08s ease-out, filter 0.08s;
 }
 .osk-key:hover {
   background: var(--rd-gray-100, #f1f5f9);
 }
 .osk-key:active {
   background: var(--rd-gray-200, #e2e8f0);
+  transform: scale(0.92);
+  filter: brightness(0.92);
 }
 .osk-key-mod {
   flex: 0 0 auto;
