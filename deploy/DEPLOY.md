@@ -95,6 +95,43 @@ sudo systemctl status hometasks
 sudo journalctl -u hometasks -f   # urmărire log-uri live
 ```
 
+## Ajustări pentru stație touchscreen / kiosk (doar RPi)
+
+### 1. Elimină popup-ul „Unlock keyring”
+
+Dacă apare fereastra „Unlock keyring”, de obicei e vorba de serviciul de keyring al desktopului (`gnome-keyring` / `seahorse`). Pentru o stație kiosk care nu stochează parole și nu are nevoie de acest serviciu, cel mai simplu și curat este să îl dezactivezi:
+
+```bash
+sudo apt remove --purge gnome-keyring seahorse
+sudo reboot
+```
+
+Dacă vrei să păstrezi pachetul, poți încerca și:
+
+```bash
+rm -f ~/.local/share/keyrings/default.keyring ~/.local/share/keyrings/login.keyring
+sudo reboot
+```
+
+În practică, pe un Raspberry Pi dedicat aplicației, ștergerea pachetului este metoda cea mai fiabilă.
+
+### 2. Ascunde cursorul mouse-ului
+
+Pe Raspberry Pi OS Desktop, poți ascunde cursorul automat:
+
+```bash
+sudo apt install unclutter -y
+mkdir -p ~/.config/lxsession/LXDE-pi
+printf '@unclutter -idle 0.1 -root\n@xsetroot -cursor_name none\n' >> ~/.config/lxsession/LXDE-pi/autostart
+sudo reboot
+```
+
+Dacă pornești browserul automat la boot, lansează-l în kiosk mode pentru o experiență mai bună de touchscreen:
+
+```bash
+chromium-browser --kiosk --start-fullscreen http://127.0.0.1:5000
+```
+
 ## Configurare Wi-Fi din interfață (doar RPi)
 
 Tab-ul **Setări → Rețea** permite scanarea și conectarea la o rețea Wi-Fi direct

@@ -469,7 +469,7 @@ If you have a screen connected to the Raspberry Pi and want the application to o
    [Desktop Entry]
    Type=Application
    Name=HomeTasks Kiosk
-   Exec=bash -c "sleep 5 && chromium --kiosk --touch-events=enabled --alsa-output-device=plughw:CARD=Headphones,DEV=0 --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble http://localhost:5000/"
+   Exec=bash -c "sleep 5 && chromium --kiosk --start-fullscreen --touch-events=enabled --window-size=800,480 --force-device-scale-factor=1 --alsa-output-device=plughw:CARD=Headphones,DEV=0 --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble http://localhost:5000/"
    X-GNOME-Autostart-enabled=true
    ```
    > `sleep 5` ensures the `hometasks` service starts before the browser opens.
@@ -478,6 +478,9 @@ If you have a screen connected to the Raspberry Pi and want the application to o
    > often fails to recognize the RPi touch panel and treats a tap as a mouse click —
    > buttons work, but you **cannot drag-scroll lists with your finger** (e.g. the radio
    > station list). The flag forces proper touch gesture handling (drag-scroll).
+   >
+   > For the official Raspberry Pi 7" display, use `--window-size=800,480` and add
+   > `disable_overscan=1` to `/boot/config.txt` so Chromium fills the entire screen.
 
 5. Save and exit (Ctrl+O, Enter, Ctrl+X in nano)
 

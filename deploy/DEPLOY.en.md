@@ -96,6 +96,43 @@ sudo systemctl status hometasks
 sudo journalctl -u hometasks -f   # follow live logs
 ```
 
+## Touchscreen / kiosk tweaks (RPi only)
+
+### 1. Remove the “Unlock keyring” popup
+
+If the “Unlock keyring” window appears, it is usually the desktop keyring service (`gnome-keyring` / `seahorse`) asking for access. For a kiosk station that does not store passwords and does not need this service, the cleanest fix is to disable it:
+
+```bash
+sudo apt remove --purge gnome-keyring seahorse
+sudo reboot
+```
+
+If you want to keep the package, you can also try:
+
+```bash
+rm -f ~/.local/share/keyrings/default.keyring ~/.local/share/keyrings/login.keyring
+sudo reboot
+```
+
+On a Raspberry Pi dedicated to the app, removing the package is usually the most reliable option.
+
+### 2. Hide the mouse cursor
+
+On Raspberry Pi OS Desktop, you can hide the cursor automatically:
+
+```bash
+sudo apt install unclutter -y
+mkdir -p ~/.config/lxsession/LXDE-pi
+printf '@unclutter -idle 0.1 -root\n@xsetroot -cursor_name none\n' >> ~/.config/lxsession/LXDE-pi/autostart
+sudo reboot
+```
+
+If you start the browser automatically at boot, launch it in kiosk mode for a better touchscreen experience:
+
+```bash
+chromium-browser --kiosk --start-fullscreen http://127.0.0.1:5000
+```
+
 ## Wi-Fi configuration from the UI (RPi only)
 
 The **Settings → Network** tab lets you scan and connect to a Wi-Fi network
