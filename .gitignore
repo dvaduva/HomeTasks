@@ -9,7 +9,9 @@ tuya_devices.json
 .claude/settings.local.json
 
 # Frontend SPA (Vite)
-frontend/node_modules/
+# node_modules/ fără prefix: prinde și frontend/node_modules/, și node_modules/
+# creat în rădăcină când vitest e rulat de acolo (cache .vite/vitest).
+node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/*.log
@@ -18,6 +20,16 @@ frontend/*.log
 # Python bytecode (oriunde în repo)
 __pycache__/
 *.py[cod]
+
+# Virtualenv local (pe RPi trăiește separat, în afara repo-ului)
+venv/
+.venv/
+
+# Artefacte de testare (pytest / coverage)
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
 
 # Daily server log files (written by src/logbuf.py)
 logs/
