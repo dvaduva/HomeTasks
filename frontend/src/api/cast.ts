@@ -24,7 +24,12 @@ export interface CastStatusInfo {
 }
 
 export const castApi = {
-  devices: () => api.get<{ devices: CastDevice[]; error: string | null }>('/api/cast/devices'),
+  // `wait` (0-5s) blocks server-side until at least one device is discovered.
+  // Omit it for the instant, cache-only read done on mount.
+  devices: (wait?: number) =>
+    api.get<{ devices: CastDevice[]; error: string | null }>('/api/cast/devices', {
+      query: wait ? { wait: String(wait) } : undefined,
+    }),
   play: (deviceId: string, stationId: string) =>
     api.post<{ ok: boolean; url: string }>('/api/cast/play', {
       device_id: deviceId,

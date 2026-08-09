@@ -1859,9 +1859,19 @@ def get_cast_devices():
     inside the gunicorn worker that serves requests — not the preloaded master,
     where a thread would not survive the fork. The first call may return an
     empty list while the initial scan window (~5s) completes.
+
+    Optional ``?wait=<seconds>`` (0-5) lets the caller block until at least one
+    device is discovered — the output picker uses it so it doesn't show an empty
+    Cast section just because the browser hasn't answered yet. Blocking holds one
+    gthread worker thread, never the whole process.
     """
     cast_service.start()
-    return jsonify(cast_service.get_devices())
+    try:
+        wait = float(request.args.get('wait') or 0)
+    except ValueError:
+        wait = 0
+    wait = max(0.0, min(5.0, wait))
+    return jsonify(cast_service.get_devices(wait=wait))
 
 
 def _load_radio_stations():

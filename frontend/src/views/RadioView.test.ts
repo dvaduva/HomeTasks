@@ -27,6 +27,7 @@ vi.mock('@/api/bt', () => ({
 import { mountWithPlugins } from '@/test/mountWithPlugins';
 import RadioView from './RadioView.vue';
 import { useRadioStore } from '@/stores/radio';
+import { castApi } from '@/api/cast';
 
 const stubs = {
   RadioStationsManager: { props: ['open'], template: '<div class="mgr-stub" :data-open="open" />' },
@@ -89,9 +90,15 @@ describe('RadioView.vue', () => {
   it('picking a destination from the popup calls setTarget', async () => {
     const { wrapper, radio } = await mountRadio();
     const setTarget = vi.spyOn(radio, 'setTarget').mockImplementation(() => {});
-    radio.castDevices = [{ id: 'uuid-1', name: 'Living' }] as any;
+    // Opening the picker now kicks off a refresh round, which replaces the device
+    // lists — so seed the API mock rather than the store.
+    vi.mocked(castApi.devices).mockResolvedValue({
+      devices: [{ id: 'uuid-1', name: 'Living' }],
+      error: null,
+    });
     // open the picker popup, then click the Cast option
     await wrapper.find('.rd-btn-output').trigger('click');
+    await flushPromises();
     const opt = wrapper.findAll('.rd-output-opt').find((b) => b.text().includes('Living'));
     await opt!.trigger('click');
     expect(setTarget).toHaveBeenCalledWith('cast:uuid-1');

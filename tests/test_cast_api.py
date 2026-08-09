@@ -31,7 +31,7 @@ def test_devices_starts_discovery_and_returns_list(client, monkeypatch):
     started = {'n': 0}
     monkeypatch.setattr(main.cast_service, 'start', lambda: started.__setitem__('n', started['n'] + 1))
     monkeypatch.setattr(main.cast_service, 'get_devices',
-                        lambda: {'devices': [{'id': 'uuid-1', 'name': 'Living Speaker'}]})
+                        lambda wait=0: {'devices': [{'id': 'uuid-1', 'name': 'Living Speaker'}]})
     resp = client.get('/api/cast/devices')
     assert resp.status_code == 200
     assert resp.get_json()['devices'][0]['name'] == 'Living Speaker'

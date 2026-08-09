@@ -20,6 +20,25 @@ const LAST_KEY = 'rd-last-station';
 const FAV_KEY = 'rd-favorites';
 const PLAY_KEY = 'rd-playing';
 const DISMISS_KEY = 'rd-mini-dismissed';
+// Output preferences: which speaker was last used and the per-destination
+// volumes. Kept apart from the Bluetooth device cache below so a corrupt cache
+// can be dropped without losing the user's settings.
+const OUT_KEY = 'rd-output';
+const BT_CACHE_KEY = 'rd-bt-cache';
+
+interface OutputPrefs {
+  target: string;
+  // Friendly name of `target`, snapshotted so the button reads "Kitchen speaker"
+  // right away — before (or without) any device list having loaded.
+  name: string;
+  // target id -> volume 0-100. Every destination remembers its own level: a BT
+  // speaker across the room and this tablet's own output want very different ones.
+  volumes: Record<string, number>;
+}
+
+function clampVolume(v: number): number {
+  return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : 80;
+}
 
 function loadFavorites(): string[] {
   try {
@@ -29,9 +48,47 @@ function loadFavorites(): string[] {
     return [];
   }
 }
-function loadVolume(): number {
+function loadLegacyVolume(): number {
   const v = parseInt(localStorage.getItem(VOL_KEY) ?? '80', 10);
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 80;
+}
+
+// Reads the output prefs, seeding `volumes.local` from the pre-feature `rd-volume`
+// so an existing kiosk keeps the level it was set to. VOL_KEY is left in place
+// (and still written) so rolling back to an older build doesn't reset it.
+function loadOutputPrefs(): OutputPrefs {
+  const fallback: OutputPrefs = {
+    target: 'local',
+    name: '',
+    volumes: { local: loadLegacyVolume() },
+  };
+  try {
+    const raw = JSON.parse(localStorage.getItem(OUT_KEY) || 'null');
+    if (!raw || typeof raw !== 'object') return fallback;
+    const volumes: Record<string, number> = {};
+    if (raw.volumes && typeof raw.volumes === 'object') {
+      for (const [k, v] of Object.entries(raw.volumes as Record<string, unknown>)) {
+        if (typeof v === 'number') volumes[k] = clampVolume(v);
+      }
+    }
+    if (volumes.local === undefined) volumes.local = loadLegacyVolume();
+    return {
+      target: typeof raw.target === 'string' && raw.target ? raw.target : 'local',
+      name: typeof raw.name === 'string' ? raw.name : '',
+      volumes,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function loadBtCache(): BtDevice[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BT_CACHE_KEY) || '[]');
+    return Array.isArray(parsed) ? (parsed as BtDevice[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 export const useRadioStore = defineStore('radio', () => {
@@ -74,17 +131,31 @@ export const useRadioStore = defineStore('radio', () => {
     npNameLiteral.value = text;
   }
 
-  const volume = ref(loadVolume());
-  let prevVolume = volume.value > 0 ? volume.value : 80;
-
   // Output target — a single selector unifying all destinations:
   //   'local'        → play in this browser (HTMLAudioElement, the default)
   //   'cast:<id>'    → stream on a Google Cast speaker (backend tells it the URL)
   //   'bt:<mac>'     → play on a Bluetooth speaker (RPi is the player, backend)
-  // Not persisted across reloads — playback always resumes locally on a fresh load.
-  const target = ref<string>('local');
+  // Persisted (per browser) and restored by init(): reopening the app puts you
+  // back on the speaker you last used. Restoring the *target* never starts audio
+  // on its own — see init() — so a reboot can't wake the speakers by itself.
+  const outPrefs = loadOutputPrefs();
+  const target = ref<string>(outPrefs.target);
+  // Last known friendly name of `target`, so the picker button is labelled before
+  // any device list has been fetched (and even if the device is off right now).
+  const targetName_ = ref<string>(outPrefs.name);
+  const volumes = ref<Record<string, number>>(outPrefs.volumes);
+
+  const volume = ref(volumes.value[target.value] ?? volumes.value.local ?? 80);
+  let prevVolume = volume.value > 0 ? volume.value : 80;
+
   const castDevices = ref<CastDevice[]>([]);
-  const btDevices = ref<BtDevice[]>([]);
+  // Seeded from localStorage so the picker renders instantly; a background
+  // refresh (see refreshOutputs) replaces it a moment later.
+  const btDevices = ref<BtDevice[]>(loadBtCache());
+  // Cast discovery in flight / has completed at least one waited round. Together
+  // they let the picker distinguish "still looking" from "nothing on the LAN".
+  const castLoading = ref(false);
+  const castSearched = ref(false);
   // Whether this host can actually do Bluetooth (i.e. we're on the RPi). Gates
   // the pairing UI — it stays hidden on dev machines without BlueZ.
   const btAvailable = ref(false);
@@ -112,7 +183,36 @@ export const useRadioStore = defineStore('radio', () => {
     const id = tgt.replace(/^(cast|bt):/, '');
     const list = tgt.startsWith('bt:') ? btDevices.value : castDevices.value;
     const d = list.find((x) => x.id === id);
-    return d ? d.name : t('radio_cast_device');
+    if (d) return d.name;
+    // Not in the list (yet): fall back to the name we snapshotted when it was
+    // picked, so a restored target reads as a speaker rather than "Device".
+    if (tgt === target.value && targetName_.value) return targetName_.value;
+    return t('radio_cast_device');
+  }
+
+  // True when the current Cast target is missing from a list we have actually
+  // refreshed — i.e. the speaker isn't on the LAN. Deliberately Cast-only:
+  // Bluetooth reports `connected: false` for a perfectly fine speaker that is
+  // simply idle (BlueZ drops the link between sessions), so the same check there
+  // would flag working speakers as dead.
+  const targetUnavailable = computed(
+    () =>
+      outputKind.value === 'cast' &&
+      castSearched.value &&
+      !castDevices.value.some((d) => d.id === bareDeviceId.value),
+  );
+
+  function saveOutputPrefs(): void {
+    const data: OutputPrefs = {
+      target: target.value,
+      name: target.value === 'local' ? '' : targetName(target.value),
+      volumes: volumes.value,
+    };
+    try {
+      localStorage.setItem(OUT_KEY, JSON.stringify(data));
+    } catch {
+      // Private mode / quota — the feature degrades to "not remembered".
+    }
   }
 
   const currentStation = computed<RadioStation | null>(
@@ -296,6 +396,10 @@ export const useRadioStore = defineStore('radio', () => {
         isPlaying.value = true;
         setStatus('radio_cast_playing', { name });
         npStatusClass.value = '';
+        // Push the level remembered for this speaker. Play is the first moment we
+        // may touch the hardware: doing it earlier (on restore or on select)
+        // would connect — and physically wake — the speaker unprompted.
+        sender.volume(dev, volume.value / 100).catch(() => undefined);
         startRemoteStatusPolling();
       })
       .catch((err: { message?: string }) => {
@@ -319,13 +423,23 @@ export const useRadioStore = defineStore('radio', () => {
     else if (kind === 'cast') castApi.stop(dev).catch(() => undefined);
   }
 
-  function loadCastDevices(): Promise<void> {
+  // `wait` (seconds) asks the backend to hold the response until it has seen at
+  // least one device — used when the picker opens, so an empty Cast section
+  // means "nothing on the LAN" rather than "zeroconf hasn't answered yet".
+  function loadCastDevices(wait = 0): Promise<void> {
+    castLoading.value = true;
     return castApi
-      .devices()
+      .devices(wait)
       .then((d) => {
         castDevices.value = d.devices || [];
+        // Only a waited round proves a device is absent rather than merely slow —
+        // the instant read done on mount must not mark a target unavailable.
+        if (wait > 0) castSearched.value = true;
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        castLoading.value = false;
+      });
   }
 
   function loadBtDevices(): Promise<void> {
@@ -334,6 +448,13 @@ export const useRadioStore = defineStore('radio', () => {
       .then((d) => {
         btDevices.value = d.devices || [];
         btAvailable.value = !!d.available;
+        // Cache the paired list so the next picker open renders without waiting
+        // on a round of bluetoothctl shell-outs.
+        try {
+          localStorage.setItem(BT_CACHE_KEY, JSON.stringify(btDevices.value));
+        } catch {
+          // Quota/private mode — we just lose the instant-render optimisation.
+        }
       })
       .catch(() => undefined);
   }
@@ -341,6 +462,13 @@ export const useRadioStore = defineStore('radio', () => {
   // Load both remote device lists (Cast + Bluetooth) for the unified selector.
   function loadOutputDevices(): Promise<void> {
     return Promise.all([loadCastDevices(), loadBtDevices()]).then(() => undefined);
+  }
+
+  // What the picker calls when it opens (and from its manual refresh button):
+  // one round, not a poll — repeating it would mean a bluetoothctl sweep every
+  // few seconds next to a live A2DP link.
+  function refreshOutputs(): Promise<void> {
+    return Promise.all([loadCastDevices(3), loadBtDevices()]).then(() => undefined);
   }
 
   // Switch output between Local, a Cast device and a Bluetooth speaker. If
@@ -354,6 +482,18 @@ export const useRadioStore = defineStore('radio', () => {
     else stopLocalAudio();
     isPlaying.value = false;
     target.value = next;
+    targetName_.value = next === 'local' ? '' : targetName(next);
+    // Adopt this destination's remembered level. A destination we've never used
+    // inherits whatever the slider is on now, which is less startling than
+    // snapping to a default — and becomes its own entry from here on.
+    const remembered = volumes.value[next];
+    volume.value = remembered ?? volume.value;
+    volumes.value = { ...volumes.value, [next]: volume.value };
+    if (volume.value > 0) prevVolume = volume.value;
+    // Local playback is ours to set directly; remote speakers are left alone
+    // until Play, so selecting a destination never wakes hardware.
+    if (next === 'local' && audio) audio.volume = volume.value / 100;
+    saveOutputPrefs();
     // Pre-warm a Cast device on selection: the cold connect (socket + first
     // status) is the bulk of the cast latency, so doing it now makes the eventual
     // Play near-instant. (Bluetooth connects inside play, so no pre-warm here.)
@@ -466,9 +606,13 @@ export const useRadioStore = defineStore('radio', () => {
   }
 
   function setVolume(v: number): void {
-    const clamped = Math.max(0, Math.min(100, Math.round(v)));
+    const clamped = clampVolume(v);
     volume.value = clamped;
+    // VOL_KEY stays written for backwards compatibility (an older build reads it);
+    // the per-destination map in OUT_KEY is what this build actually restores.
     localStorage.setItem(VOL_KEY, String(clamped));
+    volumes.value = { ...volumes.value, [target.value]: clamped };
+    saveOutputPrefs();
     if (clamped > 0) prevVolume = clamped;
     if (isRemote.value) {
       const dev = bareDeviceId.value;
@@ -565,6 +709,9 @@ export const useRadioStore = defineStore('radio', () => {
       const s = await btApi.status(''); // empty id → the server's current playback
       if (s.state !== 'playing' || !s.device_id) return false;
       target.value = `bt:${s.device_id}`;
+      targetName_.value = targetName(target.value);
+      volume.value = volumes.value[target.value] ?? volume.value;
+      saveOutputPrefs();
       isPlaying.value = true;
       npTrack.value = s.title || '';
       if (s.station_id) {
@@ -598,21 +745,33 @@ export const useRadioStore = defineStore('radio', () => {
         return;
       }
 
-      // Server-side BT playback wins over the per-session local restore below.
+      // Server-side BT playback wins over the restored target below: what the RPi
+      // is actually doing right now beats what this browser remembers.
       if (await reconcileRemotePlayback()) return;
+
+      // `target` was already restored from localStorage when the store was
+      // created; nothing more is needed for it here.
 
       const lastId = localStorage.getItem(LAST_KEY);
       if (!lastId) return;
       const last = stations.value.find((s) => s.id === lastId);
       if (!last) return;
 
-      if (localStorage.getItem(PLAY_KEY) === '1') {
+      if (localStorage.getItem(PLAY_KEY) === '1' && !isRemote.value) {
         // Browsers may block autoplay — play() degrades gracefully to a prompt.
         play(last);
       } else {
         currentId.value = last.id;
         setNameLiteral(last.name);
-        setStatus('radio_np_press_play_start');
+        // On a remote target we deliberately do NOT auto-resume: a boot at 3am
+        // would otherwise start the radio on the speaker. The local <audio>
+        // element has the browser's autoplay policy as a backstop; a Cast or BT
+        // speaker has none, so Play stays an explicit tap.
+        if (isRemote.value) {
+          setStatus('radio_np_press_play_on', { name: targetName(target.value) });
+        } else {
+          setStatus('radio_np_press_play_start');
+        }
         npStatusClass.value = '';
       }
     })();
@@ -636,10 +795,13 @@ export const useRadioStore = defineStore('radio', () => {
     castDevices,
     btDevices,
     btAvailable,
+    castLoading,
+    castSearched,
     // getters
     muted,
     outputKind,
     isRemote,
+    targetUnavailable,
     currentStation,
     sortedStations,
     // actions
@@ -658,6 +820,7 @@ export const useRadioStore = defineStore('radio', () => {
     loadCastDevices,
     loadBtDevices,
     loadOutputDevices,
+    refreshOutputs,
     setTarget,
     stopRemote,
     // admin

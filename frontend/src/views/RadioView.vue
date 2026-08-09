@@ -39,6 +39,15 @@ function onVolumeInput(e: Event): void {
   radio.setVolume(Number((e.target as HTMLInputElement).value));
 }
 
+// Open the destination popup. It renders instantly from the lists already in the
+// store (Bluetooth is cached in localStorage), and a single refresh round runs in
+// the background — so you never see a stale-empty list, nor a dead button while
+// zeroconf answers.
+function openTargetPicker(): void {
+  targetPickerOpen.value = true;
+  radio.refreshOutputs();
+}
+
 // Pick a destination from the popup, then close it.
 function pickTarget(tgt: string): void {
   radio.setTarget(tgt);
@@ -85,7 +94,7 @@ onMounted(() => {
             :class="{ active: radio.target !== 'local' }"
             :title="$t('radio_play_on') + ': ' + radio.targetName(radio.target)"
             :aria-label="$t('radio_play_on') + ': ' + radio.targetName(radio.target)"
-            @click="targetPickerOpen = true"
+            @click="openTargetPicker"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
           </button>
@@ -225,21 +234,40 @@ onMounted(() => {
             </button>
           </li>
 
-          <template v-if="radio.castDevices.length">
-            <li class="rd-output-group">{{ $t('radio_cast_group') }}</li>
-            <li v-for="d in radio.castDevices" :key="'cast:' + d.id">
-              <button
-                type="button"
-                class="rd-output-opt"
-                :class="{ active: radio.target === 'cast:' + d.id }"
-                @click="pickTarget('cast:' + d.id)"
-              >
-                <svg class="rd-output-opt-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
-                <span class="rd-output-opt-name">{{ d.name }}</span>
-                <svg v-if="radio.target === 'cast:' + d.id" class="rd-output-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-              </button>
-            </li>
-          </template>
+          <li class="rd-output-group">{{ $t('radio_cast_group') }}</li>
+          <li v-for="d in radio.castDevices" :key="'cast:' + d.id">
+            <button
+              type="button"
+              class="rd-output-opt"
+              :class="{ active: radio.target === 'cast:' + d.id }"
+              @click="pickTarget('cast:' + d.id)"
+            >
+              <svg class="rd-output-opt-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
+              <span class="rd-output-opt-name">{{ d.name }}</span>
+              <svg v-if="radio.target === 'cast:' + d.id" class="rd-output-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+          </li>
+
+          <!-- Remembered Cast speaker that didn't answer discovery. Still
+               clickable: it may have just been switched on. -->
+          <li v-if="radio.targetUnavailable">
+            <button type="button" class="rd-output-opt active" @click="pickTarget(radio.target)">
+              <svg class="rd-output-opt-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
+              <span class="rd-output-opt-name">{{ radio.targetName(radio.target) }}</span>
+              <span class="rd-output-tag">{{ $t('radio_cast_unavailable') }}</span>
+            </button>
+          </li>
+
+          <li v-if="radio.castLoading" class="rd-output-note">{{ $t('radio_cast_searching') }}</li>
+          <li
+            v-else-if="!radio.castDevices.length && !radio.targetUnavailable"
+            class="rd-output-note"
+          >
+            <span>{{ $t('radio_cast_none_found') }}</span>
+            <button type="button" class="rd-output-retry" @click="radio.refreshOutputs()">
+              {{ $t('radio_retry') }}
+            </button>
+          </li>
 
           <template v-if="radio.btDevices.length">
             <li class="rd-output-group">{{ $t('radio_bt_group') }}</li>
@@ -252,6 +280,10 @@ onMounted(() => {
               >
                 <svg class="rd-output-opt-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
                 <span class="rd-output-opt-name">{{ d.name }}</span>
+                <!-- Only the positive state is shown: BlueZ drops the link when a
+                     speaker is idle, so `connected: false` says nothing about
+                     whether the speaker is actually reachable. -->
+                <span v-if="d.connected" class="rd-output-tag">{{ $t('radio_bt_connected') }}</span>
                 <svg v-if="radio.target === 'bt:' + d.id" class="rd-output-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
               </button>
             </li>
@@ -264,7 +296,7 @@ onMounted(() => {
             class="btn btn-secondary rd-output-btn"
             :title="$t('radio_refresh_cast')"
             :aria-label="$t('radio_refresh_cast')"
-            @click="radio.loadOutputDevices()"
+            @click="radio.refreshOutputs()"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
@@ -517,6 +549,38 @@ onMounted(() => {
 .rd-output-check {
   flex: 0 0 auto;
   color: var(--rd-accent);
+}
+/* Secondary state on a device row: "connected" / "unavailable". */
+.rd-output-tag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--rd-gray-500, #64748b);
+}
+/* Non-interactive list rows: discovery in progress, or nothing found. */
+.rd-output-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  font-size: 13px;
+  color: var(--rd-gray-500, #64748b);
+}
+.rd-output-retry {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--rd-gray-300, #cbd5e1);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.rd-output-retry:active {
+  transform: scale(0.97);
 }
 /* let the action buttons wrap on narrow screens instead of overflowing */
 .rd-output-actions {

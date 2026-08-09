@@ -75,20 +75,32 @@ class CastService:
             self._discovery_error = str(e)
             logger.warning("Cast discovery failed to start: %s", e)
 
-    def get_devices(self):
-        """Return the live device list. Never blocks on the network."""
+    def get_devices(self, wait=0):
+        """Return the live device list.
+
+        ``wait=0`` (the default) never blocks: it reports whatever the browser
+        knows right now. A positive ``wait`` gives zeroconf a few seconds to
+        answer before giving up — used when the user opens the output picker,
+        where an empty list right after process start would be misleading. It
+        returns as soon as at least one device shows up, so the wait is only
+        paid when there is genuinely nothing on the LAN.
+        """
         self.start()
-        devices = []
-        if self._browser is not None:
-            for uuid, info in list(self._browser.devices.items()):
-                devices.append({
-                    'id': str(uuid),
-                    'name': getattr(info, 'friendly_name', None) or 'Cast device',
-                    'model': getattr(info, 'model_name', None),
-                    'cast_type': getattr(info, 'cast_type', None),
-                    'manufacturer': getattr(info, 'manufacturer', None),
-                })
-        return {'devices': devices, 'error': self._discovery_error}
+        deadline = time.time() + max(0.0, float(wait))
+        while True:
+            devices = []
+            if self._browser is not None:
+                for uuid, info in list(self._browser.devices.items()):
+                    devices.append({
+                        'id': str(uuid),
+                        'name': getattr(info, 'friendly_name', None) or 'Cast device',
+                        'model': getattr(info, 'model_name', None),
+                        'cast_type': getattr(info, 'cast_type', None),
+                        'manufacturer': getattr(info, 'manufacturer', None),
+                    })
+            if devices or self._discovery_error or time.time() >= deadline:
+                return {'devices': devices, 'error': self._discovery_error}
+            time.sleep(0.25)
 
     # ── control ────────────────────────────────────────────────────────────────
     def play_url(self, device_id, url, content_type='audio/mpeg', title=None,

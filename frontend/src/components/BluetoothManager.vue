@@ -52,6 +52,9 @@ async function doForget(d: BtDevice): Promise<void> {
   try {
     await btApi.remove(d.id);
     success(t('radio_bt_forget_ok', { name: d.name }));
+    // The output target is remembered across sessions now, so a forgotten
+    // speaker would otherwise stay selected forever — fall back to local.
+    if (radio.target === `bt:${d.id}`) radio.setTarget('local');
     await Promise.all([doScan(), radio.loadBtDevices()]);
   } catch (e) {
     errorToast((e as { message?: string })?.message || t('radio_bt_forget_fail'));
